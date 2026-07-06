@@ -181,15 +181,11 @@ static BOOL WINAPI hk_ShowWindow(HWND hwnd, int nCmdShow)
         RECT r;
         if (GetWindowRect(hwnd, &r))
         {
-            LONG w = r.right - r.left, h = r.bottom - r.top;
-            if (w >= 200 && h >= 150 && r.left < 50 && r.top < 50)
+            int x = r.left, y = r.top;
+            int w = r.right - r.left, h = r.bottom - r.top;
+            if (TranslateFakeToReal(hwnd, &x, &y, w, h))
             {
-                int rw, rh; GetRealPrimaryMonitor(&rw, &rh);
-                int x = (int)(rw - w) / 2;
-                int y = (int)(rh - h) / 2;
-                if (x < 0) x = 0;
-                if (y < 0) y = 0;
-                // Move ANTES de tornar visivel — sem flash em (0,0)
+                // Move ANTES de tornar visivel — sem flash na posicao antiga
                 o_SetWindowPos(hwnd, NULL, x, y, 0, 0,
                     SWP_NOZORDER | SWP_NOACTIVATE | SWP_NOSIZE);
             }
@@ -198,20 +194,26 @@ static BOOL WINAPI hk_ShowWindow(HWND hwnd, int nCmdShow)
     return o_ShowWindow(hwnd, nCmdShow);
 }
 
-// Delphi Form com DFM Left=Top=0 chama SetWindowPos/MoveWindow com (0,0).
-// Reescrevemos os args antes da call. Filtro: top-level + tamanho de
-// janela real (>=200x150) pra evitar tocar em tooltips/menus.
-static BOOL MaybeCenterCoords(HWND hwnd, int* X, int* Y, int cx, int cy)
+// Delphi calcula coords assumindo tela = fake_size na origem (0,0).
+// Traduzimos: se caller passa coords que caem DENTRO do retangulo fake
+// top-left, deslocamos por (real - fake)/2 pra colocar dentro do
+// retangulo fake centralizado no monitor real. Filtro top-level +
+// tamanho >= 200x150. Se coords estao fora do retangulo fake (usuario
+// arrastou pra alguma outra parte), nao mexemos.
+static BOOL TranslateFakeToReal(HWND hwnd, int* X, int* Y, int cx, int cy)
 {
     if (!IsTopLevel(hwnd)) return FALSE;
     if (cx < 200 || cy < 150) return FALSE;
-    if (*X != 0 || *Y != 0) return FALSE;
+    if (*X < 0 || *Y < 0) return FALSE;
+    // Verifica se coords estao no "fake-space top-left" (0..fake_w, 0..fake_h)
+    if (*X > g_FakeWidth || *Y > g_FakeHeight) return FALSE;
     int rw, rh; GetRealPrimaryMonitor(&rw, &rh);
-    int nx = (rw - cx) / 2;
-    int ny = (rh - cy) / 2;
-    if (nx < 0) nx = 0;
-    if (ny < 0) ny = 0;
-    *X = nx; *Y = ny;
+    int offX = (rw - g_FakeWidth) / 2;
+    int offY = (rh - g_FakeHeight) / 2;
+    if (offX < 0) offX = 0;
+    if (offY < 0) offY = 0;
+    *X += offX;
+    *Y += offY;
     return TRUE;
 }
 
@@ -229,14 +231,14 @@ static BOOL WINAPI hk_SetWindowPos(HWND hWnd, HWND hAfter, int X, int Y, int cx,
                 useCy = r.bottom - r.top;
             }
         }
-        MaybeCenterCoords(hWnd, &X, &Y, useCx, useCy);
+        TranslateFakeToReal(hWnd, &X, &Y, useCx, useCy);
     }
     return o_SetWindowPos(hWnd, hAfter, X, Y, cx, cy, uFlags);
 }
 
 static BOOL WINAPI hk_MoveWindow(HWND hWnd, int X, int Y, int nWidth, int nHeight, BOOL bRepaint)
 {
-    MaybeCenterCoords(hWnd, &X, &Y, nWidth, nHeight);
+    TranslateFakeToReal(hWnd, &X, &Y, nWidth, nHeight);
     return o_MoveWindow(hWnd, X, Y, nWidth, nHeight, bRepaint);
 }
 
