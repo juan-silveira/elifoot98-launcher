@@ -106,12 +106,10 @@ namespace ElifootLauncher
                 proc = Process.Start(psi);
             }
 
-            if (!cfg.Fullscreen && proc != null)
-            {
-                var w = cfg.ResolutionWidth;
-                var h = cfg.ResolutionHeight;
-                Task.Run(() => ResizeWhenReady(proc, expectedTitleHint, w, h));
-            }
+            // Passo 1 do plano: NAO rodamos ResizeWhenReady. DLL cuida da
+            // maximizacao via rcWork. Windowed passa a se comportar igual
+            // fullscreen (que nao tem flicker). Dialogs ficam onde Delphi
+            // colocar — sera corrigido no Passo 2 com hook no DLL.
         }
 
         // Escreve entrada no registro do Windows pra ativar o AppCompat layer
