@@ -281,29 +281,13 @@ namespace ElifootLauncher
                     }
                     else if (!centered.Contains(hwnd))
                     {
-                        bool nearOrigin = r.Left < 50 && r.Top < 50;
-                        if (nearOrigin)
-                        {
-                            int w = r.Right - r.Left;
-                            int h = r.Bottom - r.Top;
-                            int x = screenRect.X + Math.Max(0, (screenRect.Width - w) / 2);
-                            int y = screenRect.Y + Math.Max(0, (screenRect.Height - h) / 2);
-                            // Esconde -> move -> mostra. Isso oculta o
-                            // frame visual do (0,0) intermediario e nao
-                            // depende de "vencer" a corrida com Delphi.
-                            ShowWindow(hwnd, SW_HIDE);
-                            SetWindowPos(hwnd, IntPtr.Zero, x, y, w, h,
-                                SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED);
-                            ShowWindow(hwnd, SW_SHOWNA);
-                            centered.Add(hwnd);
-                            log.AppendLine($"  [+ hwnd=0x{hwnd.ToInt64():x} class='{className}' hide-move-show center ({x},{y}) {w}x{h}]");
-                        }
-                        else
-                        {
-                            centered.Add(hwnd);
-                            if (firstSeen && logDump)
-                                log.AppendLine($"  [+ hwnd=0x{hwnd.ToInt64():x} class='{className}' natural ({r.Left},{r.Top}) {r.Right-r.Left}x{r.Bottom-r.Top}]");
-                        }
+                        // NAO mexemos em janela nao-fullscreen. Deixa Delphi
+                        // decidir. Se Delphi + DLL rcWork centralizarem sozinhos,
+                        // otimo. Se ficar em (0,0), tratamos em versao futura
+                        // com SetWinEventHook em vez de polling.
+                        centered.Add(hwnd);
+                        if (firstSeen && logDump)
+                            log.AppendLine($"  [+ hwnd=0x{hwnd.ToInt64():x} class='{className}' left alone ({r.Left},{r.Top}) {r.Right-r.Left}x{r.Bottom-r.Top}]");
                     }
                 }
 
