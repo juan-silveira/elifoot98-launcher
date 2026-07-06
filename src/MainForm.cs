@@ -42,7 +42,11 @@ namespace ElifootLauncher
 
             btnJogo.Click += (s, e) => SafeRun(() => _launcher.LaunchElifoot(_config));
             btnEditor.Click += (s, e) => SafeRun(() => _launcher.LaunchEditor(_config));
-            btnCrack.Click += (s, e) => SafeRun(() => _launcher.LaunchCrack());
+            btnCrack.Click += (s, e) =>
+            {
+                using (var f = new KeygenForm(_launcher))
+                    f.ShowDialog(this);
+            };
             btnConfig.Click += (s, e) =>
             {
                 using (var f = new SettingsForm(_config))

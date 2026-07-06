@@ -69,6 +69,12 @@ namespace ElifootLauncher
             }
         }
 
+        // Log de diagnostico das janelas visiveis. Ajuda a descobrir qual eh a
+        // hwnd do Elifoot quando o match automatico falha.
+        private static string DebugLogPath => Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+            "ElifootLauncher", "window-debug.log");
+
         // Aguarda a janela do jogo aparecer e forca tamanho/posicao.
         // Elifoot maximiza sozinho por default (DFM WindowState=wsMaximized),
         // entao acompanhamos por ~15s e tambem re-aplicamos se ele maximizar depois.
@@ -76,34 +82,54 @@ namespace ElifootLauncher
         {
             const int maxAttempts = 40; // ~20s
             IntPtr hwnd = IntPtr.Zero;
+            var log = new StringBuilder();
+            log.AppendLine($"=== ResizeWhenReady start pid={proc.Id} hint='{titleHint}' target={width}x{height} at {DateTime.Now:HH:mm:ss} ===");
 
             for (int i = 0; i < maxAttempts; i++)
             {
                 Thread.Sleep(500);
-                if (proc.HasExited) return;
+                if (proc.HasExited) { log.AppendLine("process exited"); break; }
 
-                hwnd = FindGameWindow(proc.Id, titleHint);
-                if (hwnd != IntPtr.Zero) break;
+                hwnd = FindGameWindow(proc.Id, titleHint, log, dumpAll: i == 4 || i == 10);
+                if (hwnd != IntPtr.Zero)
+                {
+                    log.AppendLine($"attempt {i}: found hwnd 0x{hwnd.ToInt64():x}");
+                    break;
+                }
             }
-            if (hwnd == IntPtr.Zero) return;
 
-            ForceWindowed(hwnd, width, height);
+            if (hwnd == IntPtr.Zero)
+            {
+                log.AppendLine("!!! no matching window found after 20s !!!");
+                WriteLog(log.ToString());
+                return;
+            }
+
+            ForceWindowed(hwnd, width, height, log);
 
             // Re-aplica algumas vezes caso o app maximize depois de carregar
-            for (int i = 0; i < 6; i++)
+            for (int i = 0; i < 8; i++)
             {
                 Thread.Sleep(500);
-                if (proc.HasExited) return;
-                ForceWindowed(hwnd, width, height);
+                if (proc.HasExited) break;
+                ForceWindowed(hwnd, width, height, log);
             }
+            WriteLog(log.ToString());
         }
 
-        private static IntPtr FindGameWindow(int processId, string titleHint)
+        private static void WriteLog(string content)
         {
-            // NAO filtramos por PID porque o processo otvdmw pode reparentar
-            // e a janela real do Elifoot pode aparecer como filha de outro
-            // subprocesso. Busca somente por titulo — Elifoot 98 e um app
-            // qualquer aberto no sistema, colisao e improvavel.
+            try
+            {
+                var dir = Path.GetDirectoryName(DebugLogPath);
+                if (dir != null) Directory.CreateDirectory(dir);
+                File.AppendAllText(DebugLogPath, content + Environment.NewLine);
+            }
+            catch { }
+        }
+
+        private static IntPtr FindGameWindow(int processId, string titleHint, StringBuilder log, bool dumpAll)
+        {
             IntPtr result = IntPtr.Zero;
             EnumWindows((h, _) =>
             {
@@ -113,8 +139,17 @@ namespace ElifootLauncher
                 GetWindowText(h, sb, sb.Capacity);
                 var title = sb.ToString();
                 if (title.Length == 0) return true;
-                if (title.IndexOf(titleHint, StringComparison.OrdinalIgnoreCase) >= 0)
+
+                GetWindowThreadProcessId(h, out uint pid);
+
+                if (dumpAll)
+                    log.AppendLine($"  visible hwnd=0x{h.ToInt64():x} pid={pid} title='{title}'");
+
+                if (title.IndexOf(titleHint, StringComparison.OrdinalIgnoreCase) >= 0
+                    || title.IndexOf("ELIFOOT", StringComparison.OrdinalIgnoreCase) >= 0
+                    || title.IndexOf("EDITEQ", StringComparison.OrdinalIgnoreCase) >= 0)
                 {
+                    log.AppendLine($"  MATCH hwnd=0x{h.ToInt64():x} title='{title}'");
                     result = h;
                     return false;
                 }
@@ -123,15 +158,25 @@ namespace ElifootLauncher
             return result;
         }
 
-        private static void ForceWindowed(IntPtr hwnd, int width, int height)
+        private static void ForceWindowed(IntPtr hwnd, int width, int height, StringBuilder log)
         {
-            // Se estiver maximizada, restaura primeiro
+            // Remove estilo WS_MAXIMIZE se estiver setado
+            var style = GetWindowLong(hwnd, GWL_STYLE);
+            if ((style & WS_MAXIMIZE) != 0)
+            {
+                SetWindowLong(hwnd, GWL_STYLE, style & ~WS_MAXIMIZE);
+                log.AppendLine($"  removed WS_MAXIMIZE from style=0x{style:x}");
+            }
+
+            // Restaura de qualquer forma (desmaximiza se estiver assim)
             ShowWindow(hwnd, SW_RESTORE);
 
             var screen = Screen.PrimaryScreen?.WorkingArea ?? new System.Drawing.Rectangle(0, 0, 1024, 768);
             int x = screen.X + Math.Max(0, (screen.Width - width) / 2);
             int y = screen.Y + Math.Max(0, (screen.Height - height) / 2);
-            SetWindowPos(hwnd, IntPtr.Zero, x, y, width, height, SWP_NOZORDER | SWP_SHOWWINDOW);
+            bool ok = SetWindowPos(hwnd, IntPtr.Zero, x, y, width, height,
+                SWP_NOZORDER | SWP_SHOWWINDOW | SWP_FRAMECHANGED);
+            log.AppendLine($"  SetWindowPos({x},{y},{width}x{height}) => {ok}");
         }
 
         private void WriteOtvdmIni(LauncherConfig cfg)
@@ -207,7 +252,16 @@ namespace ElifootLauncher
         // ------------ P/Invoke ------------
         private const uint SWP_NOZORDER = 0x0004;
         private const uint SWP_SHOWWINDOW = 0x0040;
+        private const uint SWP_FRAMECHANGED = 0x0020;
         private const int SW_RESTORE = 9;
+        private const int GWL_STYLE = -16;
+        private const int WS_MAXIMIZE = 0x01000000;
+
+        [DllImport("user32.dll", EntryPoint = "GetWindowLongW")]
+        private static extern int GetWindowLong(IntPtr hWnd, int nIndex);
+
+        [DllImport("user32.dll", EntryPoint = "SetWindowLongW")]
+        private static extern int SetWindowLong(IntPtr hWnd, int nIndex, int dwNewLong);
 
         private delegate bool EnumWindowsProc(IntPtr hWnd, IntPtr lParam);
 
