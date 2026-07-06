@@ -163,31 +163,46 @@ namespace ElifootLauncher
             return list;
         }
 
-        // Procura offset de verba no header do EFT (+0xD8..+0xE4). Verba
-        // valida = uint32 no range 100k..1B (limite folgado). Retorna
-        // primeiro que bater.
+        // Verba do time = uint32 LE. Offset varia entre 2 layouts observados:
+        //  A) Juventus-style (single-coach BR): +0xDC = marker 500000
+        //     (bytes 20 A1 07 00), verba em +0xE0.
+        //  B) Criciuma-style (multi-coach ou coach info embutido):
+        //     byte +0xDC = 0x00 padding, verba em +0xDD.
+        // Descobrimos observando byte +0xDC.
         private static int FindVerbaOffset(byte[] bytes, int eftStart)
         {
-            // Ordem de preferencia: +0xE0 (comum em single-coach), +0xDD (multi),
-            // depois varre o header.
-            int[] preferred = { 0xE0, 0xDD, 0xE4, 0xDC, 0xD8 };
-            foreach (var off in preferred)
+            int dc = eftStart + 0xDC;
+            if (dc + 4 > bytes.Length) return -1;
+
+            // Layout B: byte em +0xDC eh 0x00 (padding). Verba em +0xDD.
+            if (bytes[dc] == 0x00 && dc + 5 <= bytes.Length)
             {
-                int abs = eftStart + off;
-                if (abs + 4 > bytes.Length) continue;
-                uint v = (uint)BitConverter.ToInt32(bytes, abs);
-                if (v >= 100_000 && v <= 1_000_000_000) return abs;
+                uint vDd = (uint)BitConverter.ToInt32(bytes, dc + 1);
+                if (IsPlausibleVerba(vDd)) return dc + 1;
             }
-            // Varredura geral
+
+            // Layout A: verba em +0xE0
+            if (dc + 8 <= bytes.Length)
+            {
+                uint vE0 = (uint)BitConverter.ToInt32(bytes, dc + 4);
+                if (IsPlausibleVerba(vE0)) return dc + 4;
+            }
+
+            // Fallback: procura primeira uint32 plausivel no range 0xD8..0xE8
             for (int off = 0xD8; off <= 0xE8; off++)
             {
                 int abs = eftStart + off;
                 if (abs + 4 > bytes.Length) continue;
                 uint v = (uint)BitConverter.ToInt32(bytes, abs);
-                if (v >= 100_000 && v <= 1_000_000_000) return abs;
+                if (IsPlausibleVerba(v)) return abs;
             }
             return -1;
         }
+
+        // Verba plausivel: um time BR novo comeca com 500k..5M. Podemos ir
+        // ate 100M pra times ricos. Acima disso quase sempre eh outro campo.
+        private static bool IsPlausibleVerba(uint v)
+            => v >= 50_000 && v <= 100_000_000;
 
         private static byte[] DecodeCaesar(byte[] bytes, int start, int end)
         {
