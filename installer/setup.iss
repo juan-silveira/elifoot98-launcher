@@ -76,9 +76,10 @@ Filename: "{app}\{#AppExeName}"; Description: "Abrir Elifoot 98 Launcher"; Flags
 function InitializeSetup(): Boolean;
 var
   NetFxVer: Cardinal;
+  ErrCode: Integer;
 begin
   Result := True;
-  // .NET Framework 4.8 tem Release >= 528040 (Win10 1903+ e Win11 vem pre-instalado)
+  // .NET Framework 4.8 tem Release >= 528040 (Win 10 1903+ e Win 11 ja vem pre-instalado)
   if RegQueryDWordValue(HKLM, 'SOFTWARE\Microsoft\NET Framework Setup\NDP\v4\Full', 'Release', NetFxVer) then
   begin
     if NetFxVer < 528040 then
@@ -86,7 +87,7 @@ begin
       if MsgBox('Este launcher requer .NET Framework 4.8 (ou superior). Instalar agora?' + #13#10 +
                 'Voce sera redirecionado ao download oficial da Microsoft.',
                 mbConfirmation, MB_YESNO) = IDYES then
-        ShellExec('open', 'https://dotnet.microsoft.com/download/dotnet-framework/net48', '', '', SW_SHOW, ewNoWait, NetFxVer);
+        ShellExec('open', 'https://dotnet.microsoft.com/download/dotnet-framework/net48', '', '', SW_SHOW, ewNoWait, ErrCode);
       Result := False;
     end;
   end;
