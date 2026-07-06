@@ -12,7 +12,7 @@ namespace ElifootLauncher
         public MainForm()
         {
             Text = "Elifoot 98 Launcher";
-            ClientSize = new Size(400, 330);
+            ClientSize = new Size(400, 290);
             FormBorderStyle = FormBorderStyle.FixedSingle;
             MaximizeBox = false;
             StartPosition = FormStartPosition.CenterScreen;
@@ -38,8 +38,7 @@ namespace ElifootLauncher
             var btnJogo = MakeButton("Jogar Elifoot 98", 60);
             var btnEditor = MakeButton("Editor de Equipes", 105);
             var btnRefEditor = MakeButton("Editor de Árbitros", 150);
-            var btnRegLink = MakeButton("Baixar Registrador (separado)", 195);
-            var btnConfig = MakeButton("Configurações", 255, secondary: true);
+            var btnConfig = MakeButton("Configurações", 215, secondary: true);
 
             btnJogo.Click += (s, e) => SafeRun(() => _launcher.LaunchElifoot(_config));
             btnEditor.Click += (s, e) => SafeRun(() => _launcher.LaunchEditor(_config));
@@ -47,22 +46,6 @@ namespace ElifootLauncher
             {
                 using (var f = new RefereeEditorForm(_launcher.RefereeTxePath))
                     f.ShowDialog(this);
-            };
-            btnRegLink.Click += (s, e) =>
-            {
-                try
-                {
-                    System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
-                    {
-                        FileName = "https://github.com/juan-silveira/elifoot98-launcher/releases/latest",
-                        UseShellExecute = true,
-                    });
-                }
-                catch (Exception ex)
-                {
-                    MessageBox.Show(this, "Não abri o browser:\n" + ex.Message,
-                        "Erro", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                }
             };
             btnConfig.Click += (s, e) =>
             {
@@ -73,7 +56,7 @@ namespace ElifootLauncher
                 }
             };
 
-            Controls.AddRange(new Control[] { btnJogo, btnEditor, btnRefEditor, btnRegLink, btnConfig });
+            Controls.AddRange(new Control[] { btnJogo, btnEditor, btnRefEditor, btnConfig });
         }
 
         private void SafeRun(Action a)

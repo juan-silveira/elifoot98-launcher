@@ -85,39 +85,37 @@ static BOOL WINAPI hk_SystemParametersInfoW(UINT uiAction, UINT uiParam, PVOID p
     return o_SystemParametersInfoW(uiAction, uiParam, pvParam, fWinIni);
 }
 
-// GetMonitorInfo eh o que Windows usa pra decidir tamanho de maximizacao.
-// Sobreescrever rcMonitor e rcWork faz maximizacao virar do tamanho fake.
+// GetMonitorInfo:
+// - rcMonitor mantido REAL (nao mexemos) — evita Windows tentar clampar
+//   nossa janela pra dentro dela (que causava flicker no launcher)
+// - rcWork vira retangulo com tamanho fake CENTRALIZADO no monitor real.
+//   Delphi ShowWindow(SW_MAXIMIZE) usa rcWork como destino → janela ja
+//   nasce centralizada e no tamanho certo.
+static void CenterFakeWorkArea(LPMONITORINFO lpmi)
+{
+    LONG realW = lpmi->rcMonitor.right - lpmi->rcMonitor.left;
+    LONG realH = lpmi->rcMonitor.bottom - lpmi->rcMonitor.top;
+    LONG offX = lpmi->rcMonitor.left + (realW - g_FakeWidth) / 2;
+    LONG offY = lpmi->rcMonitor.top + (realH - g_FakeHeight) / 2;
+    if (offX < lpmi->rcMonitor.left) offX = lpmi->rcMonitor.left;
+    if (offY < lpmi->rcMonitor.top) offY = lpmi->rcMonitor.top;
+    lpmi->rcWork.left = offX;
+    lpmi->rcWork.top = offY;
+    lpmi->rcWork.right = offX + g_FakeWidth;
+    lpmi->rcWork.bottom = offY + g_FakeHeight;
+}
+
 static BOOL WINAPI hk_GetMonitorInfoA(HMONITOR hMonitor, LPMONITORINFO lpmi)
 {
     BOOL r = o_GetMonitorInfoA(hMonitor, lpmi);
-    if (r && lpmi != NULL)
-    {
-        lpmi->rcMonitor.left = 0;
-        lpmi->rcMonitor.top = 0;
-        lpmi->rcMonitor.right = g_FakeWidth;
-        lpmi->rcMonitor.bottom = g_FakeHeight;
-        lpmi->rcWork.left = 0;
-        lpmi->rcWork.top = 0;
-        lpmi->rcWork.right = g_FakeWidth;
-        lpmi->rcWork.bottom = g_FakeHeight;
-    }
+    if (r && lpmi != NULL) CenterFakeWorkArea(lpmi);
     return r;
 }
 
 static BOOL WINAPI hk_GetMonitorInfoW(HMONITOR hMonitor, LPMONITORINFO lpmi)
 {
     BOOL r = o_GetMonitorInfoW(hMonitor, lpmi);
-    if (r && lpmi != NULL)
-    {
-        lpmi->rcMonitor.left = 0;
-        lpmi->rcMonitor.top = 0;
-        lpmi->rcMonitor.right = g_FakeWidth;
-        lpmi->rcMonitor.bottom = g_FakeHeight;
-        lpmi->rcWork.left = 0;
-        lpmi->rcWork.top = 0;
-        lpmi->rcWork.right = g_FakeWidth;
-        lpmi->rcWork.bottom = g_FakeHeight;
-    }
+    if (r && lpmi != NULL) CenterFakeWorkArea(lpmi);
     return r;
 }
 
