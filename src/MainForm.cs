@@ -12,7 +12,7 @@ namespace ElifootLauncher
         public MainForm()
         {
             Text = "Elifoot 98 Launcher";
-            ClientSize = new Size(400, 290);
+            ClientSize = new Size(400, 340);
             FormBorderStyle = FormBorderStyle.FixedSingle;
             MaximizeBox = false;
             StartPosition = FormStartPosition.CenterScreen;
@@ -38,13 +38,19 @@ namespace ElifootLauncher
             var btnJogo = MakeButton("Jogar Elifoot 98", 60);
             var btnEditor = MakeButton("Editor de Equipes", 105);
             var btnRefEditor = MakeButton("Editor de Árbitros", 150);
-            var btnConfig = MakeButton("Configurações", 215, secondary: true);
+            var btnSaveEditor = MakeButton("Editor de Save", 195);
+            var btnConfig = MakeButton("Configurações", 260, secondary: true);
 
             btnJogo.Click += (s, e) => SafeRun(() => _launcher.LaunchElifoot(_config));
             btnEditor.Click += (s, e) => SafeRun(() => _launcher.LaunchEditor(_config));
             btnRefEditor.Click += (s, e) =>
             {
                 using (var f = new RefereeEditorForm(_launcher.RefereeTxePath))
+                    f.ShowDialog(this);
+            };
+            btnSaveEditor.Click += (s, e) =>
+            {
+                using (var f = new SaveEditorForm(_launcher.JogosDir))
                     f.ShowDialog(this);
             };
             btnConfig.Click += (s, e) =>
@@ -56,7 +62,7 @@ namespace ElifootLauncher
                 }
             };
 
-            Controls.AddRange(new Control[] { btnJogo, btnEditor, btnRefEditor, btnConfig });
+            Controls.AddRange(new Control[] { btnJogo, btnEditor, btnRefEditor, btnSaveEditor, btnConfig });
         }
 
         private void SafeRun(Action a)
