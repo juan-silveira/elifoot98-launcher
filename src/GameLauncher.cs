@@ -28,6 +28,11 @@ namespace ElifootLauncher
         public string EditeqExe => Path.Combine(GameDir, "EDITEQ.EXE");
         public string CrackExe => Path.Combine(GameDir, "CRACK.EXE");
 
+        // otvdm emula Win 3.x com sua propria pasta WINDOWS.
+        // Elifoot chama GetWindowsDirectory() e escreve/le eli.cod nela.
+        public string OtvdmWindowsDir => Path.Combine(OtvdmDir, "WINDOWS");
+        public string EliCodPath => Path.Combine(OtvdmWindowsDir, "eli.cod");
+
         public bool VerifyInstall(out string missing)
         {
             missing = "";
@@ -95,16 +100,19 @@ namespace ElifootLauncher
 
         private static IntPtr FindGameWindow(int processId, string titleHint)
         {
+            // NAO filtramos por PID porque o processo otvdmw pode reparentar
+            // e a janela real do Elifoot pode aparecer como filha de outro
+            // subprocesso. Busca somente por titulo — Elifoot 98 e um app
+            // qualquer aberto no sistema, colisao e improvavel.
             IntPtr result = IntPtr.Zero;
             EnumWindows((h, _) =>
             {
                 if (!IsWindowVisible(h)) return true;
-                GetWindowThreadProcessId(h, out uint pid);
-                if (pid != (uint)processId) return true;
 
                 var sb = new StringBuilder(256);
                 GetWindowText(h, sb, sb.Capacity);
                 var title = sb.ToString();
+                if (title.Length == 0) return true;
                 if (title.IndexOf(titleHint, StringComparison.OrdinalIgnoreCase) >= 0)
                 {
                     result = h;
@@ -151,6 +159,22 @@ namespace ElifootLauncher
             if (!File.Exists(CrackExe))
                 throw new FileNotFoundException($"CRACK.EXE não encontrado: {CrackExe}");
 
+            // Garante que a pasta WINDOWS do otvdm existe e tem uma copia
+            // do CRACK.EXE. eli.cod que o CRACK gerar vai parar exatamente
+            // onde o Elifoot procura ao rodar via otvdm.
+            Directory.CreateDirectory(OtvdmWindowsDir);
+            var crackDest = Path.Combine(OtvdmWindowsDir, "CRACK.EXE");
+            try
+            {
+                File.Copy(CrackExe, crackDest, overwrite: true);
+            }
+            catch (UnauthorizedAccessException)
+            {
+                // Fallback: se nao pode copiar, ao menos mostra erro claro no throw abaixo
+                if (!File.Exists(crackDest))
+                    throw new IOException($"Nao consigo copiar CRACK.EXE para {OtvdmWindowsDir}");
+            }
+
             var confPath = Path.Combine(Path.GetTempPath(), "elifoot_crack.conf");
             var conf = string.Join(Environment.NewLine, new[]
             {
@@ -160,7 +184,9 @@ namespace ElifootLauncher
                 "output=texture",
                 "",
                 "[autoexec]",
-                $"mount C \"{GameDir}\"",
+                // Monta a pasta WINDOWS do otvdm como C:. O eli.cod que
+                // CRACK escrever fica visivel pro Elifoot na hora de rodar.
+                $"mount C \"{OtvdmWindowsDir}\"",
                 "C:",
                 "CRACK.EXE",
             });
@@ -175,6 +201,8 @@ namespace ElifootLauncher
             };
             Process.Start(psi);
         }
+
+        public bool EliCodExists() => File.Exists(EliCodPath);
 
         // ------------ P/Invoke ------------
         private const uint SWP_NOZORDER = 0x0004;
