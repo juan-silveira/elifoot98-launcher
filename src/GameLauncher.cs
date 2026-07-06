@@ -75,41 +75,57 @@ namespace ElifootLauncher
             Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
             "ElifootLauncher", "window-debug.log");
 
-        // Aguarda TODAS as janelas do jogo aparecerem e forca tamanho/posicao.
-        // Elifoot abre varios forms Delphi durante o jogo (1a Jornada, Plantel,
-        // Tabela, etc.) — cada um com WindowState=wsMaximized. Precisa monitorar
-        // continuamente enquanto o processo do jogo estiver vivo.
+        // Monitora as janelas do jogo respeitando move/resize manual do usuario.
+        // Regras:
+        // - Se janela esta "fullscreen" (area >= 85% da tela): forca windowed
+        //   (centraliza e resize pro target). Isso pega o re-maximize do Delphi.
+        // - Se janela nao esta fullscreen: DEIXA EM PAZ. Usuario pode mover/resize.
+        // - Popups pequenos: SetWindowPos com HWND_TOP a cada iter pra ficarem
+        //   sempre acima da janela principal (evita bug do alt+tab).
         private void ResizeWhenReady(Process proc, string titleHint, int width, int height)
         {
             var log = new StringBuilder();
-            log.AppendLine($"=== ResizeWhenReady start pid={proc.Id} hint='{titleHint}' target={width}x{height} at {DateTime.Now:HH:mm:ss} ===");
+            log.AppendLine($"=== ResizeWhenReady start pid={proc.Id} target={width}x{height} at {DateTime.Now:HH:mm:ss} ===");
 
-            // Janelas ja processadas (nao logar de novo no dump)
             var tracked = new System.Collections.Generic.HashSet<IntPtr>();
             int loop = 0;
 
-            // Monitoramento continuo enquanto processo estiver vivo.
-            // Cada iteracao: enumera janelas do otvdm, forca windowed em todas
-            // as top-level grandes. A cada 30s salva o log e reseta buffer.
+            var screen = Screen.PrimaryScreen?.WorkingArea ?? new System.Drawing.Rectangle(0, 0, 1024, 768);
+            long screenArea = (long)screen.Width * screen.Height;
+            long fullscreenThreshold = (long)(screenArea * 0.85);
+
             while (!proc.HasExited)
             {
-                bool logDump = loop < 3 || loop == 10 || loop == 50 || loop % 200 == 0;
+                bool logDump = loop < 3 || loop == 10 || loop % 300 == 0;
                 var hwnds = FindAllGameWindows(logDump ? log : null);
 
                 foreach (var hwnd in hwnds)
                 {
                     bool firstTime = tracked.Add(hwnd);
-                    ForceWindowed(hwnd, width, height, log, verbose: firstTime || loop % 100 == 0);
-                    if (firstTime) log.AppendLine($"  [+ new tracked hwnd=0x{hwnd.ToInt64():x} (total tracked={tracked.Count}) at loop={loop}]");
+                    GetWindowRect(hwnd, out RECT r);
+                    long area = (long)(r.Right - r.Left) * (r.Bottom - r.Top);
+
+                    if (area >= fullscreenThreshold)
+                    {
+                        // Fullscreen: força windowed
+                        ForceWindowed(hwnd, width, height, log, verbose: firstTime || loop % 50 == 0);
+                        if (firstTime) log.AppendLine($"  [+ hwnd=0x{hwnd.ToInt64():x} was fullscreen at loop={loop}]");
+                    }
+                    else
+                    {
+                        // Nao esta fullscreen — respeita posicao/tamanho atual.
+                        // Mas continua tracked pra saber se ele re-maximiza depois.
+                        if (firstTime && logDump)
+                            log.AppendLine($"  [+ hwnd=0x{hwnd.ToInt64():x} already windowed {r.Right - r.Left}x{r.Bottom - r.Top} at loop={loop}]");
+                    }
                 }
 
-                // Cleanup: janelas que morreram, remove do tracked
+                // Cleanup: janelas que morreram
                 tracked.RemoveWhere(h => !IsWindow(h));
 
                 loop++;
                 Thread.Sleep(200);
 
-                // Flush periodico do log (a cada ~60s) pra nao perder tudo se travar
                 if (loop % 300 == 0)
                 {
                     log.AppendLine($"--- flush at loop={loop}, tracked={tracked.Count} ---");
@@ -117,7 +133,7 @@ namespace ElifootLauncher
                     log.Clear();
                 }
             }
-            log.AppendLine($"=== process exited after {loop} loops, tracked={tracked.Count} ===");
+            log.AppendLine($"=== process exited after {loop} loops ===");
             WriteLog(log.ToString());
         }
 
