@@ -75,29 +75,27 @@ namespace ElifootLauncher
             Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
             "ElifootLauncher", "window-debug.log");
 
-        // Aguarda a janela do jogo aparecer e forca tamanho/posicao.
-        // Elifoot maximiza sozinho por default (DFM WindowState=wsMaximized),
-        // entao acompanhamos por ~15s e tambem re-aplicamos se ele maximizar depois.
+        // Aguarda a janela do jogo aparecer e forca tamanho/posicao agressivamente.
+        // Elifoot Delphi tem WindowState=wsMaximized no DFM — re-maximiza no
+        // WM_ACTIVATE. Precisa loop persistente + SC_RESTORE + remover styles.
         private void ResizeWhenReady(Process proc, string titleHint, int width, int height)
         {
-            const int maxAttempts = 40; // ~20s
             IntPtr hwnd = IntPtr.Zero;
             var log = new StringBuilder();
             log.AppendLine($"=== ResizeWhenReady start pid={proc.Id} hint='{titleHint}' target={width}x{height} at {DateTime.Now:HH:mm:ss} ===");
 
-            for (int i = 0; i < maxAttempts; i++)
+            // Fase 1: acha a janela (max 20s)
+            for (int i = 0; i < 40; i++)
             {
                 Thread.Sleep(500);
-                if (proc.HasExited) { log.AppendLine("process exited"); break; }
-
-                hwnd = FindGameWindow(proc.Id, titleHint, log, dumpAll: i == 4 || i == 10);
+                if (proc.HasExited) { log.AppendLine("process exited during search"); WriteLog(log.ToString()); return; }
+                hwnd = FindGameWindow(titleHint, log, dumpAll: i <= 2 || i == 5 || i == 10);
                 if (hwnd != IntPtr.Zero)
                 {
                     log.AppendLine($"attempt {i}: found hwnd 0x{hwnd.ToInt64():x}");
                     break;
                 }
             }
-
             if (hwnd == IntPtr.Zero)
             {
                 log.AppendLine("!!! no matching window found after 20s !!!");
@@ -105,15 +103,17 @@ namespace ElifootLauncher
                 return;
             }
 
-            ForceWindowed(hwnd, width, height, log);
-
-            // Re-aplica algumas vezes caso o app maximize depois de carregar
-            for (int i = 0; i < 8; i++)
+            // Fase 2: re-aplica agressivamente por 30s a cada 200ms.
+            // Isso é mais que o app tem chance de re-maximizar.
+            var start = DateTime.Now;
+            int applies = 0;
+            while ((DateTime.Now - start).TotalSeconds < 30 && !proc.HasExited)
             {
-                Thread.Sleep(500);
-                if (proc.HasExited) break;
-                ForceWindowed(hwnd, width, height, log);
+                ForceWindowed(hwnd, width, height, log, verbose: applies < 3 || applies % 20 == 0);
+                applies++;
+                Thread.Sleep(200);
             }
+            log.AppendLine($"=== end after {applies} applies ===");
             WriteLog(log.ToString());
         }
 
@@ -128,7 +128,7 @@ namespace ElifootLauncher
             catch { }
         }
 
-        private static IntPtr FindGameWindow(int processId, string titleHint, StringBuilder log, bool dumpAll)
+        private static IntPtr FindGameWindow(string titleHint, StringBuilder log, bool dumpAll)
         {
             IntPtr result = IntPtr.Zero;
             EnumWindows((h, _) =>
@@ -142,41 +142,58 @@ namespace ElifootLauncher
 
                 GetWindowThreadProcessId(h, out uint pid);
 
+                // Pega dimensoes atuais pra ajudar debug
                 if (dumpAll)
-                    log.AppendLine($"  visible hwnd=0x{h.ToInt64():x} pid={pid} title='{title}'");
+                {
+                    GetWindowRect(h, out RECT r);
+                    log.AppendLine($"  visible hwnd=0x{h.ToInt64():x} pid={pid} rect=({r.Left},{r.Top})-({r.Right},{r.Bottom}) title='{title}'");
+                }
 
                 if (title.IndexOf(titleHint, StringComparison.OrdinalIgnoreCase) >= 0
                     || title.IndexOf("ELIFOOT", StringComparison.OrdinalIgnoreCase) >= 0
                     || title.IndexOf("EDITEQ", StringComparison.OrdinalIgnoreCase) >= 0)
                 {
-                    log.AppendLine($"  MATCH hwnd=0x{h.ToInt64():x} title='{title}'");
-                    result = h;
-                    return false;
+                    if (result == IntPtr.Zero)
+                    {
+                        log.AppendLine($"  MATCH hwnd=0x{h.ToInt64():x} title='{title}'");
+                        result = h;
+                    }
+                    else
+                    {
+                        // Segundo candidato: loga mas mantem primeiro
+                        log.AppendLine($"  extra MATCH hwnd=0x{h.ToInt64():x} title='{title}'");
+                    }
                 }
                 return true;
             }, IntPtr.Zero);
             return result;
         }
 
-        private static void ForceWindowed(IntPtr hwnd, int width, int height, StringBuilder log)
+        private static void ForceWindowed(IntPtr hwnd, int width, int height, StringBuilder log, bool verbose)
         {
-            // Remove estilo WS_MAXIMIZE se estiver setado
+            // 1) Remove flags que permitem maximize/full
             var style = GetWindowLong(hwnd, GWL_STYLE);
-            if ((style & WS_MAXIMIZE) != 0)
+            int newStyle = style & ~(WS_MAXIMIZE | WS_MAXIMIZEBOX);
+            if (newStyle != style)
             {
-                SetWindowLong(hwnd, GWL_STYLE, style & ~WS_MAXIMIZE);
-                log.AppendLine($"  removed WS_MAXIMIZE from style=0x{style:x}");
+                SetWindowLong(hwnd, GWL_STYLE, newStyle);
+                if (verbose) log.AppendLine($"  style 0x{style:x} -> 0x{newStyle:x} (removed WS_MAXIMIZE|WS_MAXIMIZEBOX)");
             }
 
-            // Restaura de qualquer forma (desmaximiza se estiver assim)
-            ShowWindow(hwnd, SW_RESTORE);
+            // 2) Força restore via SysCommand
+            PostMessage(hwnd, WM_SYSCOMMAND, (IntPtr)SC_RESTORE, IntPtr.Zero);
 
+            // 3) SetWindowPos com posicao/tamanho desejado
             var screen = Screen.PrimaryScreen?.WorkingArea ?? new System.Drawing.Rectangle(0, 0, 1024, 768);
             int x = screen.X + Math.Max(0, (screen.Width - width) / 2);
             int y = screen.Y + Math.Max(0, (screen.Height - height) / 2);
             bool ok = SetWindowPos(hwnd, IntPtr.Zero, x, y, width, height,
-                SWP_NOZORDER | SWP_SHOWWINDOW | SWP_FRAMECHANGED);
-            log.AppendLine($"  SetWindowPos({x},{y},{width}x{height}) => {ok}");
+                SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED);
+            if (verbose)
+            {
+                GetWindowRect(hwnd, out RECT r);
+                log.AppendLine($"  SetWindowPos({x},{y},{width}x{height})=>{ok}, actual rect=({r.Left},{r.Top})-({r.Right},{r.Bottom})");
+            }
         }
 
         private void WriteOtvdmIni(LauncherConfig cfg)
@@ -251,17 +268,30 @@ namespace ElifootLauncher
 
         // ------------ P/Invoke ------------
         private const uint SWP_NOZORDER = 0x0004;
+        private const uint SWP_NOACTIVATE = 0x0010;
         private const uint SWP_SHOWWINDOW = 0x0040;
         private const uint SWP_FRAMECHANGED = 0x0020;
         private const int SW_RESTORE = 9;
         private const int GWL_STYLE = -16;
         private const int WS_MAXIMIZE = 0x01000000;
+        private const int WS_MAXIMIZEBOX = 0x00010000;
+        private const uint WM_SYSCOMMAND = 0x0112;
+        private const int SC_RESTORE = 0xF120;
+
+        [StructLayout(LayoutKind.Sequential)]
+        private struct RECT { public int Left, Top, Right, Bottom; }
 
         [DllImport("user32.dll", EntryPoint = "GetWindowLongW")]
         private static extern int GetWindowLong(IntPtr hWnd, int nIndex);
 
         [DllImport("user32.dll", EntryPoint = "SetWindowLongW")]
         private static extern int SetWindowLong(IntPtr hWnd, int nIndex, int dwNewLong);
+
+        [DllImport("user32.dll")]
+        private static extern bool GetWindowRect(IntPtr hWnd, out RECT lpRect);
+
+        [DllImport("user32.dll")]
+        private static extern bool PostMessage(IntPtr hWnd, uint Msg, IntPtr wParam, IntPtr lParam);
 
         private delegate bool EnumWindowsProc(IntPtr hWnd, IntPtr lParam);
 
