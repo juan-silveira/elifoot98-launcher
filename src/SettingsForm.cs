@@ -11,10 +11,9 @@ namespace ElifootLauncher
         private readonly ComboBox _resolutionBox;
         private readonly CheckBox _fullscreenBox;
 
+        // Resolucao minima e 1024x768 (nativo do Elifoot). Menor corta conteudo.
         private static readonly (int W, int H)[] Resolutions =
         {
-            (640, 480),
-            (800, 600),
             (1024, 768),
             (1280, 960),
             (1366, 768),
@@ -30,7 +29,7 @@ namespace ElifootLauncher
             Config = cfg;
 
             Text = "Configurações";
-            ClientSize = new Size(360, 200);
+            ClientSize = new Size(400, 240);
             FormBorderStyle = FormBorderStyle.FixedDialog;
             MaximizeBox = false;
             MinimizeBox = false;
@@ -60,18 +59,26 @@ namespace ElifootLauncher
                 Checked = cfg.Fullscreen,
             };
 
+            var lblNota = new Label
+            {
+                Text = "O Elifoot desenha em pixels fixos e não escala. Menos de 1024×768 corta conteúdo (4ª divisão, relógio).",
+                Location = new Point(20, 120),
+                Size = new Size(360, 60),
+                ForeColor = Color.FromArgb(100, 100, 100),
+            };
+
             var btnOk = new Button
             {
                 Text = "Salvar",
                 DialogResult = DialogResult.OK,
-                Location = new Point(180, 150),
+                Location = new Point(220, 190),
                 Size = new Size(80, 30),
             };
             var btnCancel = new Button
             {
                 Text = "Cancelar",
                 DialogResult = DialogResult.Cancel,
-                Location = new Point(270, 150),
+                Location = new Point(310, 190),
                 Size = new Size(80, 30),
             };
             AcceptButton = btnOk;
@@ -86,7 +93,7 @@ namespace ElifootLauncher
                 Config.Save();
             };
 
-            Controls.AddRange(new Control[] { lblRes, _resolutionBox, _fullscreenBox, btnOk, btnCancel });
+            Controls.AddRange(new Control[] { lblRes, _resolutionBox, _fullscreenBox, lblNota, btnOk, btnCancel });
         }
 
         private static int FindResolutionIndex(int w, int h)
