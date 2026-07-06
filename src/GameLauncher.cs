@@ -106,14 +106,8 @@ namespace ElifootLauncher
                 proc = Process.Start(psi);
             }
 
-            // Volta ResizeWhenReady, MAS versao mimima: forca windowed 1x
-            // por hwnd, nao re-processa. Sem loop de disputa = sem flicker.
-            if (!cfg.Fullscreen && proc != null)
-            {
-                var w = cfg.ResolutionWidth;
-                var h = cfg.ResolutionHeight;
-                Task.Run(() => ResizeWhenReady(proc, expectedTitleHint, w, h));
-            }
+            // Reposicionamento agora eh 100% event-driven no DLL via
+            // SetWinEventHook (INCONTEXT). Sem polling do lado C#.
         }
 
         // Escreve entrada no registro do Windows pra ativar o AppCompat layer

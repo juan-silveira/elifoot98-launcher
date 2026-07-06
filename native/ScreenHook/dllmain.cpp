@@ -1,14 +1,20 @@
-// ScreenHook.dll - injected into otvdmw.exe pra fake screen resolution.
+// ScreenHook.dll - injected into otvdmw.exe pra fake screen resolution +
+// reposicionamento reativo de janelas via SetWinEventHook.
 //
-// Hooka GetSystemMetrics, GetDeviceCaps e SystemParametersInfo(SPI_GETWORKAREA)
-// pra retornar valores da resolucao configurada via env vars
-// ELIFOOT_FAKE_WIDTH e ELIFOOT_FAKE_HEIGHT. Assim Delphi 1 forms e dialogs
-// que consultam Screen.Width/Screen.Height computam layout no tamanho fake,
-// nao no tamanho real do desktop.
+// Hooks de screen size:
+//   GetSystemMetrics, GetDeviceCaps, SystemParametersInfo(SPI_GETWORKAREA),
+//   GetMonitorInfo — todos retornam a resolucao fake configurada via
+//   env vars ELIFOOT_FAKE_WIDTH / ELIFOOT_FAKE_HEIGHT.
+//
+// Reposicionamento:
+//   SetWinEventHook em EVENT_OBJECT_SHOW dispara quando Delphi mostra uma
+//   janela top-level. Callback restaura maximizado e centraliza no monitor
+//   real. Uma unica vez por hwnd (guardado num set). Sem polling.
 
 #include <windows.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <unordered_set>
 #include "minhook/include/MinHook.h"
 
 typedef int  (WINAPI *GetSystemMetrics_t)(int);
@@ -17,8 +23,6 @@ typedef BOOL (WINAPI *SystemParametersInfoA_t)(UINT, UINT, PVOID, UINT);
 typedef BOOL (WINAPI *SystemParametersInfoW_t)(UINT, UINT, PVOID, UINT);
 typedef BOOL (WINAPI *GetMonitorInfoA_t)(HMONITOR, LPMONITORINFO);
 typedef BOOL (WINAPI *GetMonitorInfoW_t)(HMONITOR, LPMONITORINFO);
-typedef BOOL (WINAPI *SetWindowPos_t)(HWND, HWND, int, int, int, int, UINT);
-typedef BOOL (WINAPI *MoveWindow_t)(HWND, int, int, int, int, BOOL);
 
 static GetSystemMetrics_t o_GetSystemMetrics = NULL;
 static GetDeviceCaps_t o_GetDeviceCaps = NULL;
@@ -26,11 +30,11 @@ static SystemParametersInfoA_t o_SystemParametersInfoA = NULL;
 static SystemParametersInfoW_t o_SystemParametersInfoW = NULL;
 static GetMonitorInfoA_t o_GetMonitorInfoA = NULL;
 static GetMonitorInfoW_t o_GetMonitorInfoW = NULL;
-static SetWindowPos_t o_SetWindowPos = NULL;
-static MoveWindow_t o_MoveWindow = NULL;
 
 static int g_FakeWidth = 640;
 static int g_FakeHeight = 480;
+static HMODULE g_hSelf = NULL;
+static HWINEVENTHOOK g_hEvent = NULL;
 
 static int WINAPI hk_GetSystemMetrics(int nIndex)
 {
@@ -121,15 +125,21 @@ static BOOL WINAPI hk_GetMonitorInfoW(HMONITOR hMonitor, LPMONITORINFO lpmi)
     return r;
 }
 
-// Delphi Form.Show chama SetWindowPos/MoveWindow com Left=Top=0 do DFM.
-// Interceptamos: se a chamada tem coordenada de origem (0,0) e o tamanho
-// eh de dialog (>200x150), substituimos por centralizado na tela real.
+// ---- reposicionamento reativo ----
+
+static std::unordered_set<HWND> g_processed;
+static CRITICAL_SECTION g_setLock;
+static BOOL g_setLockInit = FALSE;
+
 static void GetRealPrimaryMonitor(int* rw, int* rh)
 {
+    // Chama o real (nao o hook) direto pra pegar tamanho real do monitor.
     HMONITOR hm = MonitorFromWindow(NULL, MONITOR_DEFAULTTOPRIMARY);
-    MONITORINFO mi = { sizeof(mi) };
+    MONITORINFO mi;
+    mi.cbSize = sizeof(mi);
     if (hm != NULL && o_GetMonitorInfoA != NULL && o_GetMonitorInfoA(hm, &mi))
     {
+        // o_GetMonitorInfoA nao passa pelo hook, entao rcMonitor eh real
         *rw = mi.rcMonitor.right - mi.rcMonitor.left;
         *rh = mi.rcMonitor.bottom - mi.rcMonitor.top;
     }
@@ -139,35 +149,67 @@ static void GetRealPrimaryMonitor(int* rw, int* rh)
     }
 }
 
-static void MaybeCenterCoords(int* X, int* Y, int cx, int cy)
+static void CALLBACK WinEventProc(
+    HWINEVENTHOOK, DWORD event, HWND hwnd, LONG idObject, LONG idChild,
+    DWORD, DWORD)
 {
-    if (*X == 0 && *Y == 0 && cx >= 200 && cy >= 150)
-    {
-        int rw, rh;
-        GetRealPrimaryMonitor(&rw, &rh);
-        int nx = (rw - cx) / 2;
-        int ny = (rh - cy) / 2;
-        if (nx < 0) nx = 0;
-        if (ny < 0) ny = 0;
-        *X = nx;
-        *Y = ny;
-    }
-}
+    // So OBJID_WINDOW no proprio hwnd (nao filhos, nao caret, nao cursor)
+    if (idObject != OBJID_WINDOW || idChild != 0) return;
+    if (hwnd == NULL || !IsWindow(hwnd)) return;
+    // So janela top-level (nao child controls)
+    if (GetAncestor(hwnd, GA_ROOT) != hwnd) return;
 
-static BOOL WINAPI hk_SetWindowPos(HWND hWnd, HWND hAfter, int X, int Y, int cx, int cy, UINT uFlags)
-{
-    // So mexe se o caller esta setando POSICAO explicita (nao SWP_NOMOVE)
-    if (!(uFlags & SWP_NOMOVE))
-    {
-        MaybeCenterCoords(&X, &Y, cx, cy);
-    }
-    return o_SetWindowPos(hWnd, hAfter, X, Y, cx, cy, uFlags);
-}
+    // Filtra janelas relevantes: pelo menos visiveis com WS_OVERLAPPED
+    LONG style = GetWindowLong(hwnd, GWL_STYLE);
+    if ((style & WS_VISIBLE) == 0) return;
+    // Ignora janelas de sistema (tooltips, popups minusculos, etc)
+    RECT r;
+    if (!GetWindowRect(hwnd, &r)) return;
+    LONG w = r.right - r.left;
+    LONG h = r.bottom - r.top;
+    if (w < 100 || h < 80) return;
 
-static BOOL WINAPI hk_MoveWindow(HWND hWnd, int X, int Y, int nWidth, int nHeight, BOOL bRepaint)
-{
-    MaybeCenterCoords(&X, &Y, nWidth, nHeight);
-    return o_MoveWindow(hWnd, X, Y, nWidth, nHeight, bRepaint);
+    EnterCriticalSection(&g_setLock);
+    if (g_processed.find(hwnd) != g_processed.end()) {
+        LeaveCriticalSection(&g_setLock);
+        return;
+    }
+    g_processed.insert(hwnd);
+    LeaveCriticalSection(&g_setLock);
+
+    int rw, rh;
+    GetRealPrimaryMonitor(&rw, &rh);
+
+    BOOL isMax = (style & WS_MAXIMIZE) != 0;
+    if (isMax)
+    {
+        // Restaura pra tamanho normal, depois centraliza no monitor real
+        ShowWindow(hwnd, SW_RESTORE);
+        // Depois do restore, GetWindowRect pode ter mudado; releo
+        if (GetWindowRect(hwnd, &r))
+        {
+            w = r.right - r.left;
+            h = r.bottom - r.top;
+        }
+        // Se o tamanho restaurado ainda for maior que fake, encolhe
+        if (w > g_FakeWidth) w = g_FakeWidth;
+        if (h > g_FakeHeight) h = g_FakeHeight;
+        int x = (rw - w) / 2;
+        int y = (rh - h) / 2;
+        SetWindowPos(hwnd, NULL, x, y, w, h,
+            SWP_NOZORDER | SWP_NOACTIVATE);
+    }
+    else if (r.left < 50 && r.top < 50)
+    {
+        // Delphi Form.Left/Top = 0 => janela no canto superior esquerdo.
+        // Centraliza sem mexer no tamanho.
+        int x = (rw - w) / 2;
+        int y = (rh - h) / 2;
+        if (x < 0) x = 0;
+        if (y < 0) y = 0;
+        SetWindowPos(hwnd, NULL, x, y, 0, 0,
+            SWP_NOZORDER | SWP_NOACTIVATE | SWP_NOSIZE);
+    }
 }
 
 static void InstallHooks(void)
@@ -187,10 +229,18 @@ static void InstallHooks(void)
     MH_CreateHook((LPVOID)&SystemParametersInfoW, (LPVOID)&hk_SystemParametersInfoW, (LPVOID*)&o_SystemParametersInfoW);
     MH_CreateHook((LPVOID)&GetMonitorInfoA, (LPVOID)&hk_GetMonitorInfoA, (LPVOID*)&o_GetMonitorInfoA);
     MH_CreateHook((LPVOID)&GetMonitorInfoW, (LPVOID)&hk_GetMonitorInfoW, (LPVOID*)&o_GetMonitorInfoW);
-    // SetWindowPos/MoveWindow hooks removidos — briga com centralizacao
-    // do lado C# gerava flicker. Centralizacao fica no ResizeWhenReady.
 
     MH_EnableHook(MH_ALL_HOOKS);
+
+    // SetWinEventHook INCONTEXT filtrado pra este proprio processo.
+    // Callback dispara na thread da janela (sincrono, sem marshalling).
+    InitializeCriticalSection(&g_setLock);
+    g_setLockInit = TRUE;
+    g_hEvent = SetWinEventHook(
+        EVENT_OBJECT_SHOW, EVENT_OBJECT_SHOW,
+        g_hSelf, WinEventProc,
+        GetCurrentProcessId(), 0,
+        WINEVENT_INCONTEXT);
 }
 
 BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReserved)
@@ -198,10 +248,13 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReserv
     switch (ul_reason_for_call)
     {
         case DLL_PROCESS_ATTACH:
+            g_hSelf = hModule;
             DisableThreadLibraryCalls(hModule);
             InstallHooks();
             break;
         case DLL_PROCESS_DETACH:
+            if (g_hEvent) { UnhookWinEvent(g_hEvent); g_hEvent = NULL; }
+            if (g_setLockInit) { DeleteCriticalSection(&g_setLock); g_setLockInit = FALSE; }
             MH_Uninitialize();
             break;
     }
