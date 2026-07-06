@@ -45,8 +45,15 @@ jobs:
         run: dotnet build src/ElifootLauncher.csproj -c Release -p:Version=${{ steps.version.outputs.value }} -p:AssemblyVersion=${{ steps.version.outputs.value }}.0 -p:FileVersion=${{ steps.version.outputs.value }}.0
 
       - name: Build Registrador payload.zip
-        shell: bash
-        run: bash scripts/build-registrador-payload.sh
+        shell: pwsh
+        run: |
+          $stage = New-Item -ItemType Directory -Path "$env:RUNNER_TEMP\payload-stage" -Force
+          Copy-Item -Path "game\CRACK.EXE" -Destination "$stage\CRACK.EXE"
+          New-Item -ItemType Directory -Path "$stage\vendor\dosbox" -Force | Out-Null
+          Copy-Item -Path "vendor\dosbox\*" -Destination "$stage\vendor\dosbox\" -Recurse -Force
+          if (Test-Path "src-registrador\payload.zip") { Remove-Item "src-registrador\payload.zip" }
+          Compress-Archive -Path "$stage\*" -DestinationPath "src-registrador\payload.zip" -CompressionLevel Optimal
+          Write-Host "payload.zip criado ($((Get-Item src-registrador\payload.zip).Length / 1MB) MB)"
 
       - name: Build Registrador (Release, x86, com payload embutido)
         shell: bash
