@@ -75,46 +75,92 @@ namespace ElifootLauncher
             Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
             "ElifootLauncher", "window-debug.log");
 
-        // Aguarda a janela do jogo aparecer e forca tamanho/posicao agressivamente.
-        // Elifoot Delphi tem WindowState=wsMaximized no DFM — re-maximiza no
-        // WM_ACTIVATE. Precisa loop persistente + SC_RESTORE + remover styles.
+        // Aguarda TODAS as janelas do jogo aparecerem e forca tamanho/posicao.
+        // Elifoot abre varios forms Delphi durante o jogo (1a Jornada, Plantel,
+        // Tabela, etc.) — cada um com WindowState=wsMaximized. Precisa monitorar
+        // continuamente enquanto o processo do jogo estiver vivo.
         private void ResizeWhenReady(Process proc, string titleHint, int width, int height)
         {
-            IntPtr hwnd = IntPtr.Zero;
             var log = new StringBuilder();
             log.AppendLine($"=== ResizeWhenReady start pid={proc.Id} hint='{titleHint}' target={width}x{height} at {DateTime.Now:HH:mm:ss} ===");
 
-            // Fase 1: acha a janela (max 20s)
-            for (int i = 0; i < 40; i++)
+            // Janelas ja processadas (nao logar de novo no dump)
+            var tracked = new System.Collections.Generic.HashSet<IntPtr>();
+            int loop = 0;
+
+            // Monitoramento continuo enquanto processo estiver vivo.
+            // Cada iteracao: enumera janelas do otvdm, forca windowed em todas
+            // as top-level grandes. A cada 30s salva o log e reseta buffer.
+            while (!proc.HasExited)
             {
-                Thread.Sleep(500);
-                if (proc.HasExited) { log.AppendLine("process exited during search"); WriteLog(log.ToString()); return; }
-                hwnd = FindGameWindow(titleHint, log, dumpAll: i <= 2 || i == 5 || i == 10);
-                if (hwnd != IntPtr.Zero)
+                bool logDump = loop < 3 || loop == 10 || loop == 50 || loop % 200 == 0;
+                var hwnds = FindAllGameWindows(logDump ? log : null);
+
+                foreach (var hwnd in hwnds)
                 {
-                    log.AppendLine($"attempt {i}: found hwnd 0x{hwnd.ToInt64():x}");
-                    break;
+                    bool firstTime = tracked.Add(hwnd);
+                    ForceWindowed(hwnd, width, height, log, verbose: firstTime || loop % 100 == 0);
+                    if (firstTime) log.AppendLine($"  [+ new tracked hwnd=0x{hwnd.ToInt64():x} (total tracked={tracked.Count}) at loop={loop}]");
+                }
+
+                // Cleanup: janelas que morreram, remove do tracked
+                tracked.RemoveWhere(h => !IsWindow(h));
+
+                loop++;
+                Thread.Sleep(200);
+
+                // Flush periodico do log (a cada ~60s) pra nao perder tudo se travar
+                if (loop % 300 == 0)
+                {
+                    log.AppendLine($"--- flush at loop={loop}, tracked={tracked.Count} ---");
+                    WriteLog(log.ToString());
+                    log.Clear();
                 }
             }
-            if (hwnd == IntPtr.Zero)
-            {
-                log.AppendLine("!!! no matching window found after 20s !!!");
-                WriteLog(log.ToString());
-                return;
-            }
-
-            // Fase 2: re-aplica agressivamente por 30s a cada 200ms.
-            // Isso é mais que o app tem chance de re-maximizar.
-            var start = DateTime.Now;
-            int applies = 0;
-            while ((DateTime.Now - start).TotalSeconds < 30 && !proc.HasExited)
-            {
-                ForceWindowed(hwnd, width, height, log, verbose: applies < 3 || applies % 20 == 0);
-                applies++;
-                Thread.Sleep(200);
-            }
-            log.AppendLine($"=== end after {applies} applies ===");
+            log.AppendLine($"=== process exited after {loop} loops, tracked={tracked.Count} ===");
             WriteLog(log.ToString());
+        }
+
+        // Retorna TODAS as janelas top-level relevantes (do processo otvdm com area util).
+        // Nao usa titulo — pega qualquer form Delphi grande.
+        private static System.Collections.Generic.List<IntPtr> FindAllGameWindows(StringBuilder? log)
+        {
+            var results = new System.Collections.Generic.List<IntPtr>();
+            uint launcherPid = (uint)Process.GetCurrentProcess().Id;
+
+            var otvdmPids = new System.Collections.Generic.HashSet<uint>();
+            foreach (var pname in new[] { "otvdmw", "otvdm" })
+                foreach (var p in Process.GetProcessesByName(pname))
+                {
+                    try { otvdmPids.Add((uint)p.Id); } catch { }
+                }
+            if (otvdmPids.Count == 0) return results;
+
+            EnumWindows((h, _) =>
+            {
+                GetWindowThreadProcessId(h, out uint pid);
+                if (pid == launcherPid) return true;
+                if (!otvdmPids.Contains(pid)) return true;
+                if (!IsWindowVisible(h)) return true;
+
+                GetWindowRect(h, out RECT r);
+                int w = r.Right - r.Left;
+                int hgt = r.Bottom - r.Top;
+                if (w < 300 || hgt < 200) return true; // ignora barra de ferramentas / tooltips
+
+                var sb = new StringBuilder(256);
+                GetWindowText(h, sb, sb.Capacity);
+                var cls = new StringBuilder(128);
+                GetClassName(h, cls, cls.Capacity);
+
+                if (log != null)
+                    log.AppendLine($"  candidate hwnd=0x{h.ToInt64():x} pid={pid} {w}x{hgt} class='{cls}' title='{sb}'");
+
+                results.Add(h);
+                return true;
+            }, IntPtr.Zero);
+
+            return results;
         }
 
         private static void WriteLog(string content)
@@ -333,6 +379,9 @@ namespace ElifootLauncher
 
         [DllImport("user32.dll", CharSet = CharSet.Auto)]
         private static extern int GetClassName(IntPtr hWnd, StringBuilder lpClassName, int nMaxCount);
+
+        [DllImport("user32.dll")]
+        private static extern bool IsWindow(IntPtr hWnd);
 
         private delegate bool EnumWindowsProc(IntPtr hWnd, IntPtr lParam);
 
