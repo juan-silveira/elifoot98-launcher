@@ -99,24 +99,57 @@ namespace ElifootLauncher
                 bool logDump = loop < 3 || loop == 10 || loop % 300 == 0;
                 var hwnds = FindAllGameWindows(logDump ? log : null);
 
+                // Separa em "principais" (grandes) e "popups" (pequenas)
+                // para dar tratamento diferente.
+                var mains = new System.Collections.Generic.List<IntPtr>();
+                var popups = new System.Collections.Generic.List<IntPtr>();
+
                 foreach (var hwnd in hwnds)
                 {
                     bool firstTime = tracked.Add(hwnd);
                     GetWindowRect(hwnd, out RECT r);
                     long area = (long)(r.Right - r.Left) * (r.Bottom - r.Top);
+                    int style = GetWindowLong(hwnd, GWL_STYLE);
+                    bool isMaxStyle = (style & WS_MAXIMIZE) != 0;
 
-                    if (area >= fullscreenThreshold)
+                    // Categoriza
+                    if (area >= screenArea * 0.20) mains.Add(hwnd);
+                    else popups.Add(hwnd);
+
+                    if (area >= fullscreenThreshold || isMaxStyle)
                     {
-                        // Fullscreen: força windowed
+                        // Fullscreen OU flag de maximize setada: força windowed
                         ForceWindowed(hwnd, width, height, log, verbose: firstTime || loop % 50 == 0);
-                        if (firstTime) log.AppendLine($"  [+ hwnd=0x{hwnd.ToInt64():x} was fullscreen at loop={loop}]");
+                        if (firstTime) log.AppendLine($"  [+ hwnd=0x{hwnd.ToInt64():x} was {(area >= fullscreenThreshold ? "fullscreen" : "WS_MAXIMIZE style set")}]");
                     }
-                    else
+                    else if (firstTime)
                     {
-                        // Nao esta fullscreen — respeita posicao/tamanho atual.
-                        // Mas continua tracked pra saber se ele re-maximiza depois.
-                        if (firstTime && logDump)
-                            log.AppendLine($"  [+ hwnd=0x{hwnd.ToInt64():x} already windowed {r.Right - r.Left}x{r.Bottom - r.Top} at loop={loop}]");
+                        // Primeira vez que vejo, e nao esta fullscreen: LIMPA estilos
+                        // de maximize (mas mantem WS_MAXIMIZEBOX pra usuario poder
+                        // maximizar depois). Isso destrava o drag da titlebar.
+                        int cleanStyle = style & ~WS_MAXIMIZE;
+                        if (cleanStyle != style)
+                        {
+                            SetWindowLong(hwnd, GWL_STYLE, cleanStyle);
+                            SetWindowPos(hwnd, IntPtr.Zero, 0, 0, 0, 0,
+                                SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED);
+                            log.AppendLine($"  [+ hwnd=0x{hwnd.ToInt64():x} cleared WS_MAXIMIZE style (was 0x{style:x})]");
+                        }
+                        else if (logDump)
+                        {
+                            log.AppendLine($"  [+ hwnd=0x{hwnd.ToInt64():x} already ok, {r.Right - r.Left}x{r.Bottom - r.Top}]");
+                        }
+                    }
+                }
+
+                // Popups (dialogs, "Acerca", etc.) — trazer pro topo sem roubar
+                // foco. Isso resolve o bug do alt+tab que os deixava atras da tela.
+                if (popups.Count > 0 && mains.Count > 0)
+                {
+                    foreach (var pop in popups)
+                    {
+                        SetWindowPos(pop, HWND_TOP, 0, 0, 0, 0,
+                            SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
                     }
                 }
 
@@ -128,7 +161,7 @@ namespace ElifootLauncher
 
                 if (loop % 300 == 0)
                 {
-                    log.AppendLine($"--- flush at loop={loop}, tracked={tracked.Count} ---");
+                    log.AppendLine($"--- flush at loop={loop}, tracked={tracked.Count}, mains={mains.Count}, popups={popups.Count} ---");
                     WriteLog(log.ToString());
                     log.Clear();
                 }
@@ -271,13 +304,15 @@ namespace ElifootLauncher
 
         private static void ForceWindowed(IntPtr hwnd, int width, int height, StringBuilder log, bool verbose)
         {
-            // 1) Remove flags que permitem maximize/full
+            // 1) Remove APENAS WS_MAXIMIZE (mantem WS_MAXIMIZEBOX pra usuario
+            //    poder maximizar de novo se quiser). Ter WS_MAXIMIZEBOX removido
+            //    tirava o botao de maximizar.
             var style = GetWindowLong(hwnd, GWL_STYLE);
-            int newStyle = style & ~(WS_MAXIMIZE | WS_MAXIMIZEBOX);
+            int newStyle = style & ~WS_MAXIMIZE;
             if (newStyle != style)
             {
                 SetWindowLong(hwnd, GWL_STYLE, newStyle);
-                if (verbose) log.AppendLine($"  style 0x{style:x} -> 0x{newStyle:x} (removed WS_MAXIMIZE|WS_MAXIMIZEBOX)");
+                if (verbose) log.AppendLine($"  style 0x{style:x} -> 0x{newStyle:x} (removed WS_MAXIMIZE)");
             }
 
             // 2) Força restore via SysCommand
@@ -371,6 +406,9 @@ namespace ElifootLauncher
         private const uint SWP_NOACTIVATE = 0x0010;
         private const uint SWP_SHOWWINDOW = 0x0040;
         private const uint SWP_FRAMECHANGED = 0x0020;
+        private const uint SWP_NOMOVE = 0x0002;
+        private const uint SWP_NOSIZE = 0x0001;
+        private static readonly IntPtr HWND_TOP = new IntPtr(0);
         private const int SW_RESTORE = 9;
         private const int GWL_STYLE = -16;
         private const int WS_MAXIMIZE = 0x01000000;
