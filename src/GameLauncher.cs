@@ -106,8 +106,12 @@ namespace ElifootLauncher
                 proc = Process.Start(psi);
             }
 
-            // Reposicionamento agora eh 100% event-driven no DLL via
-            // SetWinEventHook (INCONTEXT). Sem polling do lado C#.
+            if (!cfg.Fullscreen && proc != null)
+            {
+                var w = cfg.ResolutionWidth;
+                var h = cfg.ResolutionHeight;
+                Task.Run(() => ResizeWhenReady(proc, expectedTitleHint, w, h));
+            }
         }
 
         // Escreve entrada no registro do Windows pra ativar o AppCompat layer
@@ -213,10 +217,7 @@ namespace ElifootLauncher
             log.AppendLine($"=== ResizeWhenReady start pid={proc.Id} target={width}x{height} at {DateTime.Now:HH:mm:ss} ===");
 
             var tracked = new System.Collections.Generic.HashSet<IntPtr>();
-            var centered = new System.Collections.Generic.HashSet<IntPtr>();
-            var attempts = new System.Collections.Generic.Dictionary<IntPtr, int>();
             int loop = 0;
-            const int MAX_ATTEMPTS = 6; // ~1.2s a cada 200ms
 
             var screen = Screen.PrimaryScreen?.WorkingArea ?? new System.Drawing.Rectangle(0, 0, 1024, 768);
             long screenArea = (long)screen.Width * screen.Height;
@@ -243,7 +244,7 @@ namespace ElifootLauncher
                 // nova pra pegar o estado inicial pre-hook.
                 foreach (var hwnd in hwnds)
                 {
-                    bool firstSeen = tracked.Add(hwnd);
+                    bool firstTime = tracked.Add(hwnd);
                     GetWindowRect(hwnd, out RECT r);
                     long area = (long)(r.Right - r.Left) * (r.Bottom - r.Top);
                     int style = GetWindowLong(hwnd, GWL_STYLE);
@@ -258,35 +259,34 @@ namespace ElifootLauncher
                     if (isMainForm) mainFormHwnd = hwnd;
                     else dialogHwnds.Add(hwnd);
 
-                    int cleanStyle = style & ~WS_MAXIMIZE;
-                    if (cleanStyle != style)
-                        SetWindowLong(hwnd, GWL_STYLE, cleanStyle);
+                    // Detecta se janela esta em (0,0) — indicador de que o
+                    // hook maximize a colocou la e precisa centralizar.
+                    // Isso pega TODA nova apresentacao da janela (ex.: depois
+                    // de fechar/reabrir dialog, ou apos jornada).
+                    bool isAtOrigin = (r.Left == 0 && r.Top == 0);
+                    bool needsCenter = firstTime || isAtOrigin || area >= fullscreenThreshold || isMaxStyle;
 
-                    var screenRect = Screen.PrimaryScreen?.WorkingArea ?? new System.Drawing.Rectangle(0, 0, 1024, 768);
-
-                    if (!centered.Contains(hwnd) && (area >= fullscreenThreshold || isMaxStyle))
+                    if (needsCenter)
                     {
-                        // Fullscreen ou maximizado: força windowed + tamanho config
-                        // UMA UNICA VEZ por hwnd. Adiciona ao centered ANTES
-                        // do SetWindowPos pra evitar reentrancia se algum
-                        // handler sincrono disparar iteracao no mesmo hwnd.
-                        centered.Add(hwnd);
+                        int cleanStyle = style & ~WS_MAXIMIZE;
+                        if (cleanStyle != style)
+                            SetWindowLong(hwnd, GWL_STYLE, cleanStyle);
                         if (isMaxStyle) PostMessage(hwnd, WM_SYSCOMMAND, (IntPtr)SC_RESTORE, IntPtr.Zero);
-                        int x = screenRect.X + Math.Max(0, (screenRect.Width - width) / 2);
-                        int y = screenRect.Y + Math.Max(0, (screenRect.Height - height) / 2);
-                        SetWindowPos(hwnd, IntPtr.Zero, x, y, width, height,
+
+                        int w = r.Right - r.Left;
+                        int h = r.Bottom - r.Top;
+                        if (area >= fullscreenThreshold)
+                        {
+                            w = width;
+                            h = height;
+                        }
+                        var screenRect = Screen.PrimaryScreen?.WorkingArea ?? new System.Drawing.Rectangle(0, 0, 1024, 768);
+                        int x = screenRect.X + Math.Max(0, (screenRect.Width - w) / 2);
+                        int y = screenRect.Y + Math.Max(0, (screenRect.Height - h) / 2);
+                        SetWindowPos(hwnd, IntPtr.Zero, x, y, w, h,
                             SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED);
-                        if (firstSeen) log.AppendLine($"  [+ hwnd=0x{hwnd.ToInt64():x} class='{className}' forced windowed once]");
-                    }
-                    else if (!centered.Contains(hwnd))
-                    {
-                        // NAO mexemos em janela nao-fullscreen. Deixa Delphi
-                        // decidir. Se Delphi + DLL rcWork centralizarem sozinhos,
-                        // otimo. Se ficar em (0,0), tratamos em versao futura
-                        // com SetWinEventHook em vez de polling.
-                        centered.Add(hwnd);
-                        if (firstSeen && logDump)
-                            log.AppendLine($"  [+ hwnd=0x{hwnd.ToInt64():x} class='{className}' left alone ({r.Left},{r.Top}) {r.Right-r.Left}x{r.Bottom-r.Top}]");
+                        if (firstTime || logDump)
+                            log.AppendLine($"  [+ hwnd=0x{hwnd.ToInt64():x} class='{className}' centered ({x},{y}) {w}x{h} atOrigin={isAtOrigin}]");
                     }
                 }
 
@@ -302,7 +302,6 @@ namespace ElifootLauncher
 
                 // Cleanup: janelas que morreram
                 tracked.RemoveWhere(h => !IsWindow(h));
-                centered.RemoveWhere(h => !IsWindow(h));
 
                 loop++;
                 Thread.Sleep(200);
@@ -559,8 +558,6 @@ namespace ElifootLauncher
         private static readonly IntPtr HWND_TOP = new IntPtr(0);
         private static readonly IntPtr HWND_BOTTOM = new IntPtr(1);
         private const int SW_RESTORE = 9;
-        private const int SW_HIDE = 0;
-        private const int SW_SHOWNA = 8;
         private const int GWL_STYLE = -16;
         private const int WS_MAXIMIZE = 0x01000000;
         private const int WS_MAXIMIZEBOX = 0x00010000;
