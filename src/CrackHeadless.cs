@@ -120,39 +120,28 @@ namespace ElifootLauncher
                 // 3) Espera CRACK subir e desenhar o menu
                 Thread.Sleep(1500);
 
-                // 4) Attach input queue + traz foco pra janela off-screen
-                previousForeground = GetForegroundWindow();
-                uint targetThread = GetWindowThreadProcessId(hwnd, out _);
-                attachedFromThread = GetCurrentThreadId();
-                attachedToThread = targetThread;
-                AttachThreadInput(attachedFromThread, attachedToThread, true);
-                SetForegroundWindow(hwnd);
-                SetFocus(hwnd);
-                Thread.Sleep(200);
+                // 4) Nao precisa mexer com foco: WM_KEYDOWN direto na hwnd SDL.
+                // SDL 2 tem WndProc que processa WM_KEYDOWN/WM_CHAR/WM_KEYUP e
+                // traduz em SDL_KEYDOWN. Com lParam encodado corretamente
+                // (repeat + scan code) SDL registra como key event valido.
 
-                // 5) Injeta teclas via SendInput
-                InjectDigit(tipo);
+                // 5) Injeta teclas via WM_KEYDOWN + WM_CHAR + WM_KEYUP com lParam
+                diag.AppendLine("injecting keys via WM_KEYDOWN+CHAR+KEYUP with full lParam");
+                InjectDigit(hwnd, tipo);
                 Thread.Sleep(300);
 
                 foreach (var ch in senhaComHifens)
                 {
-                    if (ch == '-') InjectHyphen();
-                    else if (ch >= '0' && ch <= '9') InjectDigit(ch - '0');
-                    else if (char.IsLetter(ch)) InjectLetter(ch);
+                    if (ch == '-') InjectHyphen(hwnd);
+                    else if (ch >= '0' && ch <= '9') InjectDigit(hwnd, ch - '0');
+                    else if (char.IsLetter(ch)) InjectLetter(hwnd, ch);
                     Thread.Sleep(40);
                 }
-                InjectEnter();
+                InjectEnter(hwnd);
                 Thread.Sleep(700);
-                InjectLetter('S');
+                InjectLetter(hwnd, 'S');
                 Thread.Sleep(200);
-                InjectEnter();
-
-                // 6) Detach + restaura foreground original
-                AttachThreadInput(attachedFromThread, attachedToThread, false);
-                attachedFromThread = 0;
-                attachedToThread = 0;
-                if (previousForeground != IntPtr.Zero)
-                    SetForegroundWindow(previousForeground);
+                InjectEnter(hwnd);
 
                 // 7) Aguarda DOSBox terminar (max 15s)
                 bool exited = proc.WaitForExit(15000);
@@ -296,44 +285,45 @@ namespace ElifootLauncher
             status = statusLocal;
         }
 
-        // ---- SendInput helpers ----
-        private static void InjectDigit(int d)
+        // ---- WM_KEYDOWN/UP helpers ----
+        // Envia sequencia key-down + char + key-up com lParam bem formado
+        // (repeat=1, scan code do MapVirtualKey, sem extended, bits de
+        // transition corretos). SDL processa esses eventos.
+        private static void InjectDigit(IntPtr hwnd, int d)
         {
-            // '0' = VK 0x30, '1' = 0x31 ...
-            SendKey((ushort)(0x30 + d));
+            ushort vk = (ushort)(0x30 + d);
+            char ch = (char)('0' + d);
+            SendKey(hwnd, vk, ch);
         }
 
-        private static void InjectLetter(char c)
+        private static void InjectLetter(IntPtr hwnd, char c)
         {
-            // Letras maiusculas: 'A'=0x41, 'B'=0x42, ... 'S'=0x53
             var up = char.ToUpper(c);
             if (up < 'A' || up > 'Z') return;
-            SendKey((ushort)up);
+            SendKey(hwnd, up, up); // SDL converte com shift depois; nao precisa
         }
 
-        private static void InjectHyphen()
+        private static void InjectHyphen(IntPtr hwnd)
         {
-            // '-' = VK_OEM_MINUS = 0xBD
-            SendKey(0xBD);
+            SendKey(hwnd, 0xBD, '-'); // VK_OEM_MINUS
         }
 
-        private static void InjectEnter()
+        private static void InjectEnter(IntPtr hwnd)
         {
-            SendKey(0x0D); // VK_RETURN
+            SendKey(hwnd, 0x0D, '\r'); // VK_RETURN
         }
 
-        private static void SendKey(ushort vk)
+        private static void SendKey(IntPtr hwnd, ushort vk, char ch)
         {
-            var inputs = new INPUT[2];
-            inputs[0].type = INPUT_KEYBOARD;
-            inputs[0].u.ki.wVk = vk;
-            inputs[0].u.ki.dwFlags = 0;
+            uint scan = MapVirtualKey(vk, MAPVK_VK_TO_VSC);
+            // lParam KEYDOWN: repeat=1 (bits 0-15) | scan<<16 | prevState=0 | transition=0
+            IntPtr lpDown = (IntPtr)((int)((scan & 0xFF) << 16) | 0x00000001);
+            // lParam KEYUP: repeat=1 | scan<<16 | prev=1 (bit 30) | transition=1 (bit 31)
+            IntPtr lpUp = (IntPtr)(unchecked((int)((scan & 0xFF) << 16) | unchecked((int)0xC0000001)));
 
-            inputs[1].type = INPUT_KEYBOARD;
-            inputs[1].u.ki.wVk = vk;
-            inputs[1].u.ki.dwFlags = KEYEVENTF_KEYUP;
-
-            SendInput((uint)inputs.Length, inputs, Marshal.SizeOf(typeof(INPUT)));
+            PostMessage(hwnd, WM_KEYDOWN, (IntPtr)vk, lpDown);
+            PostMessage(hwnd, WM_CHAR, (IntPtr)ch, lpDown);
+            PostMessage(hwnd, WM_KEYUP, (IntPtr)vk, lpUp);
         }
 
         private static void KillTree(Process p)
@@ -346,6 +336,16 @@ namespace ElifootLauncher
         private const uint SWP_NOACTIVATE = 0x0010;
         private const uint INPUT_KEYBOARD = 1;
         private const uint KEYEVENTF_KEYUP = 0x0002;
+        private const uint WM_KEYDOWN = 0x0100;
+        private const uint WM_KEYUP = 0x0101;
+        private const uint WM_CHAR = 0x0102;
+        private const uint MAPVK_VK_TO_VSC = 0;
+
+        [DllImport("user32.dll")]
+        private static extern uint MapVirtualKey(uint uCode, uint uMapType);
+
+        [DllImport("user32.dll", CharSet = CharSet.Auto)]
+        private static extern bool PostMessage(IntPtr hWnd, uint Msg, IntPtr wParam, IntPtr lParam);
 
         private delegate bool EnumWindowsProc(IntPtr hWnd, IntPtr lParam);
 
