@@ -79,14 +79,15 @@ namespace ElifootLauncher
                 if (team.VerbaOffset > 0)
                     team.Verba = (uint)BitConverter.ToInt32(bytes, team.VerbaOffset);
 
-                // Player records
+                // Player records. Todos os markers detectados sao players
+                // reais — team header nao aparece porque nao tem 'bra'
+                // preciso e o filtro initial-lowercase rejeita ele.
                 var starts = FindPlayerStarts(decoded);
                 // Coleta tamanhos dos records nao-ultimos primeiro
                 var prevSizes = new List<int>();
-                for (int i = 1; i < starts.Count - 1; i++)
+                for (int i = 0; i < starts.Count - 1; i++)
                     prevSizes.Add(starts[i + 1] - starts[i]);
-                // Mediana pra estimar tamanho do ultimo record (mais robusta
-                // que media contra outliers)
+                // Mediana pra estimar tamanho do ultimo record
                 int medianSize = 60;
                 if (prevSizes.Count > 0)
                 {
@@ -94,7 +95,7 @@ namespace ElifootLauncher
                     medianSize = prevSizes[prevSizes.Count / 2];
                 }
 
-                for (int i = 1; i < starts.Count; i++)
+                for (int i = 0; i < starts.Count; i++)
                 {
                     int recStart = starts[i];
                     int naiveEnd = i + 1 < starts.Count ? starts[i + 1] : decoded.Length;
