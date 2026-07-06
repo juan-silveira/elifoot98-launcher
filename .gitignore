@@ -21,11 +21,8 @@ packages/
 .DS_Store
 Thumbs.db
 
-# Third-party binaries (fetched by scripts, not committed)
+# Third-party binaries (baixados por scripts, não commitados)
 vendor/
-resources/otvdm/
-resources/dosbox/
-resources/game/
 
 # Installer output
 installer/Output/

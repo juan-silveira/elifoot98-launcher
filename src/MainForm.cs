@@ -16,6 +16,13 @@ namespace ElifootLauncher
             FormBorderStyle = FormBorderStyle.FixedSingle;
             MaximizeBox = false;
             StartPosition = FormStartPosition.CenterScreen;
+            try
+            {
+                var iconStream = System.Reflection.Assembly.GetExecutingAssembly()
+                    .GetManifestResourceStream("ElifootLauncher.elifoot.ico");
+                if (iconStream != null) Icon = new System.Drawing.Icon(iconStream);
+            }
+            catch { }
 
             var title = new Label
             {

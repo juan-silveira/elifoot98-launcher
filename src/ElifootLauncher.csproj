@@ -6,6 +6,7 @@
     <LangVersion>latest</LangVersion>
     <Nullable>enable</Nullable>
     <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationIcon>elifoot.ico</ApplicationIcon>
     <RootNamespace>ElifootLauncher</RootNamespace>
     <AssemblyName>ElifootLauncher</AssemblyName>
     <EnableWindowsTargeting>true</EnableWindowsTargeting>
@@ -15,5 +16,10 @@
   <ItemGroup>
     <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.3" PrivateAssets="All" />
     <PackageReference Include="System.Text.Json" Version="8.0.5" />
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="elifoot.ico">
+      <LogicalName>ElifootLauncher.elifoot.ico</LogicalName>
+    </EmbeddedResource>
   </ItemGroup>
 </Project>

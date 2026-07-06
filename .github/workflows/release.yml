@@ -1,0 +1,76 @@
+name: Build & Release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-installer:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET SDK 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Fetch third-party binaries (otvdm, DOSBox)
+        shell: bash
+        run: bash scripts/fetch-deps.sh
+
+      - name: Build launcher (Release)
+        shell: bash
+        run: dotnet build src/ElifootLauncher.csproj -c Release
+
+      - name: Install Inno Setup
+        run: |
+          choco install innosetup -y --no-progress
+
+      - name: Compile installer
+        shell: pwsh
+        run: |
+          $env:PATH += ";$env:ProgramFiles(x86)\Inno Setup 6"
+          & "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" installer\setup.iss
+
+      - name: Read version from tag
+        id: version
+        shell: bash
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/* ]]; then
+            echo "value=${GITHUB_REF#refs/tags/}" >> "$GITHUB_OUTPUT"
+          else
+            echo "value=dev-$(date +%Y%m%d-%H%M%S)" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Upload build artifact (always, for debug)
+        uses: actions/upload-artifact@v4
+        with:
+          name: elifoot98-launcher-setup
+          path: installer/Output/*.exe
+          if-no-files-found: error
+
+      - name: Create GitHub Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: installer/Output/*.exe
+          generate_release_notes: true
+          name: ${{ steps.version.outputs.value }}
+          body: |
+            ## Instalação
+
+            1. Baixe o `elifoot98-launcher-setup-*.exe` abaixo
+            2. Execute (Windows pode pedir SmartScreen — clique "Mais info" → "Executar mesmo assim")
+            3. Siga o assistente
+            4. Um atalho "Elifoot 98" aparece no menu Iniciar
+
+            ## Requisitos
+            - Windows 10 (1809+) ou 11
+            - .NET Framework 4.8 (já vem em Win 10/11)
