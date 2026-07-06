@@ -218,7 +218,9 @@ namespace ElifootLauncher
 
             var tracked = new System.Collections.Generic.HashSet<IntPtr>();
             var centered = new System.Collections.Generic.HashSet<IntPtr>();
+            var attempts = new System.Collections.Generic.Dictionary<IntPtr, int>();
             int loop = 0;
+            const int MAX_ATTEMPTS = 6; // ~1.2s a cada 200ms
 
             var screen = Screen.PrimaryScreen?.WorkingArea ?? new System.Drawing.Rectangle(0, 0, 1024, 768);
             long screenArea = (long)screen.Width * screen.Height;
@@ -282,23 +284,27 @@ namespace ElifootLauncher
                         bool nearOrigin = r.Left < 50 && r.Top < 50;
                         if (nearOrigin)
                         {
-                            int w = r.Right - r.Left;
-                            int h = r.Bottom - r.Top;
-                            int x = screenRect.X + Math.Max(0, (screenRect.Width - w) / 2);
-                            int y = screenRect.Y + Math.Max(0, (screenRect.Height - h) / 2);
-                            // SEM SWP_NOACTIVATE porque Delphi precisa
-                            // processar o move corretamente. Com SWP_SHOWWINDOW
-                            // pra garantir que a janela aparece na nova pos.
-                            SetWindowPos(hwnd, IntPtr.Zero, x, y, w, h,
-                                SWP_NOZORDER | SWP_SHOWWINDOW);
-                            GetWindowRect(hwnd, out RECT after);
-                            if (after.Left >= 50 || after.Top >= 50)
+                            attempts.TryGetValue(hwnd, out int n);
+                            if (n >= MAX_ATTEMPTS)
                             {
+                                // desistiu — aceita como esta pra nao flickar eternamente
                                 centered.Add(hwnd);
-                                log.AppendLine($"  [+ hwnd=0x{hwnd.ToInt64():x} class='{className}' centered ({x},{y}) {w}x{h}]");
+                                log.AppendLine($"  [+ hwnd=0x{hwnd.ToInt64():x} class='{className}' gave up after {n} attempts]");
                             }
-                            // Se nao pegou, nao marca — proxima iteracao tenta de novo
-                            // (max 5 tentativas via attemptCount pra evitar flicker perpetuo)
+                            else
+                            {
+                                int w = r.Right - r.Left;
+                                int h = r.Bottom - r.Top;
+                                int x = screenRect.X + Math.Max(0, (screenRect.Width - w) / 2);
+                                int y = screenRect.Y + Math.Max(0, (screenRect.Height - h) / 2);
+                                // Estilo v0.1.7: SHOWWINDOW + FRAMECHANGED, sem verify.
+                                // Aplica agressivamente e conta tentativas.
+                                SetWindowPos(hwnd, IntPtr.Zero, x, y, w, h,
+                                    SWP_NOZORDER | SWP_SHOWWINDOW | SWP_FRAMECHANGED);
+                                attempts[hwnd] = n + 1;
+                                if (firstSeen)
+                                    log.AppendLine($"  [+ hwnd=0x{hwnd.ToInt64():x} class='{className}' attempt {n+1}: center ({x},{y}) {w}x{h}]");
+                            }
                         }
                         else
                         {
