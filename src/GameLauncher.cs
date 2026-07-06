@@ -1,6 +1,11 @@
 using System;
 using System.Diagnostics;
 using System.IO;
+using System.Runtime.InteropServices;
+using System.Text;
+using System.Threading;
+using System.Threading.Tasks;
+using System.Windows.Forms;
 
 namespace ElifootLauncher
 {
@@ -32,10 +37,10 @@ namespace ElifootLauncher
             return true;
         }
 
-        public void LaunchElifoot(LauncherConfig cfg) => LaunchWithOtvdm(ElifootExe, cfg);
-        public void LaunchEditor(LauncherConfig cfg) => LaunchWithOtvdm(EditeqExe, cfg);
+        public void LaunchElifoot(LauncherConfig cfg) => LaunchWithOtvdm(ElifootExe, cfg, "Elifoot 98");
+        public void LaunchEditor(LauncherConfig cfg) => LaunchWithOtvdm(EditeqExe, cfg, "Editeq");
 
-        private void LaunchWithOtvdm(string exePath, LauncherConfig cfg)
+        private void LaunchWithOtvdm(string exePath, LauncherConfig cfg, string expectedTitleHint)
         {
             if (!File.Exists(exePath))
                 throw new FileNotFoundException($"Executável não encontrado: {exePath}");
@@ -49,7 +54,76 @@ namespace ElifootLauncher
                 WorkingDirectory = GameDir,
                 UseShellExecute = false,
             };
-            Process.Start(psi);
+            var proc = Process.Start(psi);
+
+            if (!cfg.Fullscreen && proc != null)
+            {
+                var w = cfg.ResolutionWidth;
+                var h = cfg.ResolutionHeight;
+                Task.Run(() => ResizeWhenReady(proc, expectedTitleHint, w, h));
+            }
+        }
+
+        // Aguarda a janela do jogo aparecer e forca tamanho/posicao.
+        // Elifoot maximiza sozinho por default (DFM WindowState=wsMaximized),
+        // entao acompanhamos por ~15s e tambem re-aplicamos se ele maximizar depois.
+        private void ResizeWhenReady(Process proc, string titleHint, int width, int height)
+        {
+            const int maxAttempts = 40; // ~20s
+            IntPtr hwnd = IntPtr.Zero;
+
+            for (int i = 0; i < maxAttempts; i++)
+            {
+                Thread.Sleep(500);
+                if (proc.HasExited) return;
+
+                hwnd = FindGameWindow(proc.Id, titleHint);
+                if (hwnd != IntPtr.Zero) break;
+            }
+            if (hwnd == IntPtr.Zero) return;
+
+            ForceWindowed(hwnd, width, height);
+
+            // Re-aplica algumas vezes caso o app maximize depois de carregar
+            for (int i = 0; i < 6; i++)
+            {
+                Thread.Sleep(500);
+                if (proc.HasExited) return;
+                ForceWindowed(hwnd, width, height);
+            }
+        }
+
+        private static IntPtr FindGameWindow(int processId, string titleHint)
+        {
+            IntPtr result = IntPtr.Zero;
+            EnumWindows((h, _) =>
+            {
+                if (!IsWindowVisible(h)) return true;
+                GetWindowThreadProcessId(h, out uint pid);
+                if (pid != (uint)processId) return true;
+
+                var sb = new StringBuilder(256);
+                GetWindowText(h, sb, sb.Capacity);
+                var title = sb.ToString();
+                if (title.IndexOf(titleHint, StringComparison.OrdinalIgnoreCase) >= 0)
+                {
+                    result = h;
+                    return false;
+                }
+                return true;
+            }, IntPtr.Zero);
+            return result;
+        }
+
+        private static void ForceWindowed(IntPtr hwnd, int width, int height)
+        {
+            // Se estiver maximizada, restaura primeiro
+            ShowWindow(hwnd, SW_RESTORE);
+
+            var screen = Screen.PrimaryScreen?.WorkingArea ?? new System.Drawing.Rectangle(0, 0, 1024, 768);
+            int x = screen.X + Math.Max(0, (screen.Width - width) / 2);
+            int y = screen.Y + Math.Max(0, (screen.Height - height) / 2);
+            SetWindowPos(hwnd, IntPtr.Zero, x, y, width, height, SWP_NOZORDER | SWP_SHOWWINDOW);
         }
 
         private void WriteOtvdmIni(LauncherConfig cfg)
@@ -61,8 +135,6 @@ namespace ElifootLauncher
                 "EnableVisualStyle=0",
                 "DisableAero=1",
                 cfg.Fullscreen ? "FixScreenSize=0" : "FixScreenSize=1",
-                $"Width={cfg.ResolutionWidth}",
-                $"Height={cfg.ResolutionHeight}",
             });
             try
             {
@@ -70,9 +142,7 @@ namespace ElifootLauncher
             }
             catch (UnauthorizedAccessException)
             {
-                // Sem permissao (ex.: install em Program Files): segue com o ini
-                // que veio no bundle. Perde as configuracoes de resolucao mas o jogo
-                // ainda abre.
+                // Sem permissao: segue com ini padrao do bundle.
             }
         }
 
@@ -105,5 +175,30 @@ namespace ElifootLauncher
             };
             Process.Start(psi);
         }
+
+        // ------------ P/Invoke ------------
+        private const uint SWP_NOZORDER = 0x0004;
+        private const uint SWP_SHOWWINDOW = 0x0040;
+        private const int SW_RESTORE = 9;
+
+        private delegate bool EnumWindowsProc(IntPtr hWnd, IntPtr lParam);
+
+        [DllImport("user32.dll")]
+        private static extern bool EnumWindows(EnumWindowsProc lpEnumFunc, IntPtr lParam);
+
+        [DllImport("user32.dll", CharSet = CharSet.Auto)]
+        private static extern int GetWindowText(IntPtr hWnd, StringBuilder lpString, int nMaxCount);
+
+        [DllImport("user32.dll")]
+        private static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint lpdwProcessId);
+
+        [DllImport("user32.dll")]
+        private static extern bool IsWindowVisible(IntPtr hWnd);
+
+        [DllImport("user32.dll", SetLastError = true)]
+        private static extern bool SetWindowPos(IntPtr hWnd, IntPtr hWndInsertAfter, int X, int Y, int cx, int cy, uint uFlags);
+
+        [DllImport("user32.dll")]
+        private static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
     }
 }
