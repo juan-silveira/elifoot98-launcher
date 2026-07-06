@@ -8,10 +8,10 @@ namespace ElifootLauncher
     // problema do System.Text.Json em Framework Dependent netfx).
     public class LauncherConfig
     {
-        // Nativo do Elifoot: ~1024x768 (o jogo renderiza em pixels fixos e nao
-        // escala). Menor que isso corta conteudo (4a divisao, relogio, etc.).
-        public int ResolutionWidth { get; set; } = 1024;
-        public int ResolutionHeight { get; set; } = 768;
+        // Compat layer '640X480' faz o Elifoot desenhar tudo em 640x480.
+        // Combina com janela 640x480 = zero corte, jogo cabe perfeito.
+        public int ResolutionWidth { get; set; } = 640;
+        public int ResolutionHeight { get; set; } = 480;
         public bool Fullscreen { get; set; } = false;
 
         private static string ConfigPath

@@ -52,6 +52,21 @@ namespace ElifootLauncher
 
             WriteOtvdmIni(cfg);
 
+            // otvdm respeita AppCompat Layers do Windows: se registro
+            // HKCU\Software\Microsoft\Windows NT\CurrentVersion\AppCompatFlags\
+            // Layers tiver o path do exe com valor '640X480', o otvdm faz
+            // GetSystemMetrics(SM_CXSCREEN)=640 e SM_CYSCREEN=480 pro processo
+            // emulado. Elifoot desenha tudo em 640x480, cabe na janela sem
+            // cortar conteudo.
+            if (!cfg.Fullscreen)
+            {
+                SetCompatLayer(exePath, "640X480");
+            }
+            else
+            {
+                RemoveCompatLayer(exePath);
+            }
+
             var psi = new ProcessStartInfo
             {
                 FileName = OtvdmExe,
@@ -59,23 +74,6 @@ namespace ElifootLauncher
                 WorkingDirectory = GameDir,
                 UseShellExecute = false,
             };
-
-            // Tentativa: passa varias env vars candidatas pra otvdm/Wine
-            // fingirem que o desktop e do tamanho da config. Assim Elifoot
-            // ao chamar GetSystemMetrics(SM_CXSCREEN) recebe o valor fake
-            // e desenha na resolucao esperada.
-            if (!cfg.Fullscreen)
-            {
-                var wh = $"{cfg.ResolutionWidth}x{cfg.ResolutionHeight}";
-                // Wine classic virtual desktop
-                psi.EnvironmentVariables["WINEDESKTOP"] = wh;
-                // otvdm-specific (chutes baseados em conveções winevdm/Wine)
-                psi.EnvironmentVariables["OTVDM_SCREEN_WIDTH"] = cfg.ResolutionWidth.ToString();
-                psi.EnvironmentVariables["OTVDM_SCREEN_HEIGHT"] = cfg.ResolutionHeight.ToString();
-                psi.EnvironmentVariables["OTVDM_DESKTOP"] = wh;
-                // SDL (caso otvdm delegue pra SDL em algum modo)
-                psi.EnvironmentVariables["SDL_VIDEO_WINDOW_POS"] = "0,0";
-            }
 
             var proc = Process.Start(psi);
 
@@ -85,6 +83,35 @@ namespace ElifootLauncher
                 var h = cfg.ResolutionHeight;
                 Task.Run(() => ResizeWhenReady(proc, expectedTitleHint, w, h));
             }
+        }
+
+        // Escreve entrada no registro do Windows pra ativar o AppCompat layer
+        // que o otvdm entende (ex.: '640X480' pra forcar SM_CXSCREEN=640).
+        // Se ja existe, sobrescreve.
+        private static void SetCompatLayer(string exePath, string layer)
+        {
+            try
+            {
+                using (var key = Microsoft.Win32.Registry.CurrentUser.CreateSubKey(
+                    @"Software\Microsoft\Windows NT\CurrentVersion\AppCompatFlags\Layers"))
+                {
+                    if (key != null) key.SetValue(exePath, layer, Microsoft.Win32.RegistryValueKind.String);
+                }
+            }
+            catch { }
+        }
+
+        private static void RemoveCompatLayer(string exePath)
+        {
+            try
+            {
+                using (var key = Microsoft.Win32.Registry.CurrentUser.OpenSubKey(
+                    @"Software\Microsoft\Windows NT\CurrentVersion\AppCompatFlags\Layers", writable: true))
+                {
+                    if (key != null) key.DeleteValue(exePath, throwOnMissingValue: false);
+                }
+            }
+            catch { }
         }
 
         // Log de diagnostico das janelas visiveis. Ajuda a descobrir qual eh a

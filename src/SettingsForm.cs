@@ -11,17 +11,16 @@ namespace ElifootLauncher
         private readonly ComboBox _resolutionBox;
         private readonly CheckBox _fullscreenBox;
 
-        // Resolucao minima e 1024x768 (nativo do Elifoot). Menor corta conteudo.
+        // Com AppCompat 640X480 ativo, Elifoot desenha em 640x480. Resolucoes
+        // maiores no launcher = mesma tela do jogo escalada (pixels maiores).
         private static readonly (int W, int H)[] Resolutions =
         {
+            (640, 480),
+            (800, 600),
             (1024, 768),
             (1280, 960),
-            (1366, 768),
             (1600, 1200),
-            (1920, 1080),
             (1920, 1440),
-            (2560, 1440),
-            (3840, 2160),
         };
 
         public SettingsForm(LauncherConfig cfg)
@@ -61,7 +60,7 @@ namespace ElifootLauncher
 
             var lblNota = new Label
             {
-                Text = "O Elifoot desenha em pixels fixos e não escala. Menos de 1024×768 corta conteúdo (4ª divisão, relógio).",
+                Text = "Com o compat layer 640×480 ativo, o jogo desenha nessa resolução independente da janela — nenhum elemento é cortado.",
                 Location = new Point(20, 120),
                 Size = new Size(360, 60),
                 ForeColor = Color.FromArgb(100, 100, 100),
