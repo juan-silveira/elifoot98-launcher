@@ -147,7 +147,7 @@ namespace ElifootLauncher
             _btnGerar.Enabled = false;
             _btnCopy.Enabled = false;
             _txtContraSenha.Text = "";
-            _lblStatus.Text = "Rodando CRACK oculto... (pode levar ~10s)";
+            _lblStatus.Text = "⏳ Aguarde! Estamos gerando a contra-senha...";
             Application.DoEvents();
 
             var res = await Task.Run(() => CrackHeadless.Generate(_launcher, tipo, senha));
@@ -162,7 +162,7 @@ namespace ElifootLauncher
 
             _txtContraSenha.Text = res.ContraSenha;
             _btnCopy.Enabled = true;
-            _lblStatus.Text = "Pronto! Clique Copiar e cole no Elifoot.";
+            _lblStatus.Text = "✅ Pronto! Clique Copiar e cole no Elifoot.";
         }
     }
 }

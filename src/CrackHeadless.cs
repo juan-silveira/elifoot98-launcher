@@ -107,12 +107,30 @@ namespace ElifootLauncher
                 }
                 diag.AppendLine($"hwndMain=0x{hwndMain.ToInt64():x}, hwndStatus=0x{hwndStatus.ToInt64():x}");
 
-                // 2) ESCONDE as duas janelas do DOSBox. Windows nao renderiza
-                // janelas hidden, e PostMessage(WM_KEYDOWN) ainda chega na queue
-                // delas — CRACK processa keys normalmente.
+                // 2) ESCONDE as duas janelas do DOSBox. SDL re-mostra a janela
+                // durante init, entao precisamos insistir em SW_HIDE. Thread
+                // paralela roda enquanto o DOSBox esta ativo.
                 ShowWindow(hwndMain, SW_HIDE);
                 if (hwndStatus != IntPtr.Zero) ShowWindow(hwndStatus, SW_HIDE);
-                var hwnd = hwndMain; // resto do codigo usa 'hwnd' pra main
+                var hwnd = hwndMain;
+                var procCopy = proc; // captura pra closure
+                var hwndMainCopy = hwndMain;
+                var hwndStatusCopy = hwndStatus;
+                var hideThread = new Thread(() =>
+                {
+                    while (!procCopy.HasExited)
+                    {
+                        try
+                        {
+                            if (IsWindowVisible(hwndMainCopy)) ShowWindow(hwndMainCopy, SW_HIDE);
+                            if (hwndStatusCopy != IntPtr.Zero && IsWindowVisible(hwndStatusCopy))
+                                ShowWindow(hwndStatusCopy, SW_HIDE);
+                        }
+                        catch { }
+                        Thread.Sleep(50);
+                    }
+                }) { IsBackground = true };
+                hideThread.Start();
 
                 // 3) Espera CRACK subir e desenhar o menu
                 Thread.Sleep(1500);
