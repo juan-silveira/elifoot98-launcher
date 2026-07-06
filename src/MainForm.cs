@@ -6,10 +6,13 @@ namespace ElifootLauncher
 {
     public class MainForm : Form
     {
+        private readonly GameLauncher _launcher = new GameLauncher();
+        private LauncherConfig _config = LauncherConfig.Load();
+
         public MainForm()
         {
             Text = "Elifoot 98 Launcher";
-            ClientSize = new Size(400, 260);
+            ClientSize = new Size(400, 280);
             FormBorderStyle = FormBorderStyle.FixedSingle;
             MaximizeBox = false;
             StartPosition = FormStartPosition.CenterScreen;
@@ -28,14 +31,36 @@ namespace ElifootLauncher
             var btnJogo = MakeButton("Jogar Elifoot 98", 60);
             var btnEditor = MakeButton("Editor de Equipes", 105);
             var btnCrack = MakeButton("Registrador (CRACK)", 150);
-            var btnConfig = MakeButton("Configurações", 205, secondary: true);
+            var btnConfig = MakeButton("Configurações", 210, secondary: true);
 
-            btnJogo.Click += (s, e) => MessageBox.Show("TODO: rodar ELIFOOT.EXE via otvdm");
-            btnEditor.Click += (s, e) => MessageBox.Show("TODO: rodar EDITEQ.EXE via otvdm");
-            btnCrack.Click += (s, e) => MessageBox.Show("TODO: rodar CRACK.EXE via DOSBox embutido");
-            btnConfig.Click += (s, e) => MessageBox.Show("TODO: abrir SettingsForm");
+            btnJogo.Click += (s, e) => SafeRun(() => _launcher.LaunchElifoot(_config));
+            btnEditor.Click += (s, e) => SafeRun(() => _launcher.LaunchEditor(_config));
+            btnCrack.Click += (s, e) => SafeRun(() => _launcher.LaunchCrack());
+            btnConfig.Click += (s, e) =>
+            {
+                using (var f = new SettingsForm(_config))
+                {
+                    if (f.ShowDialog(this) == DialogResult.OK)
+                        _config = LauncherConfig.Load();
+                }
+            };
 
             Controls.AddRange(new Control[] { btnJogo, btnEditor, btnCrack, btnConfig });
+        }
+
+        private void SafeRun(Action a)
+        {
+            try { a(); }
+            catch (System.IO.FileNotFoundException ex)
+            {
+                MessageBox.Show(this, ex.Message, "Arquivo faltando",
+                    MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(this, ex.Message, "Erro ao iniciar",
+                    MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
         }
 
         private Button MakeButton(string text, int top, bool secondary = false)
