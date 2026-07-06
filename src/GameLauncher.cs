@@ -212,32 +212,56 @@ namespace ElifootLauncher
                     int style = GetWindowLong(hwnd, GWL_STYLE);
                     bool isMaxStyle = (style & WS_MAXIMIZE) != 0;
 
+                    // Class name pra distinguir main form vs dialog (form filho)
+                    var cls = new StringBuilder(128);
+                    GetClassName(hwnd, cls, cls.Capacity);
+                    var className = cls.ToString();
+                    // Delphi 1: classes tipo 'WIN16119FTmainWindow' (form principal)
+                    // ou 'WIN16119FTjourneyDlg', 'WIN16119FTaboutDlg' etc. (dialogs)
+                    bool isMainForm = className.EndsWith("mainWindow", StringComparison.OrdinalIgnoreCase)
+                                   || className.EndsWith("MainForm", StringComparison.OrdinalIgnoreCase);
+                    bool isDialog = className.EndsWith("Dlg", StringComparison.OrdinalIgnoreCase)
+                                 || className.EndsWith("Form", StringComparison.OrdinalIgnoreCase);
+
                     // Categoriza
                     if (area >= screenArea * 0.20) mains.Add(hwnd);
                     else popups.Add(hwnd);
 
                     if (area >= fullscreenThreshold || isMaxStyle)
                     {
-                        // Fullscreen OU flag de maximize setada: força windowed
-                        ForceWindowed(hwnd, width, height, log, verbose: firstTime || loop % 50 == 0);
-                        if (firstTime) log.AppendLine($"  [+ hwnd=0x{hwnd.ToInt64():x} was {(area >= fullscreenThreshold ? "fullscreen" : "WS_MAXIMIZE style set")}]");
+                        if (isDialog && !isMainForm)
+                        {
+                            // Dialog: NAO forca tamanho — so desmaximiza. Deixa
+                            // Delphi usar o Width/Height do DFM (que pra dialogs
+                            // com muito conteudo eh maior que 640x480).
+                            var s2 = GetWindowLong(hwnd, GWL_STYLE);
+                            if ((s2 & WS_MAXIMIZE) != 0)
+                                SetWindowLong(hwnd, GWL_STYLE, s2 & ~WS_MAXIMIZE);
+                            PostMessage(hwnd, WM_SYSCOMMAND, (IntPtr)SC_RESTORE, IntPtr.Zero);
+                            if (firstTime) log.AppendLine($"  [+ dialog hwnd=0x{hwnd.ToInt64():x} class='{className}' SC_RESTORE only (keep natural size)]");
+                        }
+                        else
+                        {
+                            // Main form: força windowed com o tamanho escolhido
+                            ForceWindowed(hwnd, width, height, log, verbose: firstTime || loop % 50 == 0);
+                            if (firstTime) log.AppendLine($"  [+ main hwnd=0x{hwnd.ToInt64():x} class='{className}' resized to {width}x{height}]");
+                        }
                     }
                     else if (firstTime)
                     {
-                        // Primeira vez que vejo, e nao esta fullscreen: LIMPA estilos
-                        // de maximize (mas mantem WS_MAXIMIZEBOX pra usuario poder
-                        // maximizar depois). Isso destrava o drag da titlebar.
+                        // Primeira vez que vejo, nao esta fullscreen: LIMPA estilos
+                        // de maximize (mantem WS_MAXIMIZEBOX). Destrava drag.
                         int cleanStyle = style & ~WS_MAXIMIZE;
                         if (cleanStyle != style)
                         {
                             SetWindowLong(hwnd, GWL_STYLE, cleanStyle);
                             SetWindowPos(hwnd, IntPtr.Zero, 0, 0, 0, 0,
                                 SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED);
-                            log.AppendLine($"  [+ hwnd=0x{hwnd.ToInt64():x} cleared WS_MAXIMIZE style (was 0x{style:x})]");
+                            log.AppendLine($"  [+ hwnd=0x{hwnd.ToInt64():x} class='{className}' cleared WS_MAXIMIZE (was 0x{style:x})]");
                         }
                         else if (logDump)
                         {
-                            log.AppendLine($"  [+ hwnd=0x{hwnd.ToInt64():x} already ok, {r.Right - r.Left}x{r.Bottom - r.Top}]");
+                            log.AppendLine($"  [+ hwnd=0x{hwnd.ToInt64():x} class='{className}' ok, {r.Right - r.Left}x{r.Bottom - r.Top}]");
                         }
                     }
                 }
