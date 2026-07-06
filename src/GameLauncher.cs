@@ -217,6 +217,11 @@ namespace ElifootLauncher
             log.AppendLine($"=== ResizeWhenReady start pid={proc.Id} target={width}x{height} at {DateTime.Now:HH:mm:ss} ===");
 
             var tracked = new System.Collections.Generic.HashSet<IntPtr>();
+            var lastCenter = new System.Collections.Generic.Dictionary<IntPtr, DateTime>();
+            // Cooldown: uma vez centralizada, nao mexer de novo por N ms.
+            // Se Delphi puxar de volta pra (0,0) rapido, nao brigamos.
+            // Se dialog for reaberto mais tarde, cooldown ja expirou e centraliza.
+            var cooldown = TimeSpan.FromMilliseconds(2000);
             int loop = 0;
 
             var screen = Screen.PrimaryScreen?.WorkingArea ?? new System.Drawing.Rectangle(0, 0, 1024, 768);
@@ -264,9 +269,14 @@ namespace ElifootLauncher
                     // Isso pega TODA nova apresentacao da janela (ex.: depois
                     // de fechar/reabrir dialog, ou apos jornada).
                     bool isAtOrigin = (r.Left == 0 && r.Top == 0);
-                    bool needsCenter = firstTime || isAtOrigin || area >= fullscreenThreshold || isMaxStyle;
+                    bool trigger = firstTime || isAtOrigin || area >= fullscreenThreshold || isMaxStyle;
 
-                    if (needsCenter)
+                    // Cooldown: se centralizamos essa hwnd ha < 2s, ignora.
+                    // Isso mata o flicker do polling brigando com Delphi.
+                    bool inCooldown = lastCenter.TryGetValue(hwnd, out var lastAt)
+                                    && (DateTime.Now - lastAt) < cooldown;
+
+                    if (trigger && !inCooldown)
                     {
                         int cleanStyle = style & ~WS_MAXIMIZE;
                         if (cleanStyle != style)
@@ -285,6 +295,7 @@ namespace ElifootLauncher
                         int y = screenRect.Y + Math.Max(0, (screenRect.Height - h) / 2);
                         SetWindowPos(hwnd, IntPtr.Zero, x, y, w, h,
                             SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED);
+                        lastCenter[hwnd] = DateTime.Now;
                         if (firstTime || logDump)
                             log.AppendLine($"  [+ hwnd=0x{hwnd.ToInt64():x} class='{className}' centered ({x},{y}) {w}x{h} atOrigin={isAtOrigin}]");
                     }
@@ -302,6 +313,9 @@ namespace ElifootLauncher
 
                 // Cleanup: janelas que morreram
                 tracked.RemoveWhere(h => !IsWindow(h));
+                var dead = new System.Collections.Generic.List<IntPtr>();
+                foreach (var kv in lastCenter) if (!IsWindow(kv.Key)) dead.Add(kv.Key);
+                foreach (var d in dead) lastCenter.Remove(d);
 
                 loop++;
                 Thread.Sleep(200);
