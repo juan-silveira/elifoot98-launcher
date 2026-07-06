@@ -81,17 +81,27 @@ namespace ElifootLauncher
 
                 // Player records
                 var starts = FindPlayerStarts(decoded);
-                int lastRecCap = 130;
+                // Estima tamanho do ULTIMO record via media dos anteriores
+                // (o marker do proximo player nao existe, entao naive end=
+                // decoded.Length gera record enorme e forca/salario caem em
+                // padding).
+                int sizesSum = 0, sizesCount = 0;
                 for (int i = 1; i < starts.Count; i++)
                 {
                     int recStart = starts[i];
                     int naiveEnd = i + 1 < starts.Count ? starts[i + 1] : decoded.Length;
                     int recSize = naiveEnd - recStart;
                     bool isLast = i + 1 >= starts.Count;
-                    if (isLast && recSize > lastRecCap)
-                        recSize = Math.Min(lastRecCap, naiveEnd - recStart);
+                    if (isLast && sizesCount > 0)
+                    {
+                        int avg = sizesSum / sizesCount;
+                        recSize = Math.Min(recSize, avg + 10);
+                    }
                     else if (!isLast)
-                        lastRecCap = Math.Max(lastRecCap, recSize + 20);
+                    {
+                        sizesSum += recSize;
+                        sizesCount++;
+                    }
 
                     if (recSize < FORCA_OFFSET_FROM_REC_END + 1) continue;
                     int forcaLocal = recSize - FORCA_OFFSET_FROM_REC_END;
@@ -295,9 +305,10 @@ namespace ElifootLauncher
                 byte pos = decoded[i + 4];
                 bool nat = a >= 'a' && a <= 'z' && b >= 'a' && b <= 'z' && c >= 'a' && c <= 'z';
                 bool posOk = pos >= 'A' && pos <= 'Z';
-                // Marker byte precedente comum: ! (0x21), # (0x23), espaco (0x20)
+                // Marker byte: ! (0x21), " (0x22) ou # (0x23). Times como
+                // Palmeiras tem players com marker " (Marquinhos, Neném).
                 byte m = decoded[i];
-                bool markerOk = m == 0x21 || m == 0x23 || m == 0x20;
+                bool markerOk = m == 0x21 || m == 0x22 || m == 0x23;
                 if (nat && posOk && markerOk)
                     starts.Add(i);
             }
@@ -315,7 +326,9 @@ namespace ElifootLauncher
             char initial = (char)decoded[recStart + 5];
             sb.Append(char.ToUpperInvariant(initial));
 
-            int nameEnd = recStart + forcaLocal - 3;
+            // Nome termina 2 bytes antes da forca (empirico). Antes usava
+            // -3 mas cortava o ultimo char (Jefferson -> Jefferso).
+            int nameEnd = recStart + forcaLocal - 2;
             if (nameEnd > decoded.Length) nameEnd = decoded.Length;
 
             bool afterSpace = false;
