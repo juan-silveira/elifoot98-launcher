@@ -258,29 +258,28 @@ namespace ElifootLauncher
                     if (isMainForm) mainFormHwnd = hwnd;
                     else dialogHwnds.Add(hwnd);
 
-                    if (area >= fullscreenThreshold || isMaxStyle)
+                    // Com DLL hookando GetMonitorInfo, janelas ja abrem no
+                    // tamanho fake mas em (0,0). Aqui centralizamos.
+                    int cleanStyle = style & ~WS_MAXIMIZE;
+                    if (cleanStyle != style)
+                        SetWindowLong(hwnd, GWL_STYLE, cleanStyle);
+                    if (isMaxStyle) PostMessage(hwnd, WM_SYSCOMMAND, (IntPtr)SC_RESTORE, IntPtr.Zero);
+
+                    // Centraliza mantendo tamanho atual (do DFM ou do hook)
+                    int w = r.Right - r.Left;
+                    int h = r.Bottom - r.Top;
+                    // Se fullscreen ainda (nao passou pelo hook por algum motivo), forca tamanho fake
+                    if (area >= fullscreenThreshold)
                     {
-                        // Aplica UMA vez: clear WS_MAXIMIZE + SC_RESTORE +
-                        // SetWindowPos pro tamanho fake. Depois disso o proprio
-                        // Windows respeita GetMonitorInfo hooked.
-                        int cleanStyle = style & ~WS_MAXIMIZE;
-                        if (cleanStyle != style)
-                            SetWindowLong(hwnd, GWL_STYLE, cleanStyle);
-                        PostMessage(hwnd, WM_SYSCOMMAND, (IntPtr)SC_RESTORE, IntPtr.Zero);
-                        var screenRect = Screen.PrimaryScreen?.WorkingArea ?? new System.Drawing.Rectangle(0, 0, 1024, 768);
-                        int x = screenRect.X + Math.Max(0, (screenRect.Width - width) / 2);
-                        int y = screenRect.Y + Math.Max(0, (screenRect.Height - height) / 2);
-                        SetWindowPos(hwnd, IntPtr.Zero, x, y, width, height,
-                            SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED);
-                        log.AppendLine($"  [+ hwnd=0x{hwnd.ToInt64():x} class='{className}' one-time resize to {width}x{height}]");
+                        w = width;
+                        h = height;
                     }
-                    else
-                    {
-                        int cleanStyle = style & ~WS_MAXIMIZE;
-                        if (cleanStyle != style)
-                            SetWindowLong(hwnd, GWL_STYLE, cleanStyle);
-                        log.AppendLine($"  [+ hwnd=0x{hwnd.ToInt64():x} class='{className}' ok {r.Right-r.Left}x{r.Bottom-r.Top}]");
-                    }
+                    var screenRect = Screen.PrimaryScreen?.WorkingArea ?? new System.Drawing.Rectangle(0, 0, 1024, 768);
+                    int x = screenRect.X + Math.Max(0, (screenRect.Width - w) / 2);
+                    int y = screenRect.Y + Math.Max(0, (screenRect.Height - h) / 2);
+                    SetWindowPos(hwnd, IntPtr.Zero, x, y, w, h,
+                        SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED);
+                    log.AppendLine($"  [+ hwnd=0x{hwnd.ToInt64():x} class='{className}' centered at ({x},{y}) {w}x{h}]");
                 }
 
                 // Z-order: main pro fundo, dialogs pro topo
