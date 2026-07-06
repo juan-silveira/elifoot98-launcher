@@ -9,17 +9,19 @@ namespace ElifootLauncher
     {
         private readonly string _jogosDir;
         private ComboBox _saveSel = null!;
+        private ComboBox _teamSel = null!;
         private TextBox _verbaField = null!;
         private ListView _players = null!;
         private Button _save = null!;
         private SaveFile? _current;
+        private SaveTeam? _currentTeam;
         private string _currentPath = "";
 
         public SaveEditorForm(string jogosDir)
         {
             _jogosDir = jogosDir;
             Text = "Editor de Save";
-            ClientSize = new Size(620, 560);
+            ClientSize = new Size(640, 590);
             FormBorderStyle = FormBorderStyle.FixedSingle;
             MaximizeBox = false;
             StartPosition = FormStartPosition.CenterParent;
@@ -49,11 +51,21 @@ namespace ElifootLauncher
             reload.Click += (s, e) => RefreshSaveList(preserveSelection: true);
             Controls.Add(reload);
 
+            Controls.Add(new Label { Text = "Time:", Location = new Point(16, 55), AutoSize = true });
+            _teamSel = new ComboBox
+            {
+                Location = new Point(60, 52),
+                Width = 300,
+                DropDownStyle = ComboBoxStyle.DropDownList,
+            };
+            _teamSel.SelectedIndexChanged += (s, e) => LoadTeam();
+            Controls.Add(_teamSel);
+
             var gbClube = new GroupBox
             {
                 Text = "Clube",
-                Location = new Point(16, 55),
-                Size = new Size(588, 65),
+                Location = new Point(16, 85),
+                Size = new Size(608, 65),
             };
             Controls.Add(gbClube);
             gbClube.Controls.Add(new Label
@@ -72,14 +84,14 @@ namespace ElifootLauncher
             var gbPlayers = new GroupBox
             {
                 Text = "Jogadores (duplo-clique pra editar força ou salário)",
-                Location = new Point(16, 130),
-                Size = new Size(588, 340),
+                Location = new Point(16, 160),
+                Size = new Size(608, 360),
             };
             Controls.Add(gbPlayers);
             _players = new ListView
             {
                 Location = new Point(10, 20),
-                Size = new Size(568, 310),
+                Size = new Size(588, 330),
                 View = View.Details,
                 FullRowSelect = true,
                 GridLines = true,
@@ -88,15 +100,15 @@ namespace ElifootLauncher
             _players.Columns.Add("#", 30);
             _players.Columns.Add("Pos", 40);
             _players.Columns.Add("Nome", 260);
-            _players.Columns.Add("Força", 80);
-            _players.Columns.Add("Salário", 100);
+            _players.Columns.Add("Força", 90);
+            _players.Columns.Add("Salário", 120);
             gbPlayers.Controls.Add(_players);
             _players.MouseDoubleClick += Players_DoubleClick;
 
             _save = new Button
             {
                 Text = "Salvar",
-                Location = new Point(420, 480),
+                Location = new Point(440, 530),
                 Width = 90,
                 FlatStyle = FlatStyle.System,
                 Enabled = false,
@@ -107,7 +119,7 @@ namespace ElifootLauncher
             var cancel = new Button
             {
                 Text = "Fechar",
-                Location = new Point(515, 480),
+                Location = new Point(535, 530),
                 Width = 90,
                 FlatStyle = FlatStyle.System,
             };
@@ -116,8 +128,8 @@ namespace ElifootLauncher
 
             var note = new Label
             {
-                Text = "Backup .bak criado na primeira gravação. Força >50 emite aviso (jogo aceita até 9999).",
-                Location = new Point(16, 520),
+                Text = "Backup .bak criado na primeira gravação. Times listados por verba (coach = maior). Força >50 emite aviso (jogo aceita até 9999).",
+                Location = new Point(16, 560),
                 AutoSize = true,
                 ForeColor = Color.Gray,
                 Font = new Font("Segoe UI", 8F),
@@ -132,10 +144,8 @@ namespace ElifootLauncher
             int colIdx = -1;
             for (int i = 0; i < hit.Item.SubItems.Count; i++)
                 if (hit.Item.SubItems[i] == hit.SubItem) { colIdx = i; break; }
-            // 0=#, 1=Pos, 2=Nome, 3=Forca, 4=Salario
-            if (colIdx == 3) EditForca(hit.Item, p);
-            else if (colIdx == 4) EditSalario(hit.Item, p);
-            else EditForca(hit.Item, p); // padrao: força
+            if (colIdx == 4) EditSalario(hit.Item, p);
+            else EditForca(hit.Item, p);
         }
 
         private void EditForca(ListViewItem it, SavePlayer p)
@@ -147,7 +157,7 @@ namespace ElifootLauncher
             {
                 var r = MessageBox.Show(this,
                     $"Força {v.Value} é bem acima do normal (1-{SaveCodec.FORCA_WARN_ABOVE}).\n" +
-                    "O jogo aceita, mas o jogador vai ficar SUPER forte. Continuar?",
+                    "Continuar mesmo assim?",
                     "Aviso", MessageBoxButtons.YesNo, MessageBoxIcon.Warning);
                 if (r != DialogResult.Yes) return;
             }
@@ -166,34 +176,27 @@ namespace ElifootLauncher
 
         private void RefreshSaveList(bool preserveSelection)
         {
-            string? previouslySelected = preserveSelection && _saveSel.SelectedItem != null
-                ? _saveSel.SelectedItem.ToString()
-                : null;
-
-            _saveSel.SelectedIndexChanged -= OnSelChanged;
+            string? prev = preserveSelection && _saveSel.SelectedItem != null
+                ? _saveSel.SelectedItem.ToString() : null;
+            _saveSel.SelectedIndexChanged -= OnSaveChanged;
             _saveSel.Items.Clear();
-
             if (!Directory.Exists(_jogosDir))
             {
                 MessageBox.Show(this, $"Pasta JOGOS não encontrada:\n{_jogosDir}",
                     "Sem saves", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                _saveSel.SelectedIndexChanged += OnSelChanged;
+                _saveSel.SelectedIndexChanged += OnSaveChanged;
                 return;
             }
-
             var files = Directory.GetFiles(_jogosDir, "*.e98", SearchOption.TopDirectoryOnly);
             Array.Sort(files);
-            foreach (var f in files)
-                _saveSel.Items.Add(Path.GetFileName(f));
-
-            _saveSel.SelectedIndexChanged += OnSelChanged;
-
+            foreach (var f in files) _saveSel.Items.Add(Path.GetFileName(f));
+            _saveSel.SelectedIndexChanged += OnSaveChanged;
             if (_saveSel.Items.Count > 0)
             {
                 int idx = 0;
-                if (previouslySelected != null)
+                if (prev != null)
                 {
-                    int found = _saveSel.Items.IndexOf(previouslySelected);
+                    int found = _saveSel.Items.IndexOf(prev);
                     if (found >= 0) idx = found;
                 }
                 _saveSel.SelectedIndex = idx;
@@ -201,7 +204,7 @@ namespace ElifootLauncher
             }
         }
 
-        private void OnSelChanged(object? s, EventArgs e) => LoadSelected();
+        private void OnSaveChanged(object? s, EventArgs e) => LoadSelected();
 
         private void LoadSelected()
         {
@@ -211,7 +214,7 @@ namespace ElifootLauncher
             try
             {
                 _current = SaveCodec.Read(_currentPath);
-                Populate();
+                PopulateTeams();
                 _save.Enabled = true;
             }
             catch (Exception ex)
@@ -223,21 +226,40 @@ namespace ElifootLauncher
             }
         }
 
-        private void Populate()
+        private void PopulateTeams()
         {
-            if (_current == null) return;
-            if (_current.VerbaOffset < 0)
-                _verbaField.Text = "(não localizado)";
-            else
-                _verbaField.Text = _current.Verba.ToString();
+            _teamSel.SelectedIndexChanged -= OnTeamChanged;
+            _teamSel.Items.Clear();
+            if (_current == null) { _teamSel.SelectedIndexChanged += OnTeamChanged; return; }
 
+            // Ordena teams por verba desc (coached provavelmente eh o de maior)
+            var ordered = new System.Collections.Generic.List<SaveTeam>(_current.Teams);
+            ordered.Sort((a, b) => b.Verba.CompareTo(a.Verba));
+
+            int seq = 1;
+            foreach (var t in ordered)
+            {
+                _teamSel.Items.Add(new TeamItem(t, $"{seq}. {t.Nome} — Verba: {t.Verba:N0}"));
+                seq++;
+            }
+            _teamSel.SelectedIndexChanged += OnTeamChanged;
+            if (_teamSel.Items.Count > 0) _teamSel.SelectedIndex = 0;
+        }
+
+        private void OnTeamChanged(object? s, EventArgs e) => LoadTeam();
+
+        private void LoadTeam()
+        {
+            if (_teamSel.SelectedItem is not TeamItem ti) return;
+            _currentTeam = ti.Team;
+            _verbaField.Text = _currentTeam.Verba.ToString();
             _players.BeginUpdate();
             _players.Items.Clear();
             int n = 1;
-            foreach (var p in _current.Players)
+            foreach (var p in _currentTeam.Players)
             {
                 var it = new ListViewItem(n.ToString());
-                it.SubItems.Add(GuessPosition(n, _current.Players.Count));
+                it.SubItems.Add(GuessPosition(n));
                 it.SubItems.Add(p.Nome);
                 it.SubItems.Add(p.Forca.ToString());
                 it.SubItems.Add(p.Salario.ToString());
@@ -248,9 +270,7 @@ namespace ElifootLauncher
             _players.EndUpdate();
         }
 
-        // Elifoot 98 padroniza time em 2G + 4D + 5M + 5A = 16 jogadores.
-        // Sem byte confirmado de posicao, inferimos pela ordem.
-        private static string GuessPosition(int idx, int total)
+        private static string GuessPosition(int idx)
         {
             if (idx <= 2) return "G";
             if (idx <= 6) return "D";
@@ -260,18 +280,15 @@ namespace ElifootLauncher
 
         private void SaveCurrent()
         {
-            if (_current == null || string.IsNullOrEmpty(_currentPath)) return;
+            if (_current == null || string.IsNullOrEmpty(_currentPath) || _currentTeam == null) return;
 
-            if (!string.IsNullOrEmpty(_verbaField.Text) && _verbaField.Text != "(não localizado)")
+            if (!long.TryParse(_verbaField.Text, out var verba) || verba < 0)
             {
-                if (!long.TryParse(_verbaField.Text, out var verba) || verba < 0)
-                {
-                    MessageBox.Show(this, "Verba deve ser número inteiro positivo.",
-                        "Valor inválido", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                    return;
-                }
-                _current.Verba = verba;
+                MessageBox.Show(this, "Verba deve ser número inteiro positivo.",
+                    "Valor inválido", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
             }
+            _currentTeam.Verba = verba;
 
             var bak = _currentPath + ".bak";
             try
@@ -320,6 +337,14 @@ namespace ElifootLauncher
                 return null;
             }
             return v;
+        }
+
+        private class TeamItem
+        {
+            public SaveTeam Team;
+            private readonly string _label;
+            public TeamItem(SaveTeam t, string label) { Team = t; _label = label; }
+            public override string ToString() => _label;
         }
     }
 }
