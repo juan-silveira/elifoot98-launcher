@@ -152,6 +152,9 @@ static void GetRealPrimaryMonitor(int* rw, int* rh)
     }
 }
 
+// Forward declaration — TranslateFakeToReal esta definido depois.
+static BOOL TranslateFakeToReal(HWND hwnd, int* X, int* Y, int cx, int cy);
+
 // hk_ShowWindow: intercepta antes de mostrar top-level.
 // - SW_MAXIMIZE/SW_SHOWMAXIMIZED: converte pra SHOWNORMAL + fake_size
 //   centralizado. Pega main + Journey (WindowState=wsMaximized).
