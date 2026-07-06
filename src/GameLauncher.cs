@@ -237,9 +237,13 @@ namespace ElifootLauncher
                 IntPtr mainFormHwnd = IntPtr.Zero;
                 var dialogHwnds = new System.Collections.Generic.List<IntPtr>();
 
+                // Com o DLL hookando GetMonitorInfo, a proxima vez que Elifoot
+                // maximizar via SW_MAXIMIZE ja fica no tamanho fake — sem
+                // flicker. Aqui so aplicamos correcao ONE-TIME em cada hwnd
+                // nova pra pegar o estado inicial pre-hook.
                 foreach (var hwnd in hwnds)
                 {
-                    bool firstTime = tracked.Add(hwnd);
+                    if (!tracked.Add(hwnd)) continue; // ja processada, nao repete
                     GetWindowRect(hwnd, out RECT r);
                     long area = (long)(r.Right - r.Left) * (r.Bottom - r.Top);
                     int style = GetWindowLong(hwnd, GWL_STYLE);
@@ -254,43 +258,36 @@ namespace ElifootLauncher
                     if (isMainForm) mainFormHwnd = hwnd;
                     else dialogHwnds.Add(hwnd);
 
-                    if (isMainForm && (area >= fullscreenThreshold || isMaxStyle))
+                    if (area >= fullscreenThreshold || isMaxStyle)
                     {
-                        // Main form → 640x480 (config)
-                        ForceWindowed(hwnd, width, height, log, verbose: firstTime || loop % 50 == 0);
-                        if (firstTime) log.AppendLine($"  [+ MAIN hwnd=0x{hwnd.ToInt64():x} class='{className}' resized to {width}x{height}]");
-                    }
-                    else if (!isMainForm && (area >= fullscreenThreshold || isMaxStyle))
-                    {
-                        // Dialog fullscreen: desmaximiza. Delphi usa DFM Width/Height.
-                        var s2 = GetWindowLong(hwnd, GWL_STYLE);
-                        if ((s2 & WS_MAXIMIZE) != 0)
-                            SetWindowLong(hwnd, GWL_STYLE, s2 & ~WS_MAXIMIZE);
+                        // Aplica UMA vez: clear WS_MAXIMIZE + SC_RESTORE +
+                        // SetWindowPos pro tamanho fake. Depois disso o proprio
+                        // Windows respeita GetMonitorInfo hooked.
+                        int cleanStyle = style & ~WS_MAXIMIZE;
+                        if (cleanStyle != style)
+                            SetWindowLong(hwnd, GWL_STYLE, cleanStyle);
                         PostMessage(hwnd, WM_SYSCOMMAND, (IntPtr)SC_RESTORE, IntPtr.Zero);
-                        if (firstTime) log.AppendLine($"  [+ DIALOG hwnd=0x{hwnd.ToInt64():x} class='{className}' SC_RESTORE only]");
+                        var screenRect = Screen.PrimaryScreen?.WorkingArea ?? new System.Drawing.Rectangle(0, 0, 1024, 768);
+                        int x = screenRect.X + Math.Max(0, (screenRect.Width - width) / 2);
+                        int y = screenRect.Y + Math.Max(0, (screenRect.Height - height) / 2);
+                        SetWindowPos(hwnd, IntPtr.Zero, x, y, width, height,
+                            SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED);
+                        log.AppendLine($"  [+ hwnd=0x{hwnd.ToInt64():x} class='{className}' one-time resize to {width}x{height}]");
                     }
-                    else if (firstTime)
+                    else
                     {
                         int cleanStyle = style & ~WS_MAXIMIZE;
                         if (cleanStyle != style)
-                        {
                             SetWindowLong(hwnd, GWL_STYLE, cleanStyle);
-                            SetWindowPos(hwnd, IntPtr.Zero, 0, 0, 0, 0,
-                                SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED);
-                            log.AppendLine($"  [+ hwnd=0x{hwnd.ToInt64():x} class='{className}' cleared WS_MAXIMIZE]");
-                        }
+                        log.AppendLine($"  [+ hwnd=0x{hwnd.ToInt64():x} class='{className}' ok {r.Right-r.Left}x{r.Bottom-r.Top}]");
                     }
                 }
 
-                // Z-order: main form vai pro FUNDO, dialogs por CIMA
-                // (invertido do que eu tinha antes). Assim usuario ve o
-                // dialog aberto sem a janela vazia da main atrapalhando.
+                // Z-order: main pro fundo, dialogs pro topo
                 if (mainFormHwnd != IntPtr.Zero && dialogHwnds.Count > 0)
                 {
-                    // Main pro fundo
                     SetWindowPos(mainFormHwnd, HWND_BOTTOM, 0, 0, 0, 0,
                         SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
-                    // Dialogs pro topo
                     foreach (var d in dialogHwnds)
                         SetWindowPos(d, HWND_TOP, 0, 0, 0, 0,
                             SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
