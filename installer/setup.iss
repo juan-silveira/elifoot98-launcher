@@ -8,7 +8,10 @@
 ;   3. Colocar arquivos do Elifoot 98 em ../game/
 
 #define AppName        "Elifoot 98 Launcher"
-#define AppVersion     "0.1.0"
+; AppVersion pode ser sobrescrito por linha de comando: iscc /DAppVersion=0.1.5 setup.iss
+#ifndef AppVersion
+  #define AppVersion   "0.0.0-dev"
+#endif
 #define AppPublisher   "elifoot98-launcher contributors"
 #define AppURL         "https://github.com/juan-silveira/elifoot98-launcher"
 #define AppExeName     "ElifootLauncher.exe"

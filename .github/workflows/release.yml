@@ -25,9 +25,24 @@ jobs:
         shell: bash
         run: bash scripts/fetch-deps.sh
 
+      - name: Read version from tag
+        id: version
+        shell: bash
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            # v0.1.5 -> 0.1.5 (strip leading 'v' pra ficar SemVer puro no exe/manifest)
+            V="${GITHUB_REF#refs/tags/v}"
+          elif [[ "$GITHUB_REF" == refs/tags/* ]]; then
+            V="${GITHUB_REF#refs/tags/}"
+          else
+            V="0.0.0-dev.$(date +%Y%m%d%H%M%S)"
+          fi
+          echo "value=$V" >> "$GITHUB_OUTPUT"
+          echo "==> version = $V"
+
       - name: Build launcher (Release)
         shell: bash
-        run: dotnet build src/ElifootLauncher.csproj -c Release
+        run: dotnet build src/ElifootLauncher.csproj -c Release -p:Version=${{ steps.version.outputs.value }} -p:AssemblyVersion=${{ steps.version.outputs.value }}.0 -p:FileVersion=${{ steps.version.outputs.value }}.0
 
       - name: Install Inno Setup
         run: |
@@ -37,17 +52,7 @@ jobs:
         shell: pwsh
         run: |
           $env:PATH += ";$env:ProgramFiles(x86)\Inno Setup 6"
-          & "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" installer\setup.iss
-
-      - name: Read version from tag
-        id: version
-        shell: bash
-        run: |
-          if [[ "$GITHUB_REF" == refs/tags/* ]]; then
-            echo "value=${GITHUB_REF#refs/tags/}" >> "$GITHUB_OUTPUT"
-          else
-            echo "value=dev-$(date +%Y%m%d-%H%M%S)" >> "$GITHUB_OUTPUT"
-          fi
+          & "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" "/DAppVersion=${{ steps.version.outputs.value }}" installer\setup.iss
 
       - name: Upload build artifact (always, for debug)
         uses: actions/upload-artifact@v4
