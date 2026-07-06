@@ -232,15 +232,13 @@ namespace ElifootLauncher
             _teamSel.Items.Clear();
             if (_current == null) { _teamSel.SelectedIndexChanged += OnTeamChanged; return; }
 
-            // Ordena teams por verba desc (coached provavelmente eh o de maior)
+            // Ordem alfabetica dos times
             var ordered = new System.Collections.Generic.List<SaveTeam>(_current.Teams);
-            ordered.Sort((a, b) => b.Verba.CompareTo(a.Verba));
+            ordered.Sort((a, b) => string.Compare(a.Nome, b.Nome, StringComparison.OrdinalIgnoreCase));
 
-            int seq = 1;
             foreach (var t in ordered)
             {
-                _teamSel.Items.Add(new TeamItem(t, $"{seq}. {t.Nome} — Verba: {t.Verba:N0}"));
-                seq++;
+                _teamSel.Items.Add(new TeamItem(t, $"{t.Nome} — {t.Verba:N0}"));
             }
             _teamSel.SelectedIndexChanged += OnTeamChanged;
             if (_teamSel.Items.Count > 0) _teamSel.SelectedIndex = 0;

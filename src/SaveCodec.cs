@@ -219,54 +219,67 @@ namespace ElifootLauncher
             return plain;
         }
 
-        // Nome do time decoded: procura primeira sequencia de letras lowercase
-        // depois de padding inicial (~0x2C). Nome curto (5..20 chars).
+        // Nome do time decoded: byte em ~0x2C eh comprimento shifted (+0x20).
+        // Exatamente N bytes de nome seguem. Depois vem short name idem.
+        // Pra usuario, mostramos o nome longo em UPPERCASE tipo game screen.
         private static string ExtractTeamName(byte[] decoded)
         {
-            // Skip 0x2C bytes de padding tipico
-            int start = 0x2C;
-            if (start >= decoded.Length) return "?";
-            var sb = new StringBuilder();
-            // Find start of name (first letter)
-            int i = start;
-            while (i < decoded.Length && !IsTeamNameChar(decoded[i])) i++;
-            if (i >= decoded.Length) return "?";
-            // Read until non-letter
-            for (; i < decoded.Length && sb.Length < 30; i++)
+            // Encontra length byte: procura em 0x28..0x40 o primeiro byte
+            // >= 0x20 seguido de letras minusculas.
+            for (int i = 0x28; i < 0x40 && i + 1 < decoded.Length; i++)
             {
-                byte b = decoded[i];
-                if (b >= 0x61 && b <= 0x7A)
-                {
-                    // primeira letra maiuscula, resto minuscula
-                    if (sb.Length == 0) sb.Append(char.ToUpperInvariant((char)b));
-                    else sb.Append((char)b);
-                }
-                else if (b == 0x40) sb.Append(' ');
-                else if (b == 0x4D || b == 0x4B) sb.Append('-');
-                else if (b < 0x30 || b > 0x7E)
-                {
-                    if (sb.Length >= 3) break;
-                    sb.Clear();
-                }
-                else if (sb.Length >= 3) break;
+                byte lenByte = decoded[i];
+                if (lenByte < 0x22 || lenByte > 0x40) continue; // len 2..32
+                int nameLen = lenByte - 0x20;
+                if (i + 1 + nameLen > decoded.Length) continue;
+                // Verifica se os bytes seguintes formam nome plausivel
+                var candidate = TeamNameFromBytes(decoded, i + 1, nameLen);
+                if (candidate != null) return candidate;
             }
-            var s = sb.ToString().Trim();
-            return string.IsNullOrEmpty(s) ? "?" : s;
+            return "?";
         }
 
-        private static bool IsTeamNameChar(byte b) => b >= 0x61 && b <= 0x7A;
+        // Converte N bytes de nome do time em string. Retorna null se
+        // bytes nao parecem nome (falha check).
+        private static string? TeamNameFromBytes(byte[] decoded, int start, int len)
+        {
+            var sb = new StringBuilder(len);
+            int letterCount = 0;
+            for (int i = start; i < start + len && i < decoded.Length; i++)
+            {
+                byte b = decoded[i];
+                char? c = null;
+                if (b >= 0x61 && b <= 0x7A) { c = (char)b; letterCount++; }
+                else if (b >= 0x41 && b <= 0x5A) { c = (char)b; letterCount++; }
+                else if (b == 0x40) c = ' ';
+                else if (b == 0x4D || b == 0x4B || b == 0x2D) c = '-';
+                else if (b >= 0x30 && b <= 0x39) c = (char)b;
+                else return null; // caractere invalido -> nao eh nome
+                if (c != null) sb.Append(c.Value);
+            }
+            if (letterCount < 3) return null;
+            var s = sb.ToString().Trim();
+            // Uppercase pra ficar tipo game
+            return s.ToUpperInvariant();
+        }
 
+        // Detecta inicios de player records. Marker: byte + 3 letras lowercase
+        // (nacionalidade) + byte uppercase (pos_code). Nao so 'bra' — times
+        // tem jogadores estrangeiros (por, ita, esp, arg, etc).
         private static List<int> FindPlayerStarts(byte[] decoded)
         {
             var starts = new List<int>();
             for (int i = 0; i < decoded.Length - 6; i++)
             {
-                if (decoded[i + 1] == (byte)'b' && decoded[i + 2] == (byte)'r' && decoded[i + 3] == (byte)'a')
-                {
-                    byte pos = decoded[i + 4];
-                    if (pos >= 'A' && pos <= 'Z')
-                        starts.Add(i);
-                }
+                byte a = decoded[i + 1], b = decoded[i + 2], c = decoded[i + 3];
+                byte pos = decoded[i + 4];
+                bool nat = a >= 'a' && a <= 'z' && b >= 'a' && b <= 'z' && c >= 'a' && c <= 'z';
+                bool posOk = pos >= 'A' && pos <= 'Z';
+                // Marker byte precedente comum: ! (0x21), # (0x23), espaco (0x20)
+                byte m = decoded[i];
+                bool markerOk = m == 0x21 || m == 0x23 || m == 0x20;
+                if (nat && posOk && markerOk)
+                    starts.Add(i);
             }
             return starts;
         }
