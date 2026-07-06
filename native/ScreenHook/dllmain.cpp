@@ -152,13 +152,18 @@ static void GetRealPrimaryMonitor(int* rw, int* rh)
     }
 }
 
-// SW_MAXIMIZE em top-level: fazemos SW_SHOWNORMAL + reposiciona pra
-// fake_size centralizado no monitor real. Isso pega tanto main quanto
-// Journey (ambos com Delphi WindowState=wsMaximized).
+// hk_ShowWindow: intercepta antes de mostrar top-level.
+// - SW_MAXIMIZE/SW_SHOWMAXIMIZED: converte pra SHOWNORMAL + fake_size
+//   centralizado. Pega main + Journey (WindowState=wsMaximized).
+// - SW_SHOW/SW_SHOWNORMAL/SW_SHOWNA: se janela ta em (< 50, < 50) com
+//   tamanho de janela real, centraliza no monitor real ANTES do show.
+//   Pega dialogs Delphi com DFM Left=Top=0 que nao passam pelo
+//   SetWindowPos hook (criacao via CreateWindowExA direto).
 static BOOL WINAPI hk_ShowWindow(HWND hwnd, int nCmdShow)
 {
-    if ((nCmdShow == SW_MAXIMIZE || nCmdShow == SW_SHOWMAXIMIZED)
-        && IsTopLevel(hwnd))
+    if (!IsTopLevel(hwnd)) return o_ShowWindow(hwnd, nCmdShow);
+
+    if (nCmdShow == SW_MAXIMIZE || nCmdShow == SW_SHOWMAXIMIZED)
     {
         BOOL r = o_ShowWindow(hwnd, SW_SHOWNORMAL);
         int rw, rh; GetRealPrimaryMonitor(&rw, &rh);
@@ -167,6 +172,28 @@ static BOOL WINAPI hk_ShowWindow(HWND hwnd, int nCmdShow)
         o_SetWindowPos(hwnd, NULL, x, y, g_FakeWidth, g_FakeHeight,
             SWP_NOZORDER | SWP_NOACTIVATE);
         return r;
+    }
+
+    if (nCmdShow == SW_SHOW || nCmdShow == SW_SHOWNORMAL
+        || nCmdShow == SW_SHOWNA || nCmdShow == SW_SHOWNOACTIVATE
+        || nCmdShow == SW_SHOWDEFAULT)
+    {
+        RECT r;
+        if (GetWindowRect(hwnd, &r))
+        {
+            LONG w = r.right - r.left, h = r.bottom - r.top;
+            if (w >= 200 && h >= 150 && r.left < 50 && r.top < 50)
+            {
+                int rw, rh; GetRealPrimaryMonitor(&rw, &rh);
+                int x = (int)(rw - w) / 2;
+                int y = (int)(rh - h) / 2;
+                if (x < 0) x = 0;
+                if (y < 0) y = 0;
+                // Move ANTES de tornar visivel — sem flash em (0,0)
+                o_SetWindowPos(hwnd, NULL, x, y, 0, 0,
+                    SWP_NOZORDER | SWP_NOACTIVATE | SWP_NOSIZE);
+            }
+        }
     }
     return o_ShowWindow(hwnd, nCmdShow);
 }
