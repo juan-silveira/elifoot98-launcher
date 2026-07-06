@@ -305,11 +305,16 @@ namespace ElifootLauncher
                 byte pos = decoded[i + 4];
                 bool nat = a >= 'a' && a <= 'z' && b >= 'a' && b <= 'z' && c >= 'a' && c <= 'z';
                 bool posOk = pos >= 'A' && pos <= 'Z';
-                // Marker byte: ! (0x21), " (0x22) ou # (0x23). Times como
-                // Palmeiras tem players com marker " (Marquinhos, Neném).
+                // Marker byte: 0x20..0x23 (space, !, ", #). Times como
+                // Desportiva usam SPACE (0x20). Palmeiras usa " para alguns
+                // (Marquinhos, Neném). Vasco usa " em todos.
                 byte m = decoded[i];
-                bool markerOk = m == 0x21 || m == 0x22 || m == 0x23;
-                if (nat && posOk && markerOk)
+                bool markerOk = m >= 0x20 && m <= 0x23;
+                // Byte +5 tem que ser letra minuscula (inicial do nome). Isso
+                // filtra falsos positivos em regioes de padding.
+                byte initial = decoded[i + 5];
+                bool initialOk = initial >= 'a' && initial <= 'z';
+                if (nat && posOk && markerOk && initialOk)
                     starts.Add(i);
             }
             return starts;
