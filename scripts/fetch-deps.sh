@@ -47,7 +47,20 @@ if [[ ! -f "$VENDOR/dosbox/dosbox.exe" ]]; then
   rm -rf "$TMP" /tmp/dosbox.zip
 fi
 
+# --- Visual C++ 2015-2022 Redistributable (x86) ---
+# otvdm eh MSVC-x86, precisa de vcruntime140.dll. Windows 10/11 padrao ja tem,
+# mas builds tipo Tiny10 removem essa dep. Bundlar o installer eh redistribuicao
+# autorizada pela Microsoft.
+if [[ ! -f "$VENDOR/vcredist/vc_redist.x86.exe" ]]; then
+  echo "==> baixando vc_redist.x86 (VC++ 2015-2022 Redistributable)"
+  mkdir -p "$VENDOR/vcredist"
+  curl -sSL -o "$VENDOR/vcredist/vc_redist.x86.exe" \
+    "https://aka.ms/vs/17/release/vc_redist.x86.exe"
+fi
+
 echo "==> pronto. vendor/ populado:"
 ls "$VENDOR/otvdm/" | head -5
 echo "..."
 ls "$VENDOR/dosbox/" | head -5
+echo "..."
+ls -lh "$VENDOR/vcredist/"

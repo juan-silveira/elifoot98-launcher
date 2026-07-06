@@ -57,6 +57,9 @@ Source: "..\vendor\otvdm\*"; DestDir: "{app}\vendor\otvdm"; Flags: ignoreversion
 ; DOSBox-Staging (para CRACK.EXE)
 Source: "..\vendor\dosbox\*"; DestDir: "{app}\vendor\dosbox"; Flags: ignoreversion recursesubdirs createallsubdirs
 
+; VC++ 2015-2022 Redistributable x86 (necessario pro otvdm em Tiny10 e similares)
+Source: "..\vendor\vcredist\vc_redist.x86.exe"; DestDir: "{tmp}"; Flags: deleteafterinstall
+
 ; Arquivos do jogo (ficam em ..\game\)
 Source: "..\game\*"; DestDir: "{app}\game"; Flags: ignoreversion recursesubdirs createallsubdirs
 
@@ -70,9 +73,26 @@ Name: "{autoprograms}\Desinstalar Elifoot 98"; Filename: "{uninstallexe}"
 Name: "{autodesktop}\Elifoot 98";              Filename: "{app}\{#AppExeName}"; Tasks: desktopicon
 
 [Run]
+; Instala VC++ Runtime silenciosamente (exit 1638 = ja instalado, tudo bem)
+Filename: "{tmp}\vc_redist.x86.exe"; Parameters: "/install /quiet /norestart"; \
+  StatusMsg: "Instalando Microsoft Visual C++ Runtime..."; \
+  Check: NeedsVcRedistX86
+
 Filename: "{app}\{#AppExeName}"; Description: "Abrir Elifoot 98 Launcher"; Flags: nowait postinstall skipifsilent
 
 [Code]
+function NeedsVcRedistX86: Boolean;
+var
+  Installed: Cardinal;
+begin
+  // Chave do VC++ 2015-2022 x86 Redistributable — se Installed=1, ja tem
+  if RegQueryDWordValue(HKLM, 'SOFTWARE\WOW6432Node\Microsoft\VisualStudio\14.0\VC\Runtimes\x86', 'Installed', Installed) or
+     RegQueryDWordValue(HKLM, 'SOFTWARE\Microsoft\VisualStudio\14.0\VC\Runtimes\x86', 'Installed', Installed) then
+    Result := (Installed <> 1)
+  else
+    Result := True;
+end;
+
 function InitializeSetup(): Boolean;
 var
   NetFxVer: Cardinal;
