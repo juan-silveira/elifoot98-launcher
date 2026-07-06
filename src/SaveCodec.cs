@@ -245,21 +245,41 @@ namespace ElifootLauncher
         {
             var sb = new StringBuilder(len);
             int letterCount = 0;
+            int invalid = 0;
             for (int i = start; i < start + len && i < decoded.Length; i++)
             {
                 byte b = decoded[i];
                 char? c = null;
-                if (b >= 0x61 && b <= 0x7A) { c = (char)b; letterCount++; }
-                else if (b >= 0x41 && b <= 0x5A) { c = (char)b; letterCount++; }
-                else if (b == 0x40) c = ' ';
+                // Ordem importa: acentos (bytes baixos) e separadores especiais
+                // ANTES da faixa geral A-Z/a-z.
+                if (b == 0x40) c = ' ';
                 else if (b == 0x4D || b == 0x4B || b == 0x2D) c = '-';
+                else if (b == 0x2E) c = '.';
+                else if (b == 0x2F) c = '/';
+                // Acentos ISO-8859-1 shifted +0x20 mod 256:
+                else if (b == 0x01) { c = 'á'; letterCount++; }
+                else if (b == 0x02) { c = 'â'; letterCount++; }
+                else if (b == 0x03) { c = 'ã'; letterCount++; }
+                else if (b == 0x07) { c = 'ç'; letterCount++; }
+                else if (b == 0x09) { c = 'é'; letterCount++; }
+                else if (b == 0x0A) { c = 'ê'; letterCount++; }
+                else if (b == 0x0D) { c = 'í'; letterCount++; }
+                else if (b == 0x11) { c = 'ñ'; letterCount++; }
+                else if (b == 0x13) { c = 'ó'; letterCount++; }
+                else if (b == 0x14) { c = 'ô'; letterCount++; }
+                else if (b == 0x15) { c = 'õ'; letterCount++; }
+                else if (b == 0x1A) { c = 'ú'; letterCount++; }
+                else if (b == 0x1C) { c = 'ü'; letterCount++; }
+                else if (b >= 0x61 && b <= 0x7A) { c = (char)b; letterCount++; }
+                else if (b >= 0x41 && b <= 0x5A) { c = (char)b; letterCount++; }
                 else if (b >= 0x30 && b <= 0x39) c = (char)b;
-                else return null; // caractere invalido -> nao eh nome
+                else { invalid++; continue; }
                 if (c != null) sb.Append(c.Value);
             }
+            // Precisa ter maioria de letras validas
             if (letterCount < 3) return null;
+            if (invalid > len / 3) return null;
             var s = sb.ToString().Trim();
-            // Uppercase pra ficar tipo game
             return s.ToUpperInvariant();
         }
 
