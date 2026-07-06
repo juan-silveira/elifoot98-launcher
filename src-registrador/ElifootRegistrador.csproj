@@ -22,5 +22,17 @@
     <EmbeddedResource Include="elifoot.ico">
       <LogicalName>ElifootRegistrador.elifoot.ico</LogicalName>
     </EmbeddedResource>
+    <!-- Payload zip com CRACK.EXE + vendor/dosbox/*.
+         Criado pelo scripts/build-registrador-payload.sh (ou CI equivalente).
+         Se este arquivo nao existir no momento do build (modo instalado sem
+         payload), o EmbeddedResource simplesmente nao entra e o Registrador
+         funciona apenas com arquivos ao lado do exe. -->
+    <EmbeddedResource Include="payload.zip" Condition="Exists('payload.zip')">
+      <LogicalName>ElifootRegistrador.payload.zip</LogicalName>
+    </EmbeddedResource>
+  </ItemGroup>
+  <ItemGroup>
+    <Reference Include="System.IO.Compression" />
+    <Reference Include="System.IO.Compression.FileSystem" />
   </ItemGroup>
 </Project>

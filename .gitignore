@@ -30,3 +30,4 @@ installer/Output/
 # Temp
 *.log
 *.tmp
+src-registrador/payload.zip

@@ -44,9 +44,20 @@ jobs:
         shell: bash
         run: dotnet build src/ElifootLauncher.csproj -c Release -p:Version=${{ steps.version.outputs.value }} -p:AssemblyVersion=${{ steps.version.outputs.value }}.0 -p:FileVersion=${{ steps.version.outputs.value }}.0
 
-      - name: Build Registrador (Release, x86)
+      - name: Build Registrador payload.zip
+        shell: bash
+        run: bash scripts/build-registrador-payload.sh
+
+      - name: Build Registrador (Release, x86, com payload embutido)
         shell: bash
         run: dotnet build src-registrador/ElifootRegistrador.csproj -c Release -p:Version=${{ steps.version.outputs.value }} -p:AssemblyVersion=${{ steps.version.outputs.value }}.0 -p:FileVersion=${{ steps.version.outputs.value }}.0
+
+      - name: Copia Registrador como portable exe
+        shell: bash
+        run: |
+          mkdir -p installer/Output
+          cp src-registrador/bin/Release/net48/ElifootRegistrador.exe \
+             installer/Output/elifoot98-registrador-portable-${{ steps.version.outputs.value }}.exe
 
       - name: Build ScreenHook.dll (x86 native, MinHook)
         shell: pwsh
@@ -86,10 +97,11 @@ jobs:
           body: |
             ## Downloads
 
-            Nesta release existem **dois instaladores separados**:
+            Nesta release existem três executáveis distintos:
 
-            - **`elifoot98-launcher-setup-*.exe`** — o launcher principal + Elifoot 98 + otvdm. Instala em `C:\Elifoot98Launcher`.
-            - **`elifoot98-registrador-setup-*.exe`** — ferramenta separada para gerar Contra-Senha via `CRACK.EXE`. Instala em `C:\Elifoot98Registrador`. Opcional (só se você quiser registrar o jogo).
+            - **`elifoot98-launcher-setup-*.exe`** — instalador do launcher principal + Elifoot 98 + otvdm. Instala em `C:\Elifoot98Launcher`.
+            - **`elifoot98-registrador-setup-*.exe`** — instalador do Registrador (gera Contra-Senha via `CRACK.EXE`). Instala em `C:\Elifoot98Registrador`.
+            - **`elifoot98-registrador-portable-*.exe`** — versão **portable** do Registrador em um único `.exe` (~9 MB), com CRACK.EXE + DOSBox embutidos. Não instala nada — só clica e usa. Extrai temporário em `%TEMP%\ElifootRegistrador` no primeiro uso.
 
             > Separamos por questão de licenciamento — o `CRACK.EXE` é o keygen original do autor Andre Elias.
 
