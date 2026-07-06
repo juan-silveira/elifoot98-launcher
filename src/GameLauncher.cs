@@ -86,19 +86,52 @@ namespace ElifootLauncher
         }
 
         // Escreve entrada no registro do Windows pra ativar o AppCompat layer
-        // que o otvdm entende (ex.: '640X480' pra forcar SM_CXSCREEN=640).
-        // Se ja existe, sobrescreve.
+        // que o otvdm entende. Escreve com MULTIPLAS variantes do path porque
+        // otvdm chama GetShortPathNameA em algumas rotas — se o registry so
+        // tiver a long-path e otvdm procurar short-path, nao bate.
         private static void SetCompatLayer(string exePath, string layer)
         {
+            var log = new StringBuilder();
+            log.AppendLine($"=== SetCompatLayer at {DateTime.Now:HH:mm:ss} ===");
+            log.AppendLine($"exePath (long): '{exePath}'");
+            var shortPath = GetShortPath(exePath);
+            log.AppendLine($"exePath (short): '{shortPath}'");
+            var variants = new System.Collections.Generic.HashSet<string> { exePath };
+            if (!string.IsNullOrEmpty(shortPath)) variants.Add(shortPath);
+            variants.Add(exePath.ToUpperInvariant());
+            variants.Add(exePath.ToLowerInvariant());
+
             try
             {
                 using (var key = Microsoft.Win32.Registry.CurrentUser.CreateSubKey(
                     @"Software\Microsoft\Windows NT\CurrentVersion\AppCompatFlags\Layers"))
                 {
-                    if (key != null) key.SetValue(exePath, layer, Microsoft.Win32.RegistryValueKind.String);
+                    if (key == null)
+                    {
+                        log.AppendLine("!!! CreateSubKey returned null !!!");
+                    }
+                    else
+                    {
+                        foreach (var v in variants)
+                        {
+                            try
+                            {
+                                key.SetValue(v, layer, Microsoft.Win32.RegistryValueKind.String);
+                                log.AppendLine($"  wrote '{v}' = '{layer}'");
+                            }
+                            catch (Exception ex)
+                            {
+                                log.AppendLine($"  FAIL '{v}': {ex.Message}");
+                            }
+                        }
+                    }
                 }
             }
-            catch { }
+            catch (Exception ex)
+            {
+                log.AppendLine($"!!! outer exception: {ex.Message}");
+            }
+            WriteLog(log.ToString());
         }
 
         private static void RemoveCompatLayer(string exePath)
@@ -108,10 +141,32 @@ namespace ElifootLauncher
                 using (var key = Microsoft.Win32.Registry.CurrentUser.OpenSubKey(
                     @"Software\Microsoft\Windows NT\CurrentVersion\AppCompatFlags\Layers", writable: true))
                 {
-                    if (key != null) key.DeleteValue(exePath, throwOnMissingValue: false);
+                    if (key != null)
+                    {
+                        var shortPath = GetShortPath(exePath);
+                        foreach (var v in new[] { exePath, shortPath, exePath.ToUpperInvariant(), exePath.ToLowerInvariant() })
+                        {
+                            if (string.IsNullOrEmpty(v)) continue;
+                            try { key.DeleteValue(v, throwOnMissingValue: false); } catch { }
+                        }
+                    }
                 }
             }
             catch { }
+        }
+
+        [DllImport("kernel32.dll", CharSet = CharSet.Auto)]
+        private static extern uint GetShortPathName(string lpszLongPath, StringBuilder lpszShortPath, int cchBuffer);
+
+        private static string GetShortPath(string longPath)
+        {
+            try
+            {
+                var sb = new StringBuilder(260);
+                uint r = GetShortPathName(longPath, sb, sb.Capacity);
+                return r > 0 ? sb.ToString() : "";
+            }
+            catch { return ""; }
         }
 
         // Log de diagnostico das janelas visiveis. Ajuda a descobrir qual eh a
