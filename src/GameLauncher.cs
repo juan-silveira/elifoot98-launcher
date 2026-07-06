@@ -284,27 +284,19 @@ namespace ElifootLauncher
                         bool nearOrigin = r.Left < 50 && r.Top < 50;
                         if (nearOrigin)
                         {
-                            attempts.TryGetValue(hwnd, out int n);
-                            if (n >= MAX_ATTEMPTS)
-                            {
-                                // desistiu — aceita como esta pra nao flickar eternamente
-                                centered.Add(hwnd);
-                                log.AppendLine($"  [+ hwnd=0x{hwnd.ToInt64():x} class='{className}' gave up after {n} attempts]");
-                            }
-                            else
-                            {
-                                int w = r.Right - r.Left;
-                                int h = r.Bottom - r.Top;
-                                int x = screenRect.X + Math.Max(0, (screenRect.Width - w) / 2);
-                                int y = screenRect.Y + Math.Max(0, (screenRect.Height - h) / 2);
-                                // Estilo v0.1.7: SHOWWINDOW + FRAMECHANGED, sem verify.
-                                // Aplica agressivamente e conta tentativas.
-                                SetWindowPos(hwnd, IntPtr.Zero, x, y, w, h,
-                                    SWP_NOZORDER | SWP_SHOWWINDOW | SWP_FRAMECHANGED);
-                                attempts[hwnd] = n + 1;
-                                if (firstSeen)
-                                    log.AppendLine($"  [+ hwnd=0x{hwnd.ToInt64():x} class='{className}' attempt {n+1}: center ({x},{y}) {w}x{h}]");
-                            }
+                            int w = r.Right - r.Left;
+                            int h = r.Bottom - r.Top;
+                            int x = screenRect.X + Math.Max(0, (screenRect.Width - w) / 2);
+                            int y = screenRect.Y + Math.Max(0, (screenRect.Height - h) / 2);
+                            // Esconde -> move -> mostra. Isso oculta o
+                            // frame visual do (0,0) intermediario e nao
+                            // depende de "vencer" a corrida com Delphi.
+                            ShowWindow(hwnd, SW_HIDE);
+                            SetWindowPos(hwnd, IntPtr.Zero, x, y, w, h,
+                                SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED);
+                            ShowWindow(hwnd, SW_SHOWNA);
+                            centered.Add(hwnd);
+                            log.AppendLine($"  [+ hwnd=0x{hwnd.ToInt64():x} class='{className}' hide-move-show center ({x},{y}) {w}x{h}]");
                         }
                         else
                         {
@@ -584,6 +576,8 @@ namespace ElifootLauncher
         private static readonly IntPtr HWND_TOP = new IntPtr(0);
         private static readonly IntPtr HWND_BOTTOM = new IntPtr(1);
         private const int SW_RESTORE = 9;
+        private const int SW_HIDE = 0;
+        private const int SW_SHOWNA = 8;
         private const int GWL_STYLE = -16;
         private const int WS_MAXIMIZE = 0x01000000;
         private const int WS_MAXIMIZEBOX = 0x00010000;
