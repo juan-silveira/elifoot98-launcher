@@ -1,0 +1,35 @@
+# Build artifacts
+[Bb]in/
+[Oo]bj/
+publish/
+*.pdb
+*.dll.config
+
+# NuGet
+*.nupkg
+packages/
+.nuget/
+
+# IDE
+.vs/
+.vscode/
+.idea/
+*.user
+*.suo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Third-party binaries (fetched by scripts, not committed)
+vendor/
+resources/otvdm/
+resources/dosbox/
+resources/game/
+
+# Installer output
+installer/Output/
+
+# Temp
+*.log
+*.tmp
