@@ -198,25 +198,23 @@ static BOOL WINAPI hk_ShowWindow(HWND hwnd, int nCmdShow)
 }
 
 // Delphi calcula coords assumindo tela = fake_size na origem (0,0).
-// Traduzimos: se caller passa coords que caem DENTRO do retangulo fake
-// top-left, deslocamos por (real - fake)/2 pra colocar dentro do
-// retangulo fake centralizado no monitor real. Filtro top-level +
-// tamanho >= 200x150. Se coords estao fora do retangulo fake (usuario
-// arrastou pra alguma outra parte), nao mexemos.
+// Em vez de traduzir preservando layout, forcamos CENTRALIZACAO na
+// tela real. Se coords estao no retangulo fake (0..fake_w, 0..fake_h),
+// centraliza no monitor real. Se estao fora (usuario arrastou), deixa.
+// Filtro top-level + tamanho >= 200x150 evita mexer em tooltips/menus.
 static BOOL TranslateFakeToReal(HWND hwnd, int* X, int* Y, int cx, int cy)
 {
     if (!IsTopLevel(hwnd)) return FALSE;
     if (cx < 200 || cy < 150) return FALSE;
     if (*X < 0 || *Y < 0) return FALSE;
-    // Verifica se coords estao no "fake-space top-left" (0..fake_w, 0..fake_h)
     if (*X > g_FakeWidth || *Y > g_FakeHeight) return FALSE;
     int rw, rh; GetRealPrimaryMonitor(&rw, &rh);
-    int offX = (rw - g_FakeWidth) / 2;
-    int offY = (rh - g_FakeHeight) / 2;
-    if (offX < 0) offX = 0;
-    if (offY < 0) offY = 0;
-    *X += offX;
-    *Y += offY;
+    int nx = (rw - cx) / 2;
+    int ny = (rh - cy) / 2;
+    if (nx < 0) nx = 0;
+    if (ny < 0) ny = 0;
+    *X = nx;
+    *Y = ny;
     return TRUE;
 }
 
