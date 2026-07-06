@@ -47,9 +47,10 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
 
 [Files]
-; Launcher e dependencias .NET
+; Launcher e dependencias .NET (dlls opcionais — se nao houver, tudo bem)
 Source: "..\src\bin\Release\net48\ElifootLauncher.exe"; DestDir: "{app}"; Flags: ignoreversion
-Source: "..\src\bin\Release\net48\*.dll";               DestDir: "{app}"; Flags: ignoreversion
+Source: "..\src\bin\Release\net48\ElifootLauncher.exe.config"; DestDir: "{app}"; Flags: ignoreversion skipifsourcedoesntexist
+Source: "..\src\bin\Release\net48\*.dll";               DestDir: "{app}"; Flags: ignoreversion skipifsourcedoesntexist
 
 ; otvdm (16-bit emulator para ELIFOOT.EXE e EDITEQ.EXE)
 Source: "..\vendor\otvdm\*"; DestDir: "{app}\vendor\otvdm"; Flags: ignoreversion recursesubdirs createallsubdirs
