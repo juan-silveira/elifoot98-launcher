@@ -40,9 +40,17 @@ jobs:
           echo "value=$V" >> "$GITHUB_OUTPUT"
           echo "==> version = $V"
 
-      - name: Build launcher (Release)
+      - name: Build launcher (Release, x86)
         shell: bash
         run: dotnet build src/ElifootLauncher.csproj -c Release -p:Version=${{ steps.version.outputs.value }} -p:AssemblyVersion=${{ steps.version.outputs.value }}.0 -p:FileVersion=${{ steps.version.outputs.value }}.0
+
+      - name: Build ScreenHook.dll (x86 native, MinHook)
+        shell: pwsh
+        run: |
+          cmake -A Win32 -S native/ScreenHook -B build/screenhook
+          cmake --build build/screenhook --config Release
+          # Copia pra pasta do launcher pro Inno Setup empacotar junto
+          copy build\screenhook\Release\ScreenHook.dll src\bin\Release\net48\ScreenHook.dll
 
       - name: Install Inno Setup
         run: |

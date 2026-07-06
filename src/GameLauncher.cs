@@ -27,6 +27,7 @@ namespace ElifootLauncher
         public string ElifootExe => Path.Combine(GameDir, "ELIFOOT.EXE");
         public string EditeqExe => Path.Combine(GameDir, "EDITEQ.EXE");
         public string CrackExe => Path.Combine(GameDir, "CRACK.EXE");
+        public string ScreenHookDll => Path.Combine(_appDir, "ScreenHook.dll");
 
         // otvdm emula Win 3.x com sua propria pasta WINDOWS.
         // Elifoot chama GetWindowsDirectory() e escreve/le eli.cod nela.
@@ -67,15 +68,42 @@ namespace ElifootLauncher
                 RemoveCompatLayer(exePath);
             }
 
-            var psi = new ProcessStartInfo
+            // Env vars pra ScreenHook.dll dentro do otvdmw.exe injetado
+            var extraEnv = new System.Collections.Generic.Dictionary<string, string>
             {
-                FileName = OtvdmExe,
-                Arguments = $"\"{exePath}\"",
-                WorkingDirectory = GameDir,
-                UseShellExecute = false,
+                ["ELIFOOT_FAKE_WIDTH"] = cfg.ResolutionWidth.ToString(),
+                ["ELIFOOT_FAKE_HEIGHT"] = cfg.ResolutionHeight.ToString(),
             };
 
-            var proc = Process.Start(psi);
+            // Injeta ScreenHook.dll pra hookar GetSystemMetrics/GetDeviceCaps/
+            // SystemParametersInfo. Elifoot passa a achar que a tela e do
+            // tamanho configurado — dialogs Delphi ficam pequenos tambem.
+            Process? proc;
+            try
+            {
+                proc = DllInjector.LaunchWithInjectedDll(
+                    OtvdmExe,
+                    $"\"{exePath}\"",
+                    GameDir,
+                    ScreenHookDll,
+                    cfg.Fullscreen ? null : extraEnv);
+            }
+            catch (Exception)
+            {
+                // Fallback: launch tradicional
+                var psi = new ProcessStartInfo
+                {
+                    FileName = OtvdmExe,
+                    Arguments = $"\"{exePath}\"",
+                    WorkingDirectory = GameDir,
+                    UseShellExecute = false,
+                };
+                if (!cfg.Fullscreen)
+                {
+                    foreach (var kv in extraEnv) psi.EnvironmentVariables[kv.Key] = kv.Value;
+                }
+                proc = Process.Start(psi);
+            }
 
             if (!cfg.Fullscreen && proc != null)
             {
@@ -204,6 +232,11 @@ namespace ElifootLauncher
                 var mains = new System.Collections.Generic.List<IntPtr>();
                 var popups = new System.Collections.Generic.List<IntPtr>();
 
+                // Categoriza por CLASSE (nao por area) — main form eh main,
+                // qualquer outra coisa eh dialog/popup.
+                IntPtr mainFormHwnd = IntPtr.Zero;
+                var dialogHwnds = new System.Collections.Generic.List<IntPtr>();
+
                 foreach (var hwnd in hwnds)
                 {
                     bool firstTime = tracked.Add(hwnd);
@@ -212,69 +245,55 @@ namespace ElifootLauncher
                     int style = GetWindowLong(hwnd, GWL_STYLE);
                     bool isMaxStyle = (style & WS_MAXIMIZE) != 0;
 
-                    // Class name pra distinguir main form vs dialog (form filho)
                     var cls = new StringBuilder(128);
                     GetClassName(hwnd, cls, cls.Capacity);
                     var className = cls.ToString();
-                    // Delphi 1: classes tipo 'WIN16119FTmainWindow' (form principal)
-                    // ou 'WIN16119FTjourneyDlg', 'WIN16119FTaboutDlg' etc. (dialogs)
                     bool isMainForm = className.EndsWith("mainWindow", StringComparison.OrdinalIgnoreCase)
                                    || className.EndsWith("MainForm", StringComparison.OrdinalIgnoreCase);
-                    bool isDialog = className.EndsWith("Dlg", StringComparison.OrdinalIgnoreCase)
-                                 || className.EndsWith("Form", StringComparison.OrdinalIgnoreCase);
 
-                    // Categoriza
-                    if (area >= screenArea * 0.20) mains.Add(hwnd);
-                    else popups.Add(hwnd);
+                    if (isMainForm) mainFormHwnd = hwnd;
+                    else dialogHwnds.Add(hwnd);
 
-                    if (area >= fullscreenThreshold || isMaxStyle)
+                    if (isMainForm && (area >= fullscreenThreshold || isMaxStyle))
                     {
-                        if (isDialog && !isMainForm)
-                        {
-                            // Dialog: NAO forca tamanho — so desmaximiza. Deixa
-                            // Delphi usar o Width/Height do DFM (que pra dialogs
-                            // com muito conteudo eh maior que 640x480).
-                            var s2 = GetWindowLong(hwnd, GWL_STYLE);
-                            if ((s2 & WS_MAXIMIZE) != 0)
-                                SetWindowLong(hwnd, GWL_STYLE, s2 & ~WS_MAXIMIZE);
-                            PostMessage(hwnd, WM_SYSCOMMAND, (IntPtr)SC_RESTORE, IntPtr.Zero);
-                            if (firstTime) log.AppendLine($"  [+ dialog hwnd=0x{hwnd.ToInt64():x} class='{className}' SC_RESTORE only (keep natural size)]");
-                        }
-                        else
-                        {
-                            // Main form: força windowed com o tamanho escolhido
-                            ForceWindowed(hwnd, width, height, log, verbose: firstTime || loop % 50 == 0);
-                            if (firstTime) log.AppendLine($"  [+ main hwnd=0x{hwnd.ToInt64():x} class='{className}' resized to {width}x{height}]");
-                        }
+                        // Main form → 640x480 (config)
+                        ForceWindowed(hwnd, width, height, log, verbose: firstTime || loop % 50 == 0);
+                        if (firstTime) log.AppendLine($"  [+ MAIN hwnd=0x{hwnd.ToInt64():x} class='{className}' resized to {width}x{height}]");
+                    }
+                    else if (!isMainForm && (area >= fullscreenThreshold || isMaxStyle))
+                    {
+                        // Dialog fullscreen: desmaximiza. Delphi usa DFM Width/Height.
+                        var s2 = GetWindowLong(hwnd, GWL_STYLE);
+                        if ((s2 & WS_MAXIMIZE) != 0)
+                            SetWindowLong(hwnd, GWL_STYLE, s2 & ~WS_MAXIMIZE);
+                        PostMessage(hwnd, WM_SYSCOMMAND, (IntPtr)SC_RESTORE, IntPtr.Zero);
+                        if (firstTime) log.AppendLine($"  [+ DIALOG hwnd=0x{hwnd.ToInt64():x} class='{className}' SC_RESTORE only]");
                     }
                     else if (firstTime)
                     {
-                        // Primeira vez que vejo, nao esta fullscreen: LIMPA estilos
-                        // de maximize (mantem WS_MAXIMIZEBOX). Destrava drag.
                         int cleanStyle = style & ~WS_MAXIMIZE;
                         if (cleanStyle != style)
                         {
                             SetWindowLong(hwnd, GWL_STYLE, cleanStyle);
                             SetWindowPos(hwnd, IntPtr.Zero, 0, 0, 0, 0,
                                 SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED);
-                            log.AppendLine($"  [+ hwnd=0x{hwnd.ToInt64():x} class='{className}' cleared WS_MAXIMIZE (was 0x{style:x})]");
-                        }
-                        else if (logDump)
-                        {
-                            log.AppendLine($"  [+ hwnd=0x{hwnd.ToInt64():x} class='{className}' ok, {r.Right - r.Left}x{r.Bottom - r.Top}]");
+                            log.AppendLine($"  [+ hwnd=0x{hwnd.ToInt64():x} class='{className}' cleared WS_MAXIMIZE]");
                         }
                     }
                 }
 
-                // Popups (dialogs, "Acerca", etc.) — trazer pro topo sem roubar
-                // foco. Isso resolve o bug do alt+tab que os deixava atras da tela.
-                if (popups.Count > 0 && mains.Count > 0)
+                // Z-order: main form vai pro FUNDO, dialogs por CIMA
+                // (invertido do que eu tinha antes). Assim usuario ve o
+                // dialog aberto sem a janela vazia da main atrapalhando.
+                if (mainFormHwnd != IntPtr.Zero && dialogHwnds.Count > 0)
                 {
-                    foreach (var pop in popups)
-                    {
-                        SetWindowPos(pop, HWND_TOP, 0, 0, 0, 0,
+                    // Main pro fundo
+                    SetWindowPos(mainFormHwnd, HWND_BOTTOM, 0, 0, 0, 0,
+                        SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+                    // Dialogs pro topo
+                    foreach (var d in dialogHwnds)
+                        SetWindowPos(d, HWND_TOP, 0, 0, 0, 0,
                             SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
-                    }
                 }
 
                 // Cleanup: janelas que morreram
@@ -533,6 +552,7 @@ namespace ElifootLauncher
         private const uint SWP_NOMOVE = 0x0002;
         private const uint SWP_NOSIZE = 0x0001;
         private static readonly IntPtr HWND_TOP = new IntPtr(0);
+        private static readonly IntPtr HWND_BOTTOM = new IntPtr(1);
         private const int SW_RESTORE = 9;
         private const int GWL_STYLE = -16;
         private const int WS_MAXIMIZE = 0x01000000;
