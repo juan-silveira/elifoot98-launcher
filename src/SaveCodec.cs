@@ -8,11 +8,11 @@ namespace ElifootLauncher
     public class SavePlayer
     {
         public string Nome { get; set; } = "";
-        // Offset dentro do EFT decodificado onde o record deste player comeca.
         public int RecordStartInEft { get; set; }
         public int RecordSizeInEft { get; set; }
-        // Offset ABSOLUTO no arquivo .e98 onde os bytes do salario ficam (uint16 LE).
+        public int ForcaOffsetInFile { get; set; }
         public int SalarioOffsetInFile { get; set; }
+        public int Forca { get; set; }
         public int Salario { get; set; }
     }
 
@@ -27,29 +27,28 @@ namespace ElifootLauncher
 
     // Codec de save .e98 do Elifoot 98.
     //
-    // Descoberto empiricamente (2026-07-06):
+    // Descoberto empiricamente:
     // - Save = header + 42 blobs EFT + calendario/footer.
-    // - Cada EFT comeca com magic 'EFa\0'.
-    // - EFT do time COACHED = o unico que contem "juventus" (nome do time
-    //   do usuario) no decoded body. Marker uint32 500000 em +0xDC ajuda
-    //   mas nao eh unico (outros EFTs tambem tem esse marker).
-    // - Verba do clube = uint32 LE em +0xE0 dentro desse EFT.
-    // - Cifra dos nomes: Caesar rolante. plain[i]=(cipher[i]-delta)%256;
-    //   delta=(delta+plain[i]-0x20)%256. Delta reseta por EFT.
-    // - Player records dentro do EFT decodificado, marker: qualquer byte
-    //   + 'bra' + [A-Z pos_code].
-    // - Cada record: 'X' + 'bra' + pos + initial + shifted_rest_of_name +
-    //   fixed_stats.
-    // - Salario = uint16 LE em (record_size - 25) do record. Confirmed em
-    //   13/16 players do save de teste.
+    // - Cada EFT comeca com magic 'EFa\0' + body cifrado Caesar rolante.
+    // - Verba do clube: uint32 LE em +0xE0 dentro do EFT do coached team.
+    // - EFT coached: contem 'juventus' no body decodificado (fallback:
+    //   marker uint32 500000 em +0xDC).
+    // - Player records: marker <any> + 'bra' + [A-Z pos_code] + initial +
+    //   shifted_rest_of_name + fixed_stats.
+    // - FORCA:   byte  em (record_size - 48) do record (RAW bytes, sem cifra).
+    // - SALARIO: uint16 LE em (record_size - 25) do record (RAW bytes).
     public static class SaveCodec
     {
         private static readonly byte[] EFT_MAGIC = { (byte)'E', (byte)'F', (byte)'a', 0 };
         private const int EFT_MARKER_OFFSET = 0xDC;
         private const int EFT_VERBA_OFFSET = 0xE0;
+        private const int FORCA_OFFSET_FROM_REC_END = 48;
         private const int SALARIO_OFFSET_FROM_REC_END = 25;
-        private const int SALARIO_MIN = 50;
-        private const int SALARIO_MAX = 9999;
+        public const int FORCA_MIN = 1;
+        public const int FORCA_MAX = 9999;
+        public const int FORCA_WARN_ABOVE = 50;
+        public const int SALARIO_MIN = 50;
+        public const int SALARIO_MAX = 99999;
 
         public static SaveFile Read(string path)
         {
@@ -66,31 +65,29 @@ namespace ElifootLauncher
                 sf.Verba = (uint)BitConverter.ToInt32(bytes, sf.VerbaOffset);
             }
 
-            // Decoded body pra achar players
             int bodyStart = eftStart + 4;
             int bodyEnd = eftEnd;
             var decoded = DecodeCaesar(bytes, bodyStart, bodyEnd);
             var starts = FindPlayerStarts(decoded);
 
-            // Skip #0 (team header). Cada record = starts[i]..starts[i+1] (ou fim).
             for (int i = 1; i < starts.Count; i++)
             {
                 int recStart = starts[i];
                 int recEnd = i + 1 < starts.Count ? starts[i + 1] : decoded.Length;
                 int recSize = recEnd - recStart;
-                if (recSize < SALARIO_OFFSET_FROM_REC_END + 2) continue;
+                if (recSize < FORCA_OFFSET_FROM_REC_END + 1) continue;
 
                 var p = new SavePlayer
                 {
-                    Nome = ExtractName(decoded, recStart, recSize),
+                    Nome = ExtractName(decoded, recStart),
                     RecordStartInEft = recStart,
                     RecordSizeInEft = recSize,
                 };
 
-                // Salario: uint16 LE em record_size - 25 do record.
-                // Endereço absoluto no arquivo:
-                int salaryLocalOffset = recSize - SALARIO_OFFSET_FROM_REC_END;
-                p.SalarioOffsetInFile = bodyStart + recStart + salaryLocalOffset;
+                p.ForcaOffsetInFile = bodyStart + recStart + (recSize - FORCA_OFFSET_FROM_REC_END);
+                p.SalarioOffsetInFile = bodyStart + recStart + (recSize - SALARIO_OFFSET_FROM_REC_END);
+                if (p.ForcaOffsetInFile < bytes.Length)
+                    p.Forca = bytes[p.ForcaOffsetInFile];
                 if (p.SalarioOffsetInFile + 2 <= bytes.Length)
                     p.Salario = BitConverter.ToUInt16(bytes, p.SalarioOffsetInFile);
 
@@ -113,25 +110,34 @@ namespace ElifootLauncher
 
             foreach (var p in sf.Players)
             {
-                if (p.SalarioOffsetInFile <= 0) continue;
-                if (p.SalarioOffsetInFile + 2 > bytes.Length) continue;
-                var s = (ushort)Math.Max(SALARIO_MIN, Math.Min(SALARIO_MAX, p.Salario));
-                var sb = BitConverter.GetBytes(s);
-                Array.Copy(sb, 0, bytes, p.SalarioOffsetInFile, 2);
+                if (p.ForcaOffsetInFile > 0 && p.ForcaOffsetInFile < bytes.Length)
+                {
+                    var f = Math.Max(FORCA_MIN, Math.Min(FORCA_MAX, p.Forca));
+                    // Forca <= 255 cabe em byte. Se > 255, precisa de 2 bytes
+                    // mas o campo eh 1 byte no formato original — game aceita
+                    // valores > 255 truncando. Salvamos byte low.
+                    bytes[p.ForcaOffsetInFile] = (byte)(f & 0xFF);
+                    // Se forca > 255, sobrescreve tambem o byte anterior
+                    // (complemento par sum) pra manter o par valido
+                    if (f > 255 && p.ForcaOffsetInFile + 1 < bytes.Length)
+                        bytes[p.ForcaOffsetInFile + 1] = (byte)((f >> 8) & 0xFF);
+                }
+
+                if (p.SalarioOffsetInFile > 0 && p.SalarioOffsetInFile + 2 <= bytes.Length)
+                {
+                    var s = (ushort)Math.Max(SALARIO_MIN, Math.Min(SALARIO_MAX, p.Salario));
+                    var sb = BitConverter.GetBytes(s);
+                    Array.Copy(sb, 0, bytes, p.SalarioOffsetInFile, 2);
+                }
             }
 
             File.WriteAllBytes(path, bytes);
         }
 
-        public static (int Min, int Max) SalarioLimits => (SALARIO_MIN, SALARIO_MAX);
-
         // ---- helpers ----
 
         private static int FindCoachedEftStart(byte[] bytes)
         {
-            // Estrategia: procurar EFT que contenha 'juventus' no decoded
-            // (o time do usuario). Fallback: primeiro EFT com marker 500000
-            // em +0xDC.
             int fallback = -1;
             int i = 0;
             while (i < bytes.Length - EFT_MAGIC.Length)
@@ -157,9 +163,7 @@ namespace ElifootLauncher
         }
 
         private static int FindNextEftStart(byte[] bytes, int after)
-        {
-            return IndexOf(bytes, EFT_MAGIC, after + 4);
-        }
+            => IndexOf(bytes, EFT_MAGIC, after + 4);
 
         private static byte[] DecodeCaesar(byte[] bytes, int start, int end)
         {
@@ -176,8 +180,6 @@ namespace ElifootLauncher
             return plain;
         }
 
-        // Encontra offsets no decoded onde comecam player records.
-        // Marker: <qualquer byte> + 'bra' + [A-Z pos_code].
         private static List<int> FindPlayerStarts(byte[] decoded)
         {
             var starts = new List<int>();
@@ -193,34 +195,50 @@ namespace ElifootLauncher
             return starts;
         }
 
-        private static string ExtractName(byte[] decoded, int recStart, int recSize)
+        // Extrai o nome do jogador do record decodificado.
+        // Formato: byte + 'bra' + pos_code + initial (lowercase, 1 byte) +
+        // rest_shifted (bytes >= 0x80 sao letras +0x20; sequences especiais
+        // pra acentos; @ (0x40) representa espaco).
+        // Termina quando encontra byte que nao pode ser parte do nome.
+        private static string ExtractName(byte[] decoded, int recStart)
         {
-            // record: byte + 'bra' + pos + initial + shifted_rest
-            if (recSize < 6) return "?";
-            char initial = (char)decoded[recStart + 5];
+            if (decoded.Length < recStart + 6) return "?";
             var sb = new StringBuilder();
+            char initial = (char)decoded[recStart + 5];
             sb.Append(char.ToUpperInvariant(initial));
-            for (int i = recStart + 6; i < recStart + recSize; i++)
+
+            // Terminator heuristica: nome nunca eh maior que 20 chars.
+            // Parar em byte que nao mapeia pra letra ou espaco/acento conhecido.
+            int maxScan = Math.Min(decoded.Length, recStart + 5 + 20);
+            for (int i = recStart + 6; i < maxScan; i++)
             {
                 byte b = decoded[i];
-                // Rest of name = shifted por +0x20. Recuperamos subtraindo.
-                // Nomes plainos costumam ter chars 0x60..0x7F apos shift-back de 0x80..0x9F.
-                // Se b >= 0x80 e < 0xC0, provavelmente parte do nome shifted.
-                // Tambem: accents like 'é' shifted = 0xE9+0x20 = 0x109 → 0x09.
-                if (b >= 0x80 && b <= 0xBF)
-                {
-                    sb.Append((char)(b - 0x20));
-                }
-                else if (b == 0x09)
-                {
-                    sb.Append('é');
-                }
-                else
-                {
-                    break;
-                }
+                char? c = MapNameByte(b);
+                if (c == null) break;
+                sb.Append(c.Value);
             }
+            // Trim trailing spaces
+            while (sb.Length > 0 && sb[sb.Length - 1] == ' ') sb.Length--;
             return sb.ToString();
+        }
+
+        // Mapeia byte decoded pra caractere do nome. Retorna null se nao eh
+        // parte de nome.
+        private static char? MapNameByte(byte b)
+        {
+            // letras minusculas shifted (a-z -> 0x81-0x9A)
+            if (b >= 0x81 && b <= 0x9A) return (char)(b - 0x20);
+            // apostrofe / espaco / hifen especiais
+            if (b == 0x40) return ' '; // space shifted
+            // Acentos comuns (portugues) shifted:
+            if (b == 0x09) return 'é'; // é (0xE9 + 0x20 -> 0x109 -> 0x09)
+            if (b == 0x03) return 'ã'; // ã (0xE3 + 0x20 -> 0x103 -> 0x03)
+            if (b == 0x01) return 'á'; // á
+            if (b == 0x0F) return 'ô'; // ô (0xF4 + 0x20 -> 0x114 -> 0x14, mas empirico 0x0F?)
+            if (b == 0x11) return 'ó'; // ó
+            if (b == 0x13) return 'ú';
+            if (b == 0x0D) return 'í';
+            return null; // nao eh char de nome
         }
 
         private static int IndexOf(byte[] haystack, byte[] needle, int start)

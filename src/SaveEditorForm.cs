@@ -5,7 +5,6 @@ using System.Windows.Forms;
 
 namespace ElifootLauncher
 {
-    // Editor de save (.e98). Verba + salarios dos jogadores.
     public class SaveEditorForm : Form
     {
         private readonly string _jogosDir;
@@ -13,7 +12,6 @@ namespace ElifootLauncher
         private TextBox _verbaField = null!;
         private ListView _players = null!;
         private Button _save = null!;
-        private Button _editSalary = null!;
         private SaveFile? _current;
         private string _currentPath = "";
 
@@ -21,23 +19,18 @@ namespace ElifootLauncher
         {
             _jogosDir = jogosDir;
             Text = "Editor de Save";
-            ClientSize = new Size(560, 540);
+            ClientSize = new Size(620, 560);
             FormBorderStyle = FormBorderStyle.FixedSingle;
             MaximizeBox = false;
             StartPosition = FormStartPosition.CenterParent;
 
             BuildUi();
-            RefreshSaveList();
+            RefreshSaveList(preserveSelection: false);
         }
 
         private void BuildUi()
         {
-            Controls.Add(new Label
-            {
-                Text = "Save:",
-                Location = new Point(16, 18),
-                AutoSize = true,
-            });
+            Controls.Add(new Label { Text = "Save:", Location = new Point(16, 18), AutoSize = true });
             _saveSel = new ComboBox
             {
                 Location = new Point(60, 15),
@@ -53,14 +46,14 @@ namespace ElifootLauncher
                 Width = 100,
                 FlatStyle = FlatStyle.System,
             };
-            reload.Click += (s, e) => RefreshSaveList();
+            reload.Click += (s, e) => RefreshSaveList(preserveSelection: true);
             Controls.Add(reload);
 
             var gbClube = new GroupBox
             {
                 Text = "Clube",
                 Location = new Point(16, 55),
-                Size = new Size(528, 65),
+                Size = new Size(588, 65),
             };
             Controls.Add(gbClube);
             gbClube.Controls.Add(new Label
@@ -78,40 +71,32 @@ namespace ElifootLauncher
 
             var gbPlayers = new GroupBox
             {
-                Text = "Jogadores (duplo-clique pra editar salário)",
+                Text = "Jogadores (duplo-clique pra editar força ou salário)",
                 Location = new Point(16, 130),
-                Size = new Size(528, 320),
+                Size = new Size(588, 340),
             };
             Controls.Add(gbPlayers);
             _players = new ListView
             {
                 Location = new Point(10, 20),
-                Size = new Size(508, 290),
+                Size = new Size(568, 310),
                 View = View.Details,
                 FullRowSelect = true,
                 GridLines = true,
                 MultiSelect = false,
             };
             _players.Columns.Add("#", 30);
-            _players.Columns.Add("Nome", 250);
+            _players.Columns.Add("Pos", 40);
+            _players.Columns.Add("Nome", 260);
+            _players.Columns.Add("Força", 80);
             _players.Columns.Add("Salário", 100);
             gbPlayers.Controls.Add(_players);
-            _players.DoubleClick += (s, e) => EditSalary();
-
-            _editSalary = new Button
-            {
-                Text = "Editar salário",
-                Location = new Point(16, 460),
-                Width = 130,
-                FlatStyle = FlatStyle.System,
-            };
-            _editSalary.Click += (s, e) => EditSalary();
-            Controls.Add(_editSalary);
+            _players.MouseDoubleClick += Players_DoubleClick;
 
             _save = new Button
             {
                 Text = "Salvar",
-                Location = new Point(360, 460),
+                Location = new Point(420, 480),
                 Width = 90,
                 FlatStyle = FlatStyle.System,
                 Enabled = false,
@@ -122,7 +107,7 @@ namespace ElifootLauncher
             var cancel = new Button
             {
                 Text = "Fechar",
-                Location = new Point(455, 460),
+                Location = new Point(515, 480),
                 Width = 90,
                 FlatStyle = FlatStyle.System,
             };
@@ -131,8 +116,8 @@ namespace ElifootLauncher
 
             var note = new Label
             {
-                Text = "Backup .bak criado na primeira gravação. Salários: 50 a 9999.",
-                Location = new Point(16, 500),
+                Text = "Backup .bak criado na primeira gravação. Força >50 emite aviso (jogo aceita até 9999).",
+                Location = new Point(16, 520),
                 AutoSize = true,
                 ForeColor = Color.Gray,
                 Font = new Font("Segoe UI", 8F),
@@ -140,22 +125,83 @@ namespace ElifootLauncher
             Controls.Add(note);
         }
 
-        private void RefreshSaveList()
+        private void Players_DoubleClick(object? sender, MouseEventArgs e)
         {
+            var hit = _players.HitTest(e.Location);
+            if (hit.Item?.Tag is not SavePlayer p) return;
+            int colIdx = -1;
+            for (int i = 0; i < hit.Item.SubItems.Count; i++)
+                if (hit.Item.SubItems[i] == hit.SubItem) { colIdx = i; break; }
+            // 0=#, 1=Pos, 2=Nome, 3=Forca, 4=Salario
+            if (colIdx == 3) EditForca(hit.Item, p);
+            else if (colIdx == 4) EditSalario(hit.Item, p);
+            else EditForca(hit.Item, p); // padrao: força
+        }
+
+        private void EditForca(ListViewItem it, SavePlayer p)
+        {
+            var v = PromptForInt($"Nova força para {p.Nome}\n(normal 1-50, jogo aceita até 9999):",
+                                 p.Forca, SaveCodec.FORCA_MIN, SaveCodec.FORCA_MAX);
+            if (!v.HasValue) return;
+            if (v.Value > SaveCodec.FORCA_WARN_ABOVE)
+            {
+                var r = MessageBox.Show(this,
+                    $"Força {v.Value} é bem acima do normal (1-{SaveCodec.FORCA_WARN_ABOVE}).\n" +
+                    "O jogo aceita, mas o jogador vai ficar SUPER forte. Continuar?",
+                    "Aviso", MessageBoxButtons.YesNo, MessageBoxIcon.Warning);
+                if (r != DialogResult.Yes) return;
+            }
+            p.Forca = v.Value;
+            it.SubItems[3].Text = p.Forca.ToString();
+        }
+
+        private void EditSalario(ListViewItem it, SavePlayer p)
+        {
+            var v = PromptForInt($"Novo salário para {p.Nome}:",
+                                 p.Salario, SaveCodec.SALARIO_MIN, SaveCodec.SALARIO_MAX);
+            if (!v.HasValue) return;
+            p.Salario = v.Value;
+            it.SubItems[4].Text = p.Salario.ToString();
+        }
+
+        private void RefreshSaveList(bool preserveSelection)
+        {
+            string? previouslySelected = preserveSelection && _saveSel.SelectedItem != null
+                ? _saveSel.SelectedItem.ToString()
+                : null;
+
+            _saveSel.SelectedIndexChanged -= OnSelChanged;
             _saveSel.Items.Clear();
+
             if (!Directory.Exists(_jogosDir))
             {
                 MessageBox.Show(this, $"Pasta JOGOS não encontrada:\n{_jogosDir}",
                     "Sem saves", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                _saveSel.SelectedIndexChanged += OnSelChanged;
                 return;
             }
+
             var files = Directory.GetFiles(_jogosDir, "*.e98", SearchOption.TopDirectoryOnly);
             Array.Sort(files);
             foreach (var f in files)
                 _saveSel.Items.Add(Path.GetFileName(f));
+
+            _saveSel.SelectedIndexChanged += OnSelChanged;
+
             if (_saveSel.Items.Count > 0)
-                _saveSel.SelectedIndex = 0;
+            {
+                int idx = 0;
+                if (previouslySelected != null)
+                {
+                    int found = _saveSel.Items.IndexOf(previouslySelected);
+                    if (found >= 0) idx = found;
+                }
+                _saveSel.SelectedIndex = idx;
+                LoadSelected();
+            }
         }
+
+        private void OnSelChanged(object? s, EventArgs e) => LoadSelected();
 
         private void LoadSelected()
         {
@@ -191,7 +237,9 @@ namespace ElifootLauncher
             foreach (var p in _current.Players)
             {
                 var it = new ListViewItem(n.ToString());
+                it.SubItems.Add(GuessPosition(n, _current.Players.Count));
                 it.SubItems.Add(p.Nome);
+                it.SubItems.Add(p.Forca.ToString());
                 it.SubItems.Add(p.Salario.ToString());
                 it.Tag = p;
                 _players.Items.Add(it);
@@ -200,20 +248,14 @@ namespace ElifootLauncher
             _players.EndUpdate();
         }
 
-        private void EditSalary()
+        // Elifoot 98 padroniza time em 2G + 4D + 5M + 5A = 16 jogadores.
+        // Sem byte confirmado de posicao, inferimos pela ordem.
+        private static string GuessPosition(int idx, int total)
         {
-            if (_players.SelectedItems.Count == 0) return;
-            var it = _players.SelectedItems[0];
-            if (it.Tag is not SavePlayer p) return;
-
-            var (min, max) = SaveCodec.SalarioLimits;
-            var nn = PromptForInt($"Novo salário para {p.Nome}\n(entre {min} e {max}):",
-                                  p.Salario, min, max);
-            if (nn.HasValue)
-            {
-                p.Salario = nn.Value;
-                it.SubItems[2].Text = p.Salario.ToString();
-            }
+            if (idx <= 2) return "G";
+            if (idx <= 6) return "D";
+            if (idx <= 11) return "M";
+            return "A";
         }
 
         private void SaveCurrent()
@@ -246,12 +288,12 @@ namespace ElifootLauncher
             }
         }
 
-        private static int? PromptForInt(string prompt, int defaultVal, int min, int max)
+        private int? PromptForInt(string prompt, int defaultVal, int min, int max)
         {
             using var f = new Form
             {
-                Width = 340,
-                Height = 160,
+                Width = 360,
+                Height = 180,
                 Text = "Editar valor",
                 StartPosition = FormStartPosition.CenterParent,
                 FormBorderStyle = FormBorderStyle.FixedDialog,
@@ -259,21 +301,21 @@ namespace ElifootLauncher
                 MaximizeBox = false,
             };
             var lbl = new Label { Left = 10, Top = 10, Text = prompt, AutoSize = true };
-            var tb = new TextBox { Left = 10, Top = 60, Width = 310, Text = defaultVal.ToString() };
-            var ok = new Button { Text = "OK", DialogResult = DialogResult.OK, Left = 150, Top = 90, Width = 80 };
-            var cn = new Button { Text = "Cancelar", DialogResult = DialogResult.Cancel, Left = 240, Top = 90, Width = 80 };
+            var tb = new TextBox { Left = 10, Top = 70, Width = 320, Text = defaultVal.ToString() };
+            var ok = new Button { Text = "OK", DialogResult = DialogResult.OK, Left = 160, Top = 105, Width = 80 };
+            var cn = new Button { Text = "Cancelar", DialogResult = DialogResult.Cancel, Left = 250, Top = 105, Width = 80 };
             f.AcceptButton = ok;
             f.CancelButton = cn;
             f.Controls.AddRange(new Control[] { lbl, tb, ok, cn });
-            if (f.ShowDialog() != DialogResult.OK) return null;
+            if (f.ShowDialog(this) != DialogResult.OK) return null;
             if (!int.TryParse(tb.Text, out int v))
             {
-                MessageBox.Show("Valor inválido.", "Erro", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                MessageBox.Show(this, "Valor inválido.", "Erro", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return null;
             }
             if (v < min || v > max)
             {
-                MessageBox.Show($"Valor deve estar entre {min} e {max}.",
+                MessageBox.Show(this, $"Valor deve estar entre {min} e {max}.",
                     "Fora dos limites", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return null;
             }
