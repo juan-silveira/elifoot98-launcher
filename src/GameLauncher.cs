@@ -59,6 +59,24 @@ namespace ElifootLauncher
                 WorkingDirectory = GameDir,
                 UseShellExecute = false,
             };
+
+            // Tentativa: passa varias env vars candidatas pra otvdm/Wine
+            // fingirem que o desktop e do tamanho da config. Assim Elifoot
+            // ao chamar GetSystemMetrics(SM_CXSCREEN) recebe o valor fake
+            // e desenha na resolucao esperada.
+            if (!cfg.Fullscreen)
+            {
+                var wh = $"{cfg.ResolutionWidth}x{cfg.ResolutionHeight}";
+                // Wine classic virtual desktop
+                psi.EnvironmentVariables["WINEDESKTOP"] = wh;
+                // otvdm-specific (chutes baseados em conveções winevdm/Wine)
+                psi.EnvironmentVariables["OTVDM_SCREEN_WIDTH"] = cfg.ResolutionWidth.ToString();
+                psi.EnvironmentVariables["OTVDM_SCREEN_HEIGHT"] = cfg.ResolutionHeight.ToString();
+                psi.EnvironmentVariables["OTVDM_DESKTOP"] = wh;
+                // SDL (caso otvdm delegue pra SDL em algum modo)
+                psi.EnvironmentVariables["SDL_VIDEO_WINDOW_POS"] = "0,0";
+            }
+
             var proc = Process.Start(psi);
 
             if (!cfg.Fullscreen && proc != null)
