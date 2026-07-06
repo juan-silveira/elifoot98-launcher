@@ -217,6 +217,7 @@ namespace ElifootLauncher
             log.AppendLine($"=== ResizeWhenReady start pid={proc.Id} target={width}x{height} at {DateTime.Now:HH:mm:ss} ===");
 
             var tracked = new System.Collections.Generic.HashSet<IntPtr>();
+            var centered = new System.Collections.Generic.HashSet<IntPtr>();
             int loop = 0;
 
             var screen = Screen.PrimaryScreen?.WorkingArea ?? new System.Drawing.Rectangle(0, 0, 1024, 768);
@@ -244,7 +245,7 @@ namespace ElifootLauncher
                 // nova pra pegar o estado inicial pre-hook.
                 foreach (var hwnd in hwnds)
                 {
-                    if (!tracked.Add(hwnd)) continue; // one-time por janela
+                    bool firstSeen = tracked.Add(hwnd);
                     GetWindowRect(hwnd, out RECT r);
                     long area = (long)(r.Right - r.Left) * (r.Bottom - r.Top);
                     int style = GetWindowLong(hwnd, GWL_STYLE);
@@ -273,13 +274,14 @@ namespace ElifootLauncher
                         int y = screenRect.Y + Math.Max(0, (screenRect.Height - height) / 2);
                         SetWindowPos(hwnd, IntPtr.Zero, x, y, width, height,
                             SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED);
-                        log.AppendLine($"  [+ hwnd=0x{hwnd.ToInt64():x} class='{className}' forced windowed]");
+                        centered.Add(hwnd);
+                        if (firstSeen) log.AppendLine($"  [+ hwnd=0x{hwnd.ToInt64():x} class='{className}' forced windowed]");
                     }
-                    else
+                    else if (!centered.Contains(hwnd))
                     {
-                        // Nao fullscreen: se estiver em (0,0) do DFM Delphi
-                        // ou grudado no canto, centraliza mantendo o tamanho.
-                        // Como e one-time (tracked HashSet), sem flicker.
+                        // Ainda nao centralizei. Verifica CADA iteracao ate
+                        // conseguir posicionar. Delphi as vezes reposiciona
+                        // depois do WM_CREATE — precisa aplicar depois disso.
                         bool nearOrigin = r.Left < 50 && r.Top < 50;
                         if (nearOrigin)
                         {
@@ -287,13 +289,22 @@ namespace ElifootLauncher
                             int h = r.Bottom - r.Top;
                             int x = screenRect.X + Math.Max(0, (screenRect.Width - w) / 2);
                             int y = screenRect.Y + Math.Max(0, (screenRect.Height - h) / 2);
-                            SetWindowPos(hwnd, IntPtr.Zero, x, y, w, h,
+                            bool ok = SetWindowPos(hwnd, IntPtr.Zero, x, y, w, h,
                                 SWP_NOZORDER | SWP_NOACTIVATE);
-                            log.AppendLine($"  [+ hwnd=0x{hwnd.ToInt64():x} class='{className}' centered ({x},{y}) {w}x{h}]");
+                            // Verifica se a janela ficou onde pedimos. Se sim, marca.
+                            GetWindowRect(hwnd, out RECT after);
+                            if (after.Left >= 50 || after.Top >= 50)
+                            {
+                                centered.Add(hwnd);
+                                log.AppendLine($"  [+ hwnd=0x{hwnd.ToInt64():x} class='{className}' centered ({x},{y}) {w}x{h}]");
+                            }
                         }
-                        else if (logDump)
+                        else
                         {
-                            log.AppendLine($"  [+ hwnd=0x{hwnd.ToInt64():x} class='{className}' natural ({r.Left},{r.Top}) {r.Right-r.Left}x{r.Bottom-r.Top}]");
+                            // Ja fora de origin — marca como ok, nao mexe
+                            centered.Add(hwnd);
+                            if (firstSeen && logDump)
+                                log.AppendLine($"  [+ hwnd=0x{hwnd.ToInt64():x} class='{className}' natural ({r.Left},{r.Top}) {r.Right-r.Left}x{r.Bottom-r.Top}]");
                         }
                     }
                 }
@@ -310,6 +321,7 @@ namespace ElifootLauncher
 
                 // Cleanup: janelas que morreram
                 tracked.RemoveWhere(h => !IsWindow(h));
+                centered.RemoveWhere(h => !IsWindow(h));
 
                 loop++;
                 Thread.Sleep(200);
