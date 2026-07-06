@@ -28,10 +28,32 @@ namespace ElifootLauncher
             uint attachedFromThread = 0;
             uint attachedToThread = 0;
             IntPtr previousForeground = IntPtr.Zero;
+            var diag = new StringBuilder();
+            diag.AppendLine($"=== CrackHeadless.Generate at {DateTime.Now:HH:mm:ss} tipo={tipo} senha='{senhaComHifens}' ===");
             try
             {
+                // Mata quaisquer DOSBox rodando de tentativas anteriores
+                foreach (var name in new[] { "dosbox", "dosbox_with_debugger" })
+                {
+                    foreach (var old in Process.GetProcessesByName(name))
+                    {
+                        try { old.Kill(); old.WaitForExit(2000); diag.AppendLine($"killed leftover {name} pid={old.Id}"); }
+                        catch (Exception ex) { diag.AppendLine($"couldn't kill {name}: {ex.Message}"); }
+                    }
+                }
+                Thread.Sleep(300); // deixa filesystem soltar handles
+
                 Directory.CreateDirectory(workDir);
-                File.Copy(launcher.CrackExe, Path.Combine(workDir, "CRACK.EXE"), overwrite: true);
+                diag.AppendLine($"workDir={workDir}");
+
+                // Retry no copy do CRACK.EXE caso esteja lockado
+                Exception? copyErr = null;
+                for (int i = 0; i < 5; i++)
+                {
+                    try { File.Copy(launcher.CrackExe, Path.Combine(workDir, "CRACK.EXE"), overwrite: true); copyErr = null; break; }
+                    catch (Exception ex) { copyErr = ex; Thread.Sleep(200); }
+                }
+                if (copyErr != null) throw new IOException($"Nao consegui copiar CRACK.EXE: {copyErr.Message}");
 
                 var confPath = Path.Combine(workDir, "dosbox.conf");
                 var conf = string.Join(Environment.NewLine, new[]
@@ -122,37 +144,58 @@ namespace ElifootLauncher
                 if (previousForeground != IntPtr.Zero)
                     SetForegroundWindow(previousForeground);
 
-                // 7) Aguarda DOSBox terminar
-                if (!proc.WaitForExit(10000))
+                // 7) Aguarda DOSBox terminar (max 15s)
+                bool exited = proc.WaitForExit(15000);
+                diag.AppendLine($"DOSBox exited={exited}, exitCode={(exited ? proc.ExitCode.ToString() : "n/a")}");
+                if (!exited)
                 {
                     KillTree(proc);
+                    Thread.Sleep(500); // deixa handles soltarem
                 }
 
-                // 8) Le output
-                var outPath = File.Exists(Path.Combine(workDir, "output.txt"))
-                    ? Path.Combine(workDir, "output.txt")
-                    : Path.Combine(workDir, "OUTPUT.TXT");
+                // 8) Le output com retry
+                var outPath = Path.Combine(workDir, "output.txt");
+                if (!File.Exists(outPath)) outPath = Path.Combine(workDir, "OUTPUT.TXT");
+                diag.AppendLine($"outPath={outPath}, exists={File.Exists(outPath)}");
                 if (!File.Exists(outPath))
                 {
-                    result.Error = "DOSBox nao gerou output.txt.";
+                    result.Error = "DOSBox nao gerou output.txt. Verifique se o DOSBox esta bloqueado por antivirus.";
+                    WriteDiag(diag);
                     return result;
                 }
-                var raw = File.ReadAllText(outPath);
+                string? raw = null;
+                Exception? readErr = null;
+                for (int i = 0; i < 8; i++)
+                {
+                    try { raw = File.ReadAllText(outPath); readErr = null; break; }
+                    catch (Exception ex) { readErr = ex; Thread.Sleep(250); }
+                }
+                if (raw == null) throw new IOException($"Nao consegui ler output.txt: {readErr?.Message}");
                 result.RawOutput = raw;
+                diag.AppendLine($"raw output length={raw.Length}");
 
                 var cs = ExtractContraSenha(raw);
                 if (cs == null)
                 {
-                    result.Error = "Nao consegui achar a Contra-Senha no output. Verifique se a Senha tem 6 grupos de 3 digitos.";
+                    // Sem Contra-Senha: SendInput nao pegou. Salva RAW pro diag.
+                    diag.AppendLine("!!! no XXX-XXX-XXX-XXX-XXX pattern found in output !!!");
+                    diag.AppendLine("--- RAW OUTPUT (first 500 chars) ---");
+                    diag.AppendLine(raw.Length > 500 ? raw.Substring(0, 500) : raw);
+                    result.Error = "Nao consegui achar a Contra-Senha no output. As teclas nao chegaram no CRACK. Veja o log em %APPDATA%\\ElifootLauncher\\crack-debug.log";
+                    WriteDiag(diag);
                     return result;
                 }
                 result.ContraSenha = cs;
                 result.Ok = true;
+                WriteDiag(diag);
                 return result;
             }
             catch (Exception ex)
             {
-                result.Error = ex.Message;
+                diag.AppendLine($"!!! EXCEPTION: {ex.GetType().Name}: {ex.Message}");
+                diag.AppendLine(ex.StackTrace ?? "");
+                result.Error = $"{ex.GetType().Name}: {ex.Message}";
+                WriteDiag(diag);
                 return result;
             }
             finally
@@ -162,8 +205,26 @@ namespace ElifootLauncher
                     try { AttachThreadInput(attachedFromThread, attachedToThread, false); } catch { }
                 }
                 if (proc != null) KillTree(proc);
-                try { Directory.Delete(workDir, recursive: true); } catch { }
+                // Delete com retry
+                for (int i = 0; i < 3; i++)
+                {
+                    try { Directory.Delete(workDir, recursive: true); break; }
+                    catch { Thread.Sleep(300); }
+                }
             }
+        }
+
+        private static void WriteDiag(StringBuilder diag)
+        {
+            try
+            {
+                var path = Path.Combine(
+                    Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+                    "ElifootLauncher", "crack-debug.log");
+                Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+                File.AppendAllText(path, diag.ToString() + Environment.NewLine);
+            }
+            catch { }
         }
 
         private static string? ExtractContraSenha(string raw)
