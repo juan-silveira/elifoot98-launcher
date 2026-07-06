@@ -5,16 +5,15 @@ using System.Windows.Forms;
 
 namespace ElifootLauncher
 {
-    // Editor de save (.e98). MVP v0.4: apenas Verba do clube.
-    // Nomes/atributos de jogador ficam pra proxima versao (cifra ainda
-    // nao 100% mapeada).
+    // Editor de save (.e98). Verba + salarios dos jogadores.
     public class SaveEditorForm : Form
     {
         private readonly string _jogosDir;
         private ComboBox _saveSel = null!;
         private TextBox _verbaField = null!;
-        private Label _verbaOffsetLbl = null!;
+        private ListView _players = null!;
         private Button _save = null!;
+        private Button _editSalary = null!;
         private SaveFile? _current;
         private string _currentPath = "";
 
@@ -22,7 +21,7 @@ namespace ElifootLauncher
         {
             _jogosDir = jogosDir;
             Text = "Editor de Save";
-            ClientSize = new Size(440, 240);
+            ClientSize = new Size(560, 540);
             FormBorderStyle = FormBorderStyle.FixedSingle;
             MaximizeBox = false;
             StartPosition = FormStartPosition.CenterParent;
@@ -42,7 +41,7 @@ namespace ElifootLauncher
             _saveSel = new ComboBox
             {
                 Location = new Point(60, 15),
-                Width = 240,
+                Width = 300,
                 DropDownStyle = ComboBoxStyle.DropDownList,
             };
             _saveSel.SelectedIndexChanged += (s, e) => LoadSelected();
@@ -50,22 +49,21 @@ namespace ElifootLauncher
             var reload = new Button
             {
                 Text = "Recarregar",
-                Location = new Point(310, 14),
-                Width = 110,
+                Location = new Point(370, 14),
+                Width = 100,
                 FlatStyle = FlatStyle.System,
             };
             reload.Click += (s, e) => RefreshSaveList();
             Controls.Add(reload);
 
-            var gb = new GroupBox
+            var gbClube = new GroupBox
             {
                 Text = "Clube",
                 Location = new Point(16, 55),
-                Size = new Size(408, 100),
+                Size = new Size(528, 65),
             };
-            Controls.Add(gb);
-
-            gb.Controls.Add(new Label
+            Controls.Add(gbClube);
+            gbClube.Controls.Add(new Label
             {
                 Text = "Verba (Reais):",
                 Location = new Point(15, 30),
@@ -76,21 +74,44 @@ namespace ElifootLauncher
                 Location = new Point(115, 27),
                 Width = 200,
             };
-            gb.Controls.Add(_verbaField);
-            _verbaOffsetLbl = new Label
+            gbClube.Controls.Add(_verbaField);
+
+            var gbPlayers = new GroupBox
             {
-                Text = "",
-                Location = new Point(15, 60),
-                AutoSize = true,
-                ForeColor = Color.Gray,
-                Font = new Font("Segoe UI", 8F),
+                Text = "Jogadores (duplo-clique pra editar salário)",
+                Location = new Point(16, 130),
+                Size = new Size(528, 320),
             };
-            gb.Controls.Add(_verbaOffsetLbl);
+            Controls.Add(gbPlayers);
+            _players = new ListView
+            {
+                Location = new Point(10, 20),
+                Size = new Size(508, 290),
+                View = View.Details,
+                FullRowSelect = true,
+                GridLines = true,
+                MultiSelect = false,
+            };
+            _players.Columns.Add("#", 30);
+            _players.Columns.Add("Nome", 250);
+            _players.Columns.Add("Salário", 100);
+            gbPlayers.Controls.Add(_players);
+            _players.DoubleClick += (s, e) => EditSalary();
+
+            _editSalary = new Button
+            {
+                Text = "Editar salário",
+                Location = new Point(16, 460),
+                Width = 130,
+                FlatStyle = FlatStyle.System,
+            };
+            _editSalary.Click += (s, e) => EditSalary();
+            Controls.Add(_editSalary);
 
             _save = new Button
             {
                 Text = "Salvar",
-                Location = new Point(240, 175),
+                Location = new Point(360, 460),
                 Width = 90,
                 FlatStyle = FlatStyle.System,
                 Enabled = false,
@@ -101,7 +122,7 @@ namespace ElifootLauncher
             var cancel = new Button
             {
                 Text = "Fechar",
-                Location = new Point(335, 175),
+                Location = new Point(455, 460),
                 Width = 90,
                 FlatStyle = FlatStyle.System,
             };
@@ -110,8 +131,8 @@ namespace ElifootLauncher
 
             var note = new Label
             {
-                Text = "Backup .bak criado automaticamente na primeira gravação.",
-                Location = new Point(16, 210),
+                Text = "Backup .bak criado na primeira gravação. Salários: 50 a 9999.",
+                Location = new Point(16, 500),
                 AutoSize = true,
                 ForeColor = Color.Gray,
                 Font = new Font("Segoe UI", 8F),
@@ -144,18 +165,8 @@ namespace ElifootLauncher
             try
             {
                 _current = SaveCodec.Read(_currentPath);
-                if (_current.VerbaOffset < 0)
-                {
-                    _verbaField.Text = "";
-                    _verbaOffsetLbl.Text = "Não foi possível localizar a verba neste save.";
-                    _save.Enabled = false;
-                }
-                else
-                {
-                    _verbaField.Text = _current.Verba.ToString();
-                    _verbaOffsetLbl.Text = $"Offset detectado: 0x{_current.VerbaOffset:X}";
-                    _save.Enabled = true;
-                }
+                Populate();
+                _save.Enabled = true;
             }
             catch (Exception ex)
             {
@@ -166,16 +177,60 @@ namespace ElifootLauncher
             }
         }
 
+        private void Populate()
+        {
+            if (_current == null) return;
+            if (_current.VerbaOffset < 0)
+                _verbaField.Text = "(não localizado)";
+            else
+                _verbaField.Text = _current.Verba.ToString();
+
+            _players.BeginUpdate();
+            _players.Items.Clear();
+            int n = 1;
+            foreach (var p in _current.Players)
+            {
+                var it = new ListViewItem(n.ToString());
+                it.SubItems.Add(p.Nome);
+                it.SubItems.Add(p.Salario.ToString());
+                it.Tag = p;
+                _players.Items.Add(it);
+                n++;
+            }
+            _players.EndUpdate();
+        }
+
+        private void EditSalary()
+        {
+            if (_players.SelectedItems.Count == 0) return;
+            var it = _players.SelectedItems[0];
+            if (it.Tag is not SavePlayer p) return;
+
+            var (min, max) = SaveCodec.SalarioLimits;
+            var nn = PromptForInt($"Novo salário para {p.Nome}\n(entre {min} e {max}):",
+                                  p.Salario, min, max);
+            if (nn.HasValue)
+            {
+                p.Salario = nn.Value;
+                it.SubItems[2].Text = p.Salario.ToString();
+            }
+        }
+
         private void SaveCurrent()
         {
             if (_current == null || string.IsNullOrEmpty(_currentPath)) return;
-            if (!long.TryParse(_verbaField.Text, out var verba) || verba < 0)
+
+            if (!string.IsNullOrEmpty(_verbaField.Text) && _verbaField.Text != "(não localizado)")
             {
-                MessageBox.Show(this, "Verba deve ser número inteiro positivo.",
-                    "Valor inválido", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                return;
+                if (!long.TryParse(_verbaField.Text, out var verba) || verba < 0)
+                {
+                    MessageBox.Show(this, "Verba deve ser número inteiro positivo.",
+                        "Valor inválido", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+                _current.Verba = verba;
             }
-            _current.Verba = verba;
+
             var bak = _currentPath + ".bak";
             try
             {
@@ -189,6 +244,40 @@ namespace ElifootLauncher
                 MessageBox.Show(this, $"Erro ao gravar:\n{ex.Message}",
                     "Erro", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
+        }
+
+        private static int? PromptForInt(string prompt, int defaultVal, int min, int max)
+        {
+            using var f = new Form
+            {
+                Width = 340,
+                Height = 160,
+                Text = "Editar valor",
+                StartPosition = FormStartPosition.CenterParent,
+                FormBorderStyle = FormBorderStyle.FixedDialog,
+                MinimizeBox = false,
+                MaximizeBox = false,
+            };
+            var lbl = new Label { Left = 10, Top = 10, Text = prompt, AutoSize = true };
+            var tb = new TextBox { Left = 10, Top = 60, Width = 310, Text = defaultVal.ToString() };
+            var ok = new Button { Text = "OK", DialogResult = DialogResult.OK, Left = 150, Top = 90, Width = 80 };
+            var cn = new Button { Text = "Cancelar", DialogResult = DialogResult.Cancel, Left = 240, Top = 90, Width = 80 };
+            f.AcceptButton = ok;
+            f.CancelButton = cn;
+            f.Controls.AddRange(new Control[] { lbl, tb, ok, cn });
+            if (f.ShowDialog() != DialogResult.OK) return null;
+            if (!int.TryParse(tb.Text, out int v))
+            {
+                MessageBox.Show("Valor inválido.", "Erro", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return null;
+            }
+            if (v < min || v > max)
+            {
+                MessageBox.Show($"Valor deve estar entre {min} e {max}.",
+                    "Fora dos limites", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return null;
+            }
+            return v;
         }
     }
 }
