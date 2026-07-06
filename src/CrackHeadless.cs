@@ -107,14 +107,11 @@ namespace ElifootLauncher
                 }
                 diag.AppendLine($"hwndMain=0x{hwndMain.ToInt64():x}, hwndStatus=0x{hwndStatus.ToInt64():x}");
 
-                // 2) Move AMBAS as janelas do DOSBox pra fora da tela
-                SetWindowPos(hwndMain, IntPtr.Zero, -32000, -32000, 200, 150,
-                    SWP_NOZORDER | SWP_NOACTIVATE);
-                if (hwndStatus != IntPtr.Zero)
-                {
-                    SetWindowPos(hwndStatus, IntPtr.Zero, -32000, -32100, 200, 150,
-                        SWP_NOZORDER | SWP_NOACTIVATE);
-                }
+                // 2) ESCONDE as duas janelas do DOSBox. Windows nao renderiza
+                // janelas hidden, e PostMessage(WM_KEYDOWN) ainda chega na queue
+                // delas — CRACK processa keys normalmente.
+                ShowWindow(hwndMain, SW_HIDE);
+                if (hwndStatus != IntPtr.Zero) ShowWindow(hwndStatus, SW_HIDE);
                 var hwnd = hwndMain; // resto do codigo usa 'hwnd' pra main
 
                 // 3) Espera CRACK subir e desenhar o menu
@@ -346,6 +343,11 @@ namespace ElifootLauncher
 
         [DllImport("user32.dll", CharSet = CharSet.Auto)]
         private static extern bool PostMessage(IntPtr hWnd, uint Msg, IntPtr wParam, IntPtr lParam);
+
+        [DllImport("user32.dll")]
+        private static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
+
+        private const int SW_HIDE = 0;
 
         private delegate bool EnumWindowsProc(IntPtr hWnd, IntPtr lParam);
 
