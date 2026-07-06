@@ -259,27 +259,42 @@ namespace ElifootLauncher
                     if (isMainForm) mainFormHwnd = hwnd;
                     else dialogHwnds.Add(hwnd);
 
-                    // Com o DLL agora retornando rcWork centralizado no
-                    // monitor real, janelas ja nascem no lugar certo. Aqui
-                    // so garantimos que se estiver fullscreen ainda (edge
-                    // case, DLL nao pegou) forcemos windowed + centrado.
                     int cleanStyle = style & ~WS_MAXIMIZE;
                     if (cleanStyle != style)
                         SetWindowLong(hwnd, GWL_STYLE, cleanStyle);
 
+                    var screenRect = Screen.PrimaryScreen?.WorkingArea ?? new System.Drawing.Rectangle(0, 0, 1024, 768);
+
                     if (area >= fullscreenThreshold || isMaxStyle)
                     {
+                        // Fullscreen ou maximizado: força windowed + tamanho config
                         if (isMaxStyle) PostMessage(hwnd, WM_SYSCOMMAND, (IntPtr)SC_RESTORE, IntPtr.Zero);
-                        var screenRect = Screen.PrimaryScreen?.WorkingArea ?? new System.Drawing.Rectangle(0, 0, 1024, 768);
                         int x = screenRect.X + Math.Max(0, (screenRect.Width - width) / 2);
                         int y = screenRect.Y + Math.Max(0, (screenRect.Height - height) / 2);
                         SetWindowPos(hwnd, IntPtr.Zero, x, y, width, height,
                             SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED);
                         log.AppendLine($"  [+ hwnd=0x{hwnd.ToInt64():x} class='{className}' forced windowed]");
                     }
-                    else if (logDump)
+                    else
                     {
-                        log.AppendLine($"  [+ hwnd=0x{hwnd.ToInt64():x} class='{className}' natural ({r.Left},{r.Top}) {r.Right-r.Left}x{r.Bottom-r.Top}]");
+                        // Nao fullscreen: se estiver em (0,0) do DFM Delphi
+                        // ou grudado no canto, centraliza mantendo o tamanho.
+                        // Como e one-time (tracked HashSet), sem flicker.
+                        bool nearOrigin = r.Left < 50 && r.Top < 50;
+                        if (nearOrigin)
+                        {
+                            int w = r.Right - r.Left;
+                            int h = r.Bottom - r.Top;
+                            int x = screenRect.X + Math.Max(0, (screenRect.Width - w) / 2);
+                            int y = screenRect.Y + Math.Max(0, (screenRect.Height - h) / 2);
+                            SetWindowPos(hwnd, IntPtr.Zero, x, y, w, h,
+                                SWP_NOZORDER | SWP_NOACTIVATE);
+                            log.AppendLine($"  [+ hwnd=0x{hwnd.ToInt64():x} class='{className}' centered ({x},{y}) {w}x{h}]");
+                        }
+                        else if (logDump)
+                        {
+                            log.AppendLine($"  [+ hwnd=0x{hwnd.ToInt64():x} class='{className}' natural ({r.Left},{r.Top}) {r.Right-r.Left}x{r.Bottom-r.Top}]");
+                        }
                     }
                 }
 
