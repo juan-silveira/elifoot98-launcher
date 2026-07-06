@@ -279,9 +279,6 @@ namespace ElifootLauncher
                     }
                     else if (!centered.Contains(hwnd))
                     {
-                        // Ainda nao centralizei. Verifica CADA iteracao ate
-                        // conseguir posicionar. Delphi as vezes reposiciona
-                        // depois do WM_CREATE — precisa aplicar depois disso.
                         bool nearOrigin = r.Left < 50 && r.Top < 50;
                         if (nearOrigin)
                         {
@@ -289,19 +286,22 @@ namespace ElifootLauncher
                             int h = r.Bottom - r.Top;
                             int x = screenRect.X + Math.Max(0, (screenRect.Width - w) / 2);
                             int y = screenRect.Y + Math.Max(0, (screenRect.Height - h) / 2);
-                            bool ok = SetWindowPos(hwnd, IntPtr.Zero, x, y, w, h,
-                                SWP_NOZORDER | SWP_NOACTIVATE);
-                            // Verifica se a janela ficou onde pedimos. Se sim, marca.
+                            // SEM SWP_NOACTIVATE porque Delphi precisa
+                            // processar o move corretamente. Com SWP_SHOWWINDOW
+                            // pra garantir que a janela aparece na nova pos.
+                            SetWindowPos(hwnd, IntPtr.Zero, x, y, w, h,
+                                SWP_NOZORDER | SWP_SHOWWINDOW);
                             GetWindowRect(hwnd, out RECT after);
                             if (after.Left >= 50 || after.Top >= 50)
                             {
                                 centered.Add(hwnd);
                                 log.AppendLine($"  [+ hwnd=0x{hwnd.ToInt64():x} class='{className}' centered ({x},{y}) {w}x{h}]");
                             }
+                            // Se nao pegou, nao marca — proxima iteracao tenta de novo
+                            // (max 5 tentativas via attemptCount pra evitar flicker perpetuo)
                         }
                         else
                         {
-                            // Ja fora de origin — marca como ok, nao mexe
                             centered.Add(hwnd);
                             if (firstSeen && logDump)
                                 log.AppendLine($"  [+ hwnd=0x{hwnd.ToInt64():x} class='{className}' natural ({r.Left},{r.Top}) {r.Right-r.Left}x{r.Bottom-r.Top}]");

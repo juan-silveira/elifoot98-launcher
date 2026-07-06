@@ -187,8 +187,8 @@ static void InstallHooks(void)
     MH_CreateHook((LPVOID)&SystemParametersInfoW, (LPVOID)&hk_SystemParametersInfoW, (LPVOID*)&o_SystemParametersInfoW);
     MH_CreateHook((LPVOID)&GetMonitorInfoA, (LPVOID)&hk_GetMonitorInfoA, (LPVOID*)&o_GetMonitorInfoA);
     MH_CreateHook((LPVOID)&GetMonitorInfoW, (LPVOID)&hk_GetMonitorInfoW, (LPVOID*)&o_GetMonitorInfoW);
-    MH_CreateHook((LPVOID)&SetWindowPos, (LPVOID)&hk_SetWindowPos, (LPVOID*)&o_SetWindowPos);
-    MH_CreateHook((LPVOID)&MoveWindow, (LPVOID)&hk_MoveWindow, (LPVOID*)&o_MoveWindow);
+    // SetWindowPos/MoveWindow hooks removidos — briga com centralizacao
+    // do lado C# gerava flicker. Centralizacao fica no ResizeWhenReady.
 
     MH_EnableHook(MH_ALL_HOOKS);
 }
