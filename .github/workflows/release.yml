@@ -44,28 +44,35 @@ jobs:
         shell: bash
         run: dotnet build src/ElifootLauncher.csproj -c Release -p:Version=${{ steps.version.outputs.value }} -p:AssemblyVersion=${{ steps.version.outputs.value }}.0 -p:FileVersion=${{ steps.version.outputs.value }}.0
 
+      - name: Build Registrador (Release, x86)
+        shell: bash
+        run: dotnet build src-registrador/ElifootRegistrador.csproj -c Release -p:Version=${{ steps.version.outputs.value }} -p:AssemblyVersion=${{ steps.version.outputs.value }}.0 -p:FileVersion=${{ steps.version.outputs.value }}.0
+
       - name: Build ScreenHook.dll (x86 native, MinHook)
         shell: pwsh
         run: |
           cmake -A Win32 -S native/ScreenHook -B build/screenhook
           cmake --build build/screenhook --config Release
-          # Copia pra pasta do launcher pro Inno Setup empacotar junto
           copy build\screenhook\Release\ScreenHook.dll src\bin\Release\net48\ScreenHook.dll
 
       - name: Install Inno Setup
         run: |
           choco install innosetup -y --no-progress
 
-      - name: Compile installer
+      - name: Compile main launcher installer
         shell: pwsh
         run: |
-          $env:PATH += ";$env:ProgramFiles(x86)\Inno Setup 6"
           & "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" "/DAppVersion=${{ steps.version.outputs.value }}" installer\setup.iss
 
-      - name: Upload build artifact (always, for debug)
+      - name: Compile Registrador installer
+        shell: pwsh
+        run: |
+          & "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" "/DAppVersion=${{ steps.version.outputs.value }}" installer\setup-registrador.iss
+
+      - name: Upload build artifacts (always, for debug)
         uses: actions/upload-artifact@v4
         with:
-          name: elifoot98-launcher-setup
+          name: installers
           path: installer/Output/*.exe
           if-no-files-found: error
 
@@ -77,17 +84,26 @@ jobs:
           generate_release_notes: true
           name: ${{ steps.version.outputs.value }}
           body: |
+            ## Downloads
+
+            Nesta release existem **dois instaladores separados**:
+
+            - **`elifoot98-launcher-setup-*.exe`** — o launcher principal + Elifoot 98 + otvdm. Instala em `C:\Elifoot98Launcher`.
+            - **`elifoot98-registrador-setup-*.exe`** — ferramenta separada para gerar Contra-Senha via `CRACK.EXE`. Instala em `C:\Elifoot98Registrador`. Opcional (só se você quiser registrar o jogo).
+
+            > Separamos por questão de licenciamento — o `CRACK.EXE` é o keygen original do autor Andre Elias.
+
             ## Instalação
 
-            1. Baixe o `elifoot98-launcher-setup-*.exe` abaixo
-            2. **Se o navegador bloquear o download**: no aviso de "arquivo baixado poderia prejudicar", clique nos três pontinhos (`...`) → **Manter** → **Manter mesmo assim**
-            3. Antes de executar, opcionalmente desbloqueie: clique com o botão direito no `.exe` → **Propriedades** → marque **Desbloquear** → OK
-            4. Execute o instalador. Se aparecer o **SmartScreen** ("O Windows protegeu seu PC"): clique em **Mais informações** → **Executar assim mesmo**
-            5. O UAC vai pedir permissão (precisamos criar `C:\Elifoot98Launcher`)
-            6. Siga o assistente. Um atalho "Elifoot 98" aparece no menu Iniciar
+            1. Baixe o instalador desejado abaixo (ou os dois)
+            2. Se o navegador bloquear: `...` → **Manter** → **Manter mesmo assim**
+            3. Clique com o botão direito no `.exe` → **Propriedades** → marque **Desbloquear** (opcional)
+            4. Execute — se aparecer **SmartScreen**: **Mais informações** → **Executar assim mesmo**
+            5. UAC vai pedir permissão para criar pasta na raiz de C:
+            6. Siga o assistente
 
-            > O instalador não é assinado digitalmente (custa caro pra hobby project). Por isso o Windows desconfia. Você pode verificar o SHA256 na página do release e comparar.
+            > Instaladores não são assinados digitalmente (custa caro pra hobby). Verifique SHA256 se quiser.
 
             ## Requisitos
             - Windows 10 (1809+) ou 11
-            - .NET Framework 4.8 (já vem em Win 10/11)
+            - .NET Framework 4.8 (vem em Win 10/11)

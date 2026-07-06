@@ -58,14 +58,12 @@ Source: "..\src\bin\Release\net48\*.dll";               DestDir: "{app}"; Flags:
 ; otvdm (16-bit emulator para ELIFOOT.EXE e EDITEQ.EXE)
 Source: "..\vendor\otvdm\*"; DestDir: "{app}\vendor\otvdm"; Flags: ignoreversion recursesubdirs createallsubdirs
 
-; DOSBox-Staging (para CRACK.EXE)
-Source: "..\vendor\dosbox\*"; DestDir: "{app}\vendor\dosbox"; Flags: ignoreversion recursesubdirs createallsubdirs
-
 ; VC++ 2015-2022 Redistributable x86 (necessario pro otvdm em Tiny10 e similares)
 Source: "..\vendor\vcredist\vc_redist.x86.exe"; DestDir: "{tmp}"; Flags: deleteafterinstall
 
-; Arquivos do jogo (ficam em ..\game\)
-Source: "..\game\*"; DestDir: "{app}\game"; Flags: ignoreversion recursesubdirs createallsubdirs
+; Arquivos do jogo (ficam em ..\game\) — mas SEM CRACK.EXE que agora
+; e distribuido no instalador do Registrador separado.
+Source: "..\game\*"; DestDir: "{app}\game"; Flags: ignoreversion recursesubdirs createallsubdirs; Excludes: "CRACK.EXE"
 
 ; Documentacao
 Source: "..\README.md"; DestDir: "{app}"; Flags: ignoreversion

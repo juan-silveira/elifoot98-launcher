@@ -3,11 +3,11 @@ using System.Drawing;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 
-namespace ElifootLauncher
+namespace ElifootRegistrador
 {
     public class KeygenForm : Form
     {
-        private readonly GameLauncher _launcher;
+        private readonly LocalLauncher _launcher;
 
         private readonly TextBox _txtSenha;
         private readonly ComboBox _cmbTipo;
@@ -29,15 +29,22 @@ namespace ElifootLauncher
             (9, "9 - Registro para autor 2"),
         };
 
-        public KeygenForm(GameLauncher launcher)
+        public KeygenForm(LocalLauncher launcher)
         {
             _launcher = launcher;
 
-            Text = "Registrador (CRACK)";
-            ClientSize = new Size(500, 320);
+            Text = "Elifoot 98 — Registrador";
+            ClientSize = new Size(500, 340);
             FormBorderStyle = FormBorderStyle.FixedSingle;
             MaximizeBox = false;
-            StartPosition = FormStartPosition.CenterParent;
+            StartPosition = FormStartPosition.CenterScreen;
+            try
+            {
+                var iconStream = System.Reflection.Assembly.GetExecutingAssembly()
+                    .GetManifestResourceStream("ElifootRegistrador.elifoot.ico");
+                if (iconStream != null) Icon = new System.Drawing.Icon(iconStream);
+            }
+            catch { }
 
             var lblSenha = new Label
             {

@@ -5,7 +5,7 @@ using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading;
 
-namespace ElifootLauncher
+namespace ElifootRegistrador
 {
     // Roda o CRACK.EXE via DOSBox off-screen, injeta teclas via SendInput
     // (que funciona com SDL do DOSBox, diferente de PostMessage).
@@ -20,7 +20,7 @@ namespace ElifootLauncher
             public string Error = "";
         }
 
-        public static Result Generate(GameLauncher launcher, int tipo, string senhaComHifens)
+        public static Result Generate(LocalLauncher launcher, int tipo, string senhaComHifens)
         {
             var result = new Result();
             var workDir = Path.Combine(Path.GetTempPath(), "elifoot_crack_" + Guid.NewGuid().ToString("N").Substring(0, 8));

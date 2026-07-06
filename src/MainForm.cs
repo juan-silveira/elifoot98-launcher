@@ -37,15 +37,28 @@ namespace ElifootLauncher
 
             var btnJogo = MakeButton("Jogar Elifoot 98", 60);
             var btnEditor = MakeButton("Editor de Equipes", 105);
-            var btnCrack = MakeButton("Registrador (CRACK)", 150);
+            var btnRegLink = MakeButton("Baixar Registrador (separado)", 150);
             var btnConfig = MakeButton("Configurações", 210, secondary: true);
 
             btnJogo.Click += (s, e) => SafeRun(() => _launcher.LaunchElifoot(_config));
             btnEditor.Click += (s, e) => SafeRun(() => _launcher.LaunchEditor(_config));
-            btnCrack.Click += (s, e) =>
+            btnRegLink.Click += (s, e) =>
             {
-                using (var f = new KeygenForm(_launcher))
-                    f.ShowDialog(this);
+                // O Registrador (baseado no CRACK.EXE original) e distribuido
+                // como aplicativo separado por questao de licenciamento.
+                try
+                {
+                    System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+                    {
+                        FileName = "https://github.com/juan-silveira/elifoot98-launcher/releases/latest",
+                        UseShellExecute = true,
+                    });
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show(this, "Não abri o browser:\n" + ex.Message,
+                        "Erro", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                }
             };
             btnConfig.Click += (s, e) =>
             {
@@ -56,7 +69,7 @@ namespace ElifootLauncher
                 }
             };
 
-            Controls.AddRange(new Control[] { btnJogo, btnEditor, btnCrack, btnConfig });
+            Controls.AddRange(new Control[] { btnJogo, btnEditor, btnRegLink, btnConfig });
         }
 
         private void SafeRun(Action a)
