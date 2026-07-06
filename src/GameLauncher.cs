@@ -128,45 +128,83 @@ namespace ElifootLauncher
             catch { }
         }
 
+        // Match "estrito": title == "Elifoot 98" exato ou classe TApplication/TForm de Delphi.
+        // Se nao achar por titulo, retorna a janela do processo com maior area
+        // (heuristica para pegar a janela fullscreen sem titulo).
         private static IntPtr FindGameWindow(string titleHint, StringBuilder log, bool dumpAll)
         {
-            IntPtr result = IntPtr.Zero;
+            IntPtr byTitle = IntPtr.Zero;
+            IntPtr byArea = IntPtr.Zero;
+            long bestArea = 0;
+            uint launcherPid = (uint)Process.GetCurrentProcess().Id;
+
+            // Descobrir pids relacionados ao otvdm (processo que a gente lancou)
+            var otvdmPids = new System.Collections.Generic.HashSet<uint>();
+            foreach (var p in Process.GetProcessesByName("otvdmw"))
+            {
+                try { otvdmPids.Add((uint)p.Id); } catch { }
+            }
+            foreach (var p in Process.GetProcessesByName("otvdm"))
+            {
+                try { otvdmPids.Add((uint)p.Id); } catch { }
+            }
+
             EnumWindows((h, _) =>
             {
-                if (!IsWindowVisible(h)) return true;
-
                 var sb = new StringBuilder(256);
                 GetWindowText(h, sb, sb.Capacity);
                 var title = sb.ToString();
-                if (title.Length == 0) return true;
+
+                var cls = new StringBuilder(128);
+                GetClassName(h, cls, cls.Capacity);
+                var className = cls.ToString();
 
                 GetWindowThreadProcessId(h, out uint pid);
+                bool vis = IsWindowVisible(h);
+                GetWindowRect(h, out RECT r);
+                long area = Math.Max(0, (long)(r.Right - r.Left) * (r.Bottom - r.Top));
 
-                // Pega dimensoes atuais pra ajudar debug
+                // Pula meu proprio processo pra nao virar match falso
+                if (pid == launcherPid) return true;
+
                 if (dumpAll)
                 {
-                    GetWindowRect(h, out RECT r);
-                    log.AppendLine($"  visible hwnd=0x{h.ToInt64():x} pid={pid} rect=({r.Left},{r.Top})-({r.Right},{r.Bottom}) title='{title}'");
+                    log.AppendLine($"  {(vis ? "vis" : "hid")} hwnd=0x{h.ToInt64():x} pid={pid} area={area} rect=({r.Left},{r.Top})-({r.Right},{r.Bottom}) class='{className}' title='{title}'");
                 }
 
-                if (title.IndexOf(titleHint, StringComparison.OrdinalIgnoreCase) >= 0
-                    || title.IndexOf("ELIFOOT", StringComparison.OrdinalIgnoreCase) >= 0
-                    || title.IndexOf("EDITEQ", StringComparison.OrdinalIgnoreCase) >= 0)
+                // Match estrito por titulo EXATO ou classes-chave de Delphi/Elifoot
+                bool titleExact = string.Equals(title, "Elifoot 98", StringComparison.OrdinalIgnoreCase)
+                                 || string.Equals(title, "Editeq", StringComparison.OrdinalIgnoreCase)
+                                 || string.Equals(title, "ELIFOOT", StringComparison.OrdinalIgnoreCase)
+                                 || string.Equals(title, "ELIFOOT.EXE", StringComparison.OrdinalIgnoreCase);
+                if (titleExact && vis && area > 0)
                 {
-                    if (result == IntPtr.Zero)
+                    if (byTitle == IntPtr.Zero)
                     {
-                        log.AppendLine($"  MATCH hwnd=0x{h.ToInt64():x} title='{title}'");
-                        result = h;
+                        log.AppendLine($"  MATCH title hwnd=0x{h.ToInt64():x} area={area} title='{title}'");
+                        byTitle = h;
                     }
                     else
                     {
-                        // Segundo candidato: loga mas mantem primeiro
-                        log.AppendLine($"  extra MATCH hwnd=0x{h.ToInt64():x} title='{title}'");
+                        log.AppendLine($"  ALT title hwnd=0x{h.ToInt64():x} area={area} title='{title}'");
                     }
                 }
+
+                // Heuristica: janela do otvdm com maior area (mesmo sem titulo)
+                if (otvdmPids.Contains(pid) && vis && area > bestArea)
+                {
+                    bestArea = area;
+                    byArea = h;
+                }
+
                 return true;
             }, IntPtr.Zero);
-            return result;
+
+            // Prefere match por titulo com area > 0; se falhar, usa a maior do otvdm.
+            IntPtr chosen = byTitle != IntPtr.Zero ? byTitle : byArea;
+            if (chosen != IntPtr.Zero)
+                log.AppendLine($"  === chosen hwnd=0x{chosen.ToInt64():x} via {(byTitle != IntPtr.Zero ? "title" : "biggest-otvdm-area")} ===");
+            return chosen;
         }
 
         private static void ForceWindowed(IntPtr hwnd, int width, int height, StringBuilder log, bool verbose)
@@ -292,6 +330,9 @@ namespace ElifootLauncher
 
         [DllImport("user32.dll")]
         private static extern bool PostMessage(IntPtr hWnd, uint Msg, IntPtr wParam, IntPtr lParam);
+
+        [DllImport("user32.dll", CharSet = CharSet.Auto)]
+        private static extern int GetClassName(IntPtr hWnd, StringBuilder lpClassName, int nMaxCount);
 
         private delegate bool EnumWindowsProc(IntPtr hWnd, IntPtr lParam);
 
