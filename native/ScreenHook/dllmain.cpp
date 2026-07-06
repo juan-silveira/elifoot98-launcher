@@ -17,8 +17,8 @@ typedef BOOL (WINAPI *SystemParametersInfoA_t)(UINT, UINT, PVOID, UINT);
 typedef BOOL (WINAPI *SystemParametersInfoW_t)(UINT, UINT, PVOID, UINT);
 typedef BOOL (WINAPI *GetMonitorInfoA_t)(HMONITOR, LPMONITORINFO);
 typedef BOOL (WINAPI *GetMonitorInfoW_t)(HMONITOR, LPMONITORINFO);
-typedef BOOL (WINAPI *GetWindowRect_t)(HWND, LPRECT);
-typedef BOOL (WINAPI *GetClientRect_t)(HWND, LPRECT);
+typedef BOOL (WINAPI *SetWindowPos_t)(HWND, HWND, int, int, int, int, UINT);
+typedef BOOL (WINAPI *MoveWindow_t)(HWND, int, int, int, int, BOOL);
 
 static GetSystemMetrics_t o_GetSystemMetrics = NULL;
 static GetDeviceCaps_t o_GetDeviceCaps = NULL;
@@ -26,6 +26,8 @@ static SystemParametersInfoA_t o_SystemParametersInfoA = NULL;
 static SystemParametersInfoW_t o_SystemParametersInfoW = NULL;
 static GetMonitorInfoA_t o_GetMonitorInfoA = NULL;
 static GetMonitorInfoW_t o_GetMonitorInfoW = NULL;
+static SetWindowPos_t o_SetWindowPos = NULL;
+static MoveWindow_t o_MoveWindow = NULL;
 
 static int g_FakeWidth = 640;
 static int g_FakeHeight = 480;
@@ -119,6 +121,55 @@ static BOOL WINAPI hk_GetMonitorInfoW(HMONITOR hMonitor, LPMONITORINFO lpmi)
     return r;
 }
 
+// Delphi Form.Show chama SetWindowPos/MoveWindow com Left=Top=0 do DFM.
+// Interceptamos: se a chamada tem coordenada de origem (0,0) e o tamanho
+// eh de dialog (>200x150), substituimos por centralizado na tela real.
+static void GetRealPrimaryMonitor(int* rw, int* rh)
+{
+    HMONITOR hm = MonitorFromWindow(NULL, MONITOR_DEFAULTTOPRIMARY);
+    MONITORINFO mi = { sizeof(mi) };
+    if (hm != NULL && o_GetMonitorInfoA != NULL && o_GetMonitorInfoA(hm, &mi))
+    {
+        *rw = mi.rcMonitor.right - mi.rcMonitor.left;
+        *rh = mi.rcMonitor.bottom - mi.rcMonitor.top;
+    }
+    else
+    {
+        *rw = 1920; *rh = 1080;
+    }
+}
+
+static void MaybeCenterCoords(int* X, int* Y, int cx, int cy)
+{
+    if (*X == 0 && *Y == 0 && cx >= 200 && cy >= 150)
+    {
+        int rw, rh;
+        GetRealPrimaryMonitor(&rw, &rh);
+        int nx = (rw - cx) / 2;
+        int ny = (rh - cy) / 2;
+        if (nx < 0) nx = 0;
+        if (ny < 0) ny = 0;
+        *X = nx;
+        *Y = ny;
+    }
+}
+
+static BOOL WINAPI hk_SetWindowPos(HWND hWnd, HWND hAfter, int X, int Y, int cx, int cy, UINT uFlags)
+{
+    // So mexe se o caller esta setando POSICAO explicita (nao SWP_NOMOVE)
+    if (!(uFlags & SWP_NOMOVE))
+    {
+        MaybeCenterCoords(&X, &Y, cx, cy);
+    }
+    return o_SetWindowPos(hWnd, hAfter, X, Y, cx, cy, uFlags);
+}
+
+static BOOL WINAPI hk_MoveWindow(HWND hWnd, int X, int Y, int nWidth, int nHeight, BOOL bRepaint)
+{
+    MaybeCenterCoords(&X, &Y, nWidth, nHeight);
+    return o_MoveWindow(hWnd, X, Y, nWidth, nHeight, bRepaint);
+}
+
 static void InstallHooks(void)
 {
     // Le config de env vars
@@ -136,6 +187,8 @@ static void InstallHooks(void)
     MH_CreateHook((LPVOID)&SystemParametersInfoW, (LPVOID)&hk_SystemParametersInfoW, (LPVOID*)&o_SystemParametersInfoW);
     MH_CreateHook((LPVOID)&GetMonitorInfoA, (LPVOID)&hk_GetMonitorInfoA, (LPVOID*)&o_GetMonitorInfoA);
     MH_CreateHook((LPVOID)&GetMonitorInfoW, (LPVOID)&hk_GetMonitorInfoW, (LPVOID*)&o_GetMonitorInfoW);
+    MH_CreateHook((LPVOID)&SetWindowPos, (LPVOID)&hk_SetWindowPos, (LPVOID*)&o_SetWindowPos);
+    MH_CreateHook((LPVOID)&MoveWindow, (LPVOID)&hk_MoveWindow, (LPVOID*)&o_MoveWindow);
 
     MH_EnableHook(MH_ALL_HOOKS);
 }
