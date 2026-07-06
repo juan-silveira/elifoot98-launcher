@@ -106,10 +106,14 @@ namespace ElifootLauncher
                 proc = Process.Start(psi);
             }
 
-            // Passo 1 do plano: NAO rodamos ResizeWhenReady. DLL cuida da
-            // maximizacao via rcWork. Windowed passa a se comportar igual
-            // fullscreen (que nao tem flicker). Dialogs ficam onde Delphi
-            // colocar — sera corrigido no Passo 2 com hook no DLL.
+            // Volta ResizeWhenReady, MAS versao mimima: forca windowed 1x
+            // por hwnd, nao re-processa. Sem loop de disputa = sem flicker.
+            if (!cfg.Fullscreen && proc != null)
+            {
+                var w = cfg.ResolutionWidth;
+                var h = cfg.ResolutionHeight;
+                Task.Run(() => ResizeWhenReady(proc, expectedTitleHint, w, h));
+            }
         }
 
         // Escreve entrada no registro do Windows pra ativar o AppCompat layer
@@ -266,16 +270,19 @@ namespace ElifootLauncher
 
                     var screenRect = Screen.PrimaryScreen?.WorkingArea ?? new System.Drawing.Rectangle(0, 0, 1024, 768);
 
-                    if (area >= fullscreenThreshold || isMaxStyle)
+                    if (!centered.Contains(hwnd) && (area >= fullscreenThreshold || isMaxStyle))
                     {
                         // Fullscreen ou maximizado: força windowed + tamanho config
+                        // UMA UNICA VEZ por hwnd. Adiciona ao centered ANTES
+                        // do SetWindowPos pra evitar reentrancia se algum
+                        // handler sincrono disparar iteracao no mesmo hwnd.
+                        centered.Add(hwnd);
                         if (isMaxStyle) PostMessage(hwnd, WM_SYSCOMMAND, (IntPtr)SC_RESTORE, IntPtr.Zero);
                         int x = screenRect.X + Math.Max(0, (screenRect.Width - width) / 2);
                         int y = screenRect.Y + Math.Max(0, (screenRect.Height - height) / 2);
                         SetWindowPos(hwnd, IntPtr.Zero, x, y, width, height,
                             SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED);
-                        centered.Add(hwnd);
-                        if (firstSeen) log.AppendLine($"  [+ hwnd=0x{hwnd.ToInt64():x} class='{className}' forced windowed]");
+                        if (firstSeen) log.AppendLine($"  [+ hwnd=0x{hwnd.ToInt64():x} class='{className}' forced windowed once]");
                     }
                     else if (!centered.Contains(hwnd))
                     {
