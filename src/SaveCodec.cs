@@ -70,22 +70,44 @@ namespace ElifootLauncher
             var decoded = DecodeCaesar(bytes, bodyStart, bodyEnd);
             var starts = FindPlayerStarts(decoded);
 
+            // Tamanho MEDIANO do record calculado dos players anteriores.
+            // Usado como upper bound pro ULTIMO player (o marker do proximo
+            // player nao existe, entao naive end=decoded.Length gera record
+            // enorme e forca/salario ficam em posicao errada).
+            int lastRecCap = 130; // fallback razoavel
+
             for (int i = 1; i < starts.Count; i++)
             {
                 int recStart = starts[i];
-                int recEnd = i + 1 < starts.Count ? starts[i + 1] : decoded.Length;
-                int recSize = recEnd - recStart;
+                int naiveEnd = i + 1 < starts.Count ? starts[i + 1] : decoded.Length;
+                int recSize = naiveEnd - recStart;
+
+                bool isLast = i + 1 >= starts.Count;
+                if (isLast && recSize > lastRecCap)
+                {
+                    // Usa mediana dos records anteriores
+                    recSize = Math.Min(lastRecCap, naiveEnd - recStart);
+                }
+                else if (!isLast)
+                {
+                    // Update running median estimate a cada player
+                    lastRecCap = Math.Max(lastRecCap, recSize + 20);
+                }
+
                 if (recSize < FORCA_OFFSET_FROM_REC_END + 1) continue;
+
+                int forcaLocal = recSize - FORCA_OFFSET_FROM_REC_END;
+                int salarioLocal = recSize - SALARIO_OFFSET_FROM_REC_END;
 
                 var p = new SavePlayer
                 {
-                    Nome = ExtractName(decoded, recStart),
+                    Nome = ExtractName(decoded, recStart, forcaLocal),
                     RecordStartInEft = recStart,
                     RecordSizeInEft = recSize,
                 };
 
-                p.ForcaOffsetInFile = bodyStart + recStart + (recSize - FORCA_OFFSET_FROM_REC_END);
-                p.SalarioOffsetInFile = bodyStart + recStart + (recSize - SALARIO_OFFSET_FROM_REC_END);
+                p.ForcaOffsetInFile = bodyStart + recStart + forcaLocal;
+                p.SalarioOffsetInFile = bodyStart + recStart + salarioLocal;
                 if (p.ForcaOffsetInFile < bytes.Length)
                     p.Forca = bytes[p.ForcaOffsetInFile];
                 if (p.SalarioOffsetInFile + 2 <= bytes.Length)
@@ -196,28 +218,47 @@ namespace ElifootLauncher
         }
 
         // Extrai o nome do jogador do record decodificado.
-        // Formato: byte + 'bra' + pos_code + initial (lowercase, 1 byte) +
-        // rest_shifted (bytes >= 0x80 sao letras +0x20; sequences especiais
-        // pra acentos; @ (0x40) representa espaco).
-        // Termina quando encontra byte que nao pode ser parte do nome.
-        private static string ExtractName(byte[] decoded, int recStart)
+        // Formato observado:
+        //   +4: pos_code (uppercase A-Z)
+        //   +5: initial da primeira palavra (letra minuscula unshifted)
+        //   +6..: resto shifted +0x20 (letras minusculas viram 0x81-0x9A;
+        //         acentos ptbr viram valores baixos como 0x09='é')
+        //   Se nome tem espaco:
+        //     @ (0x40) = espaco shifted
+        //     Byte seguinte ao espaco: initial da 2a palavra (unshifted 0x61-0x7A)
+        //     Resto da 2a palavra: shifted como antes
+        // O nome termina 3 bytes antes da forca (empiricamente).
+        private static string ExtractName(byte[] decoded, int recStart, int forcaLocal)
         {
             if (decoded.Length < recStart + 6) return "?";
             var sb = new StringBuilder();
             char initial = (char)decoded[recStart + 5];
             sb.Append(char.ToUpperInvariant(initial));
 
-            // Terminator heuristica: nome nunca eh maior que 20 chars.
-            // Parar em byte que nao mapeia pra letra ou espaco/acento conhecido.
-            int maxScan = Math.Min(decoded.Length, recStart + 5 + 20);
-            for (int i = recStart + 6; i < maxScan; i++)
+            // Nome termina 3 bytes antes do byte de forca (empirico).
+            int nameEnd = recStart + forcaLocal - 3;
+            if (nameEnd > decoded.Length) nameEnd = decoded.Length;
+
+            bool afterSpace = false;
+            for (int i = recStart + 6; i < nameEnd; i++)
             {
                 byte b = decoded[i];
+
+                // Se acabou de vir espaco, proximo byte eh initial da 2a palavra
+                // (letra minuscula UNSHIFTED)
+                if (afterSpace && b >= 0x61 && b <= 0x7A)
+                {
+                    sb.Append(char.ToUpperInvariant((char)b));
+                    afterSpace = false;
+                    continue;
+                }
+                afterSpace = false;
+
                 char? c = MapNameByte(b);
                 if (c == null) break;
                 sb.Append(c.Value);
+                if (c.Value == ' ') afterSpace = true;
             }
-            // Trim trailing spaces
             while (sb.Length > 0 && sb[sb.Length - 1] == ' ') sb.Length--;
             return sb.ToString();
         }
@@ -228,17 +269,29 @@ namespace ElifootLauncher
         {
             // letras minusculas shifted (a-z -> 0x81-0x9A)
             if (b >= 0x81 && b <= 0x9A) return (char)(b - 0x20);
-            // apostrofe / espaco / hifen especiais
-            if (b == 0x40) return ' '; // space shifted
-            // Acentos comuns (portugues) shifted:
-            if (b == 0x09) return 'é'; // é (0xE9 + 0x20 -> 0x109 -> 0x09)
-            if (b == 0x03) return 'ã'; // ã (0xE3 + 0x20 -> 0x103 -> 0x03)
-            if (b == 0x01) return 'á'; // á
-            if (b == 0x0F) return 'ô'; // ô (0xF4 + 0x20 -> 0x114 -> 0x14, mas empirico 0x0F?)
-            if (b == 0x11) return 'ó'; // ó
-            if (b == 0x13) return 'ú';
-            if (b == 0x0D) return 'í';
-            return null; // nao eh char de nome
+            // Space shifted (@)
+            if (b == 0x40) return ' ';
+            // Acentos ISO-8859-1 shifted +0x20 mod 256:
+            // á(0xE1)->0x01, â(0xE2)->0x02, ã(0xE3)->0x03, ç(0xE7)->0x07,
+            // é(0xE9)->0x09, ê(0xEA)->0x0A, í(0xED)->0x0D,
+            // ó(0xF3)->0x13, ô(0xF4)->0x14, õ(0xF5)->0x15,
+            // ú(0xFA)->0x1A, ü(0xFC)->0x1C
+            switch (b)
+            {
+                case 0x01: return 'á';
+                case 0x02: return 'â';
+                case 0x03: return 'ã';
+                case 0x07: return 'ç';
+                case 0x09: return 'é';
+                case 0x0A: return 'ê';
+                case 0x0D: return 'í';
+                case 0x13: return 'ó';
+                case 0x14: return 'ô';
+                case 0x15: return 'õ';
+                case 0x1A: return 'ú';
+                case 0x1C: return 'ü';
+            }
+            return null;
         }
 
         private static int IndexOf(byte[] haystack, byte[] needle, int start)
