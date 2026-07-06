@@ -27,6 +27,7 @@ namespace ElifootLauncher
         public string ElifootExe => Path.Combine(GameDir, "ELIFOOT.EXE");
         public string EditeqExe => Path.Combine(GameDir, "EDITEQ.EXE");
         public string CrackExe => Path.Combine(GameDir, "CRACK.EXE");
+        public string RefereeTxePath => Path.Combine(GameDir, "REFEREE.TXE");
         public string ScreenHookDll => Path.Combine(_appDir, "ScreenHook.dll");
 
         // otvdm emula Win 3.x com sua propria pasta WINDOWS.

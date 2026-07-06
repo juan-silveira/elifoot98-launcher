@@ -12,7 +12,7 @@ namespace ElifootLauncher
         public MainForm()
         {
             Text = "Elifoot 98 Launcher";
-            ClientSize = new Size(400, 280);
+            ClientSize = new Size(400, 330);
             FormBorderStyle = FormBorderStyle.FixedSingle;
             MaximizeBox = false;
             StartPosition = FormStartPosition.CenterScreen;
@@ -37,15 +37,19 @@ namespace ElifootLauncher
 
             var btnJogo = MakeButton("Jogar Elifoot 98", 60);
             var btnEditor = MakeButton("Editor de Equipes", 105);
-            var btnRegLink = MakeButton("Baixar Registrador (separado)", 150);
-            var btnConfig = MakeButton("Configurações", 210, secondary: true);
+            var btnRefEditor = MakeButton("Editor de Árbitros", 150);
+            var btnRegLink = MakeButton("Baixar Registrador (separado)", 195);
+            var btnConfig = MakeButton("Configurações", 255, secondary: true);
 
             btnJogo.Click += (s, e) => SafeRun(() => _launcher.LaunchElifoot(_config));
             btnEditor.Click += (s, e) => SafeRun(() => _launcher.LaunchEditor(_config));
+            btnRefEditor.Click += (s, e) =>
+            {
+                using (var f = new RefereeEditorForm(_launcher.RefereeTxePath))
+                    f.ShowDialog(this);
+            };
             btnRegLink.Click += (s, e) =>
             {
-                // O Registrador (baseado no CRACK.EXE original) e distribuido
-                // como aplicativo separado por questao de licenciamento.
                 try
                 {
                     System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
@@ -69,7 +73,7 @@ namespace ElifootLauncher
                 }
             };
 
-            Controls.AddRange(new Control[] { btnJogo, btnEditor, btnRegLink, btnConfig });
+            Controls.AddRange(new Control[] { btnJogo, btnEditor, btnRefEditor, btnRegLink, btnConfig });
         }
 
         private void SafeRun(Action a)
