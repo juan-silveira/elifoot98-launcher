@@ -106,12 +106,9 @@ namespace ElifootLauncher
                 proc = Process.Start(psi);
             }
 
-            if (!cfg.Fullscreen && proc != null)
-            {
-                var w = cfg.ResolutionWidth;
-                var h = cfg.ResolutionHeight;
-                Task.Run(() => ResizeWhenReady(proc, expectedTitleHint, w, h));
-            }
+            // Reposicionamento fica 100% na DLL — sem polling do lado C#.
+            _ = expectedTitleHint;
+            _ = proc;
         }
 
         // Escreve entrada no registro do Windows pra ativar o AppCompat layer
