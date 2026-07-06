@@ -81,27 +81,27 @@ namespace ElifootLauncher
 
                 // Player records
                 var starts = FindPlayerStarts(decoded);
-                // Estima tamanho do ULTIMO record via media dos anteriores
-                // (o marker do proximo player nao existe, entao naive end=
-                // decoded.Length gera record enorme e forca/salario caem em
-                // padding).
-                int sizesSum = 0, sizesCount = 0;
+                // Coleta tamanhos dos records nao-ultimos primeiro
+                var prevSizes = new List<int>();
+                for (int i = 1; i < starts.Count - 1; i++)
+                    prevSizes.Add(starts[i + 1] - starts[i]);
+                // Mediana pra estimar tamanho do ultimo record (mais robusta
+                // que media contra outliers)
+                int medianSize = 60;
+                if (prevSizes.Count > 0)
+                {
+                    prevSizes.Sort();
+                    medianSize = prevSizes[prevSizes.Count / 2];
+                }
+
                 for (int i = 1; i < starts.Count; i++)
                 {
                     int recStart = starts[i];
                     int naiveEnd = i + 1 < starts.Count ? starts[i + 1] : decoded.Length;
                     int recSize = naiveEnd - recStart;
                     bool isLast = i + 1 >= starts.Count;
-                    if (isLast && sizesCount > 0)
-                    {
-                        int avg = sizesSum / sizesCount;
-                        recSize = Math.Min(recSize, avg + 10);
-                    }
-                    else if (!isLast)
-                    {
-                        sizesSum += recSize;
-                        sizesCount++;
-                    }
+                    if (isLast)
+                        recSize = Math.Min(recSize, medianSize);
 
                     if (recSize < FORCA_OFFSET_FROM_REC_END + 1) continue;
                     int forcaLocal = recSize - FORCA_OFFSET_FROM_REC_END;
