@@ -67,9 +67,13 @@ jobs:
             ## Instalação
 
             1. Baixe o `elifoot98-launcher-setup-*.exe` abaixo
-            2. Execute (Windows pode pedir SmartScreen — clique "Mais info" → "Executar mesmo assim")
-            3. Siga o assistente
-            4. Um atalho "Elifoot 98" aparece no menu Iniciar
+            2. **Se o navegador bloquear o download**: no aviso de "arquivo baixado poderia prejudicar", clique nos três pontinhos (`...`) → **Manter** → **Manter mesmo assim**
+            3. Antes de executar, opcionalmente desbloqueie: clique com o botão direito no `.exe` → **Propriedades** → marque **Desbloquear** → OK
+            4. Execute o instalador. Se aparecer o **SmartScreen** ("O Windows protegeu seu PC"): clique em **Mais informações** → **Executar assim mesmo**
+            5. O UAC vai pedir permissão (precisamos criar `C:\Elifoot98Launcher`)
+            6. Siga o assistente. Um atalho "Elifoot 98" aparece no menu Iniciar
+
+            > O instalador não é assinado digitalmente (custa caro pra hobby project). Por isso o Windows desconfia. Você pode verificar o SHA256 na página do release e comparar.
 
             ## Requisitos
             - Windows 10 (1809+) ou 11

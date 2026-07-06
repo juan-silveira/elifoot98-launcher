@@ -54,7 +54,6 @@ namespace ElifootLauncher
 
         private void WriteOtvdmIni(LauncherConfig cfg)
         {
-            // Escreve otvdm.ini com preferências do usuário.
             var iniPath = Path.Combine(OtvdmDir, "otvdm.ini");
             var ini = string.Join(Environment.NewLine, new[]
             {
@@ -65,7 +64,16 @@ namespace ElifootLauncher
                 $"Width={cfg.ResolutionWidth}",
                 $"Height={cfg.ResolutionHeight}",
             });
-            File.WriteAllText(iniPath, ini);
+            try
+            {
+                File.WriteAllText(iniPath, ini);
+            }
+            catch (UnauthorizedAccessException)
+            {
+                // Sem permissao (ex.: install em Program Files): segue com o ini
+                // que veio no bundle. Perde as configuracoes de resolucao mas o jogo
+                // ainda abre.
+            }
         }
 
         public void LaunchCrack()
