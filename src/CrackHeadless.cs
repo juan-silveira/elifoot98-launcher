@@ -88,24 +88,34 @@ namespace ElifootLauncher
                     return result;
                 }
 
-                // 1) Espera janela do DOSBox aparecer
-                IntPtr hwnd = IntPtr.Zero;
-                for (int i = 0; i < 40 && hwnd == IntPtr.Zero; i++)
+                // 1) Espera as janelas do DOSBox aparecerem e acha a janela SDL principal.
+                // DOSBox-Staging abre DUAS janelas:
+                //   - 'DOSBox Status Window' (secundaria, logs)
+                //   - 'DOSBox Staging - N cycles/ms' (principal SDL, recebe input)
+                // proc.MainWindowHandle retorna a errada. Precisa filtrar por titulo/classe.
+                IntPtr hwndMain = IntPtr.Zero;
+                IntPtr hwndStatus = IntPtr.Zero;
+                for (int i = 0; i < 40 && hwndMain == IntPtr.Zero; i++)
                 {
                     Thread.Sleep(200);
-                    proc.Refresh();
-                    hwnd = proc.MainWindowHandle;
-                    if (hwnd == IntPtr.Zero) hwnd = FindDosBoxWindow(proc.Id);
+                    FindDosBoxWindows(proc.Id, out hwndMain, out hwndStatus, diag: i == 5 ? diag : null);
                 }
-                if (hwnd == IntPtr.Zero)
+                if (hwndMain == IntPtr.Zero)
                 {
-                    result.Error = "Nao achei a janela do DOSBox.";
+                    result.Error = "Nao achei a janela SDL principal do DOSBox.";
                     return result;
                 }
+                diag.AppendLine($"hwndMain=0x{hwndMain.ToInt64():x}, hwndStatus=0x{hwndStatus.ToInt64():x}");
 
-                // 2) Move o DOSBox pra fora da tela (invisivel pro usuario)
-                SetWindowPos(hwnd, IntPtr.Zero, -32000, -32000, 200, 150,
+                // 2) Move AMBAS as janelas do DOSBox pra fora da tela
+                SetWindowPos(hwndMain, IntPtr.Zero, -32000, -32000, 200, 150,
                     SWP_NOZORDER | SWP_NOACTIVATE);
+                if (hwndStatus != IntPtr.Zero)
+                {
+                    SetWindowPos(hwndStatus, IntPtr.Zero, -32000, -32100, 200, 150,
+                        SWP_NOZORDER | SWP_NOACTIVATE);
+                }
+                var hwnd = hwndMain; // resto do codigo usa 'hwnd' pra main
 
                 // 3) Espera CRACK subir e desenhar o menu
                 Thread.Sleep(1500);
@@ -236,20 +246,54 @@ namespace ElifootLauncher
             return last?.Groups[1].Value;
         }
 
-        private static IntPtr FindDosBoxWindow(int processId)
+        // Retorna as duas janelas do DOSBox: main (SDL, recebe input) e status.
+        // Main = titulo contem 'DOSBox Staging' e NAO contem 'Status'.
+        // Se so encontrar uma, retorna essa como main.
+        private static void FindDosBoxWindows(int processId, out IntPtr main, out IntPtr status, StringBuilder? diag)
         {
-            IntPtr result = IntPtr.Zero;
+            IntPtr mainLocal = IntPtr.Zero;
+            IntPtr statusLocal = IntPtr.Zero;
+            long biggestArea = 0;
             EnumWindows((h, _) =>
             {
                 GetWindowThreadProcessId(h, out uint pid);
-                if (pid == (uint)processId && IsWindowVisible(h))
+                if (pid != (uint)processId) return true;
+
+                var t = new StringBuilder(256);
+                GetWindowText(h, t, t.Capacity);
+                var title = t.ToString();
+
+                var c = new StringBuilder(128);
+                GetClassName(h, c, c.Capacity);
+                var cls = c.ToString();
+
+                GetWindowRect(h, out RECT r);
+                long area = Math.Max(0, (long)(r.Right - r.Left) * (r.Bottom - r.Top));
+                bool vis = IsWindowVisible(h);
+
+                if (diag != null)
+                    diag.AppendLine($"  dosbox window hwnd=0x{h.ToInt64():x} vis={vis} area={area} class='{cls}' title='{title}'");
+
+                if (!vis) return true;
+
+                bool isStatus = title.IndexOf("Status", StringComparison.OrdinalIgnoreCase) >= 0;
+                if (isStatus) { statusLocal = h; return true; }
+
+                // Main: preferir por classe SDL, senao pela maior area
+                if (cls.StartsWith("SDL", StringComparison.OrdinalIgnoreCase))
                 {
-                    result = h;
-                    return false;
+                    mainLocal = h;
+                    biggestArea = area;
+                }
+                else if (mainLocal == IntPtr.Zero && area > biggestArea)
+                {
+                    mainLocal = h;
+                    biggestArea = area;
                 }
                 return true;
             }, IntPtr.Zero);
-            return result;
+            main = mainLocal;
+            status = statusLocal;
         }
 
         // ---- SendInput helpers ----
@@ -374,5 +418,17 @@ namespace ElifootLauncher
 
         [DllImport("user32.dll")]
         private static extern bool AttachThreadInput(uint idAttach, uint idAttachTo, bool fAttach);
+
+        [DllImport("user32.dll", CharSet = CharSet.Auto)]
+        private static extern int GetWindowText(IntPtr hWnd, StringBuilder lpString, int nMaxCount);
+
+        [DllImport("user32.dll", CharSet = CharSet.Auto)]
+        private static extern int GetClassName(IntPtr hWnd, StringBuilder lpClassName, int nMaxCount);
+
+        [DllImport("user32.dll")]
+        private static extern bool GetWindowRect(IntPtr hWnd, out RECT lpRect);
+
+        [StructLayout(LayoutKind.Sequential)]
+        private struct RECT { public int Left, Top, Right, Bottom; }
     }
 }
