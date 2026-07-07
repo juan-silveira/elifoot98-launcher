@@ -12,7 +12,7 @@ namespace ElifootLauncher
         public MainForm()
         {
             Text = "Elifoot 98 Launcher";
-            ClientSize = new Size(400, 340);
+            ClientSize = new Size(400, 390);
             FormBorderStyle = FormBorderStyle.FixedSingle;
             MaximizeBox = false;
             StartPosition = FormStartPosition.CenterScreen;
@@ -39,7 +39,8 @@ namespace ElifootLauncher
             var btnEditor = MakeButton("Editor de Equipes", 105);
             var btnRefEditor = MakeButton("Editor de Árbitros", 150);
             var btnSaveEditor = MakeButton("Editor de Save", 195);
-            var btnConfig = MakeButton("Configurações", 260, secondary: true);
+            var btnPatch = MakeButton("Aplicar Patch", 240);
+            var btnConfig = MakeButton("Configurações", 305, secondary: true);
 
             btnJogo.Click += (s, e) => SafeRun(() => _launcher.LaunchElifoot(_config));
             btnEditor.Click += (s, e) => SafeRun(() => _launcher.LaunchEditor(_config));
@@ -53,6 +54,7 @@ namespace ElifootLauncher
                 using (var f = new SaveEditorForm(_launcher.JogosDir))
                     f.ShowDialog(this);
             };
+            btnPatch.Click += (s, e) => AplicarPatch();
             btnConfig.Click += (s, e) =>
             {
                 using (var f = new SettingsForm(_config))
@@ -62,7 +64,44 @@ namespace ElifootLauncher
                 }
             };
 
-            Controls.AddRange(new Control[] { btnJogo, btnEditor, btnRefEditor, btnSaveEditor, btnConfig });
+            Controls.AddRange(new Control[] { btnJogo, btnEditor, btnRefEditor, btnSaveEditor, btnPatch, btnConfig });
+        }
+
+        private void AplicarPatch()
+        {
+            using var dlg = new OpenFileDialog
+            {
+                Filter = "Patches Elifoot 98 (*.zip)|*.zip|Todos os arquivos (*.*)|*.*",
+                Title = "Selecione o patch (.zip) para aplicar",
+            };
+            if (dlg.ShowDialog(this) != DialogResult.OK) return;
+
+            var confirm = MessageBox.Show(this,
+                $"Aplicar patch:\n\n{dlg.FileName}\n\n" +
+                "Todos os arquivos serão substituídos EXCETO a pasta EQUIPAS " +
+                "(será renomeada pra EQUIPAS_OLD antes) e JOGOS (nunca tocada).\n\nContinuar?",
+                "Confirmar patch", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+            if (confirm != DialogResult.Yes) return;
+
+            Cursor = Cursors.WaitCursor;
+            PatchResult res;
+            try { res = PatchApplier.Apply(dlg.FileName, _launcher.GameDir); }
+            finally { Cursor = Cursors.Default; }
+
+            if (!res.Ok)
+            {
+                MessageBox.Show(this, $"Erro ao aplicar patch:\n{res.Error}",
+                    "Erro", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return;
+            }
+
+            var msg = $"Patch aplicado com sucesso!\n\n{res.FilesReplaced} arquivos substituídos.";
+            if (res.EquipasBackupName != null)
+                msg += $"\nEQUIPAS antiga preservada em: {res.EquipasBackupName}";
+            if (res.IgnoredEntries.Count > 0)
+                msg += $"\n\n{res.IgnoredEntries.Count} entradas em JOGOS/ foram ignoradas (saves preservados).";
+            MessageBox.Show(this, msg, "Patch aplicado",
+                MessageBoxButtons.OK, MessageBoxIcon.Information);
         }
 
         private void SafeRun(Action a)

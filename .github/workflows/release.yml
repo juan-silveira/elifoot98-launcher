@@ -88,6 +88,10 @@ jobs:
               - Lista todos os times do save (funciona com patches da comunidade de 42 a 128+ times)
               - Aceita saves single-coach e multi-coach (até 6 técnicos)
               - Backup `.bak` automático na primeira gravação
+            - **Aplicar Patch** — instala patches `.zip` da comunidade
+              - Substitui arquivos (FLAGS, CTRGROUP, executáveis, etc.)
+              - Preserva `JOGOS/` (seus saves)
+              - Renomeia `EQUIPAS/` atual pra `EQUIPAS_OLD` (ou `_2`, `_3`, ...) antes de aplicar
             - **Configurações** — resolução da janela e modo fullscreen
 
             ## Instalação
