@@ -8,10 +8,15 @@ namespace ElifootLauncher
     public class SavePlayer
     {
         public string Nome { get; set; } = "";
+        public string Posicao { get; set; } = "G"; // G/D/M/A
+        public bool Estrela { get; set; }          // * no jogo
+        public int Comportamento { get; set; }     // 0..5
         public int RecordStartInEft { get; set; }
         public int RecordSizeInEft { get; set; }
         public int ForcaOffsetInFile { get; set; }
         public int SalarioOffsetInFile { get; set; }
+        public int PosicaoOffsetInFile { get; set; }
+        public int EstrelaOffsetInFile { get; set; }
         public int Forca { get; set; }
         public int Salario { get; set; }
     }
@@ -33,26 +38,37 @@ namespace ElifootLauncher
 
     // Codec de save .e98 do Elifoot 98.
     //
-    // Estrutura:
-    // - Save = header + 42 blobs EFT + calendario/footer.
-    // - Cada EFT: magic 'EFa\0' + body cifrado Caesar rolante.
-    // - Verba do time: uint32 LE. Offset padrao +0xE0, mas varia:
-    //   +0xDD em alguns saves (multi-coach ou coach info embutido).
-    //   Detectamos escaneando header em [+0xD8..+0xE4].
-    // - Player records dentro do EFT decoded, marker: any + 'bra' +
-    //   [A-Z pos_code] + initial + shifted name + stats.
-    // - FORCA:   byte  em (record_size - 48) do record (RAW bytes).
-    // - SALARIO: uint16 LE em (record_size - 25) do record (RAW bytes).
+    // Estrutura descoberta empiricamente (v0.4.12, 2026-07-06):
+    //
+    // Cada player record no EFT decoded body:
+    //   +0     : marker (any byte < 0x30)
+    //   +1..+3 : nacionalidade (3 lowercase, ex 'bra', 'por', 'esp')
+    //   +4     : NL = comprimento do nome
+    //   +5..+5+NL-1 : nome (1a letra unshifted, resto shifted +0x20)
+    //   +5+NL  : POSICAO (0=G, 1=D, 2=M, 3=A)
+    //   +5+NL+1: ESTRELA (0/1) — jogador com *
+    //   +5+NL+2: FORCA (0..99)
+    //   +sz-33 : COMPORTAMENTO (0..5)
+    //   +sz-25..sz-24: SALARIO uint16 LE
+    //   +sz-2..sz-1  : PLAYER_ID uint16 LE
+    // record_size = NL + 55
+    //
+    // VERBA: uint32 LE armazenado 2 vezes consecutivos no EFT header
+    // (offset varia por time). Detectamos scaneando raw[0x80..0x120] por
+    // duas uint32 consecutivas iguais e > 0.
     public static class SaveCodec
     {
         private static readonly byte[] EFT_MAGIC = { (byte)'E', (byte)'F', (byte)'a', 0 };
-        private const int FORCA_OFFSET_FROM_REC_END = 48;
-        private const int SALARIO_OFFSET_FROM_REC_END = 25;
         public const int FORCA_MIN = 1;
         public const int FORCA_MAX = 9999;
         public const int FORCA_WARN_ABOVE = 50;
         public const int SALARIO_MIN = 50;
         public const int SALARIO_MAX = 99999;
+
+        public static readonly string[] ComportamentoLabels = {
+            "Fair Play", "Cordeirinho", "Cavalheiro",
+            "Caneleiro", "Caceteiro", "Sarrafeiro"
+        };
 
         public static SaveFile Read(string path)
         {
@@ -66,59 +82,45 @@ namespace ElifootLauncher
                 int eftEnd = e + 1 < eftPositions.Count ? eftPositions[e + 1] : bytes.Length;
                 var team = new SaveTeam { EftStartOffset = eftStart };
 
-                // Decode body pra achar nome + jogadores
                 int bodyStart = eftStart + 4;
-                int bodyEnd = eftEnd;
-                var decoded = DecodeCaesar(bytes, bodyStart, bodyEnd);
+                var decoded = DecodeCaesar(bytes, bodyStart, eftEnd);
 
                 team.Nome = ExtractTeamName(decoded);
-
-                // Verba: procura no header do EFT (offset +0xD8..+0xE4) por
-                // uint32 razoavel (100K..1M reais eh normal pra time BR).
-                team.VerbaOffset = FindVerbaOffset(bytes, eftStart);
+                team.VerbaOffset = FindVerbaOffset(bytes, eftStart, eftEnd);
                 if (team.VerbaOffset > 0)
                     team.Verba = (uint)BitConverter.ToInt32(bytes, team.VerbaOffset);
 
-                // Player records. Todos os markers detectados sao players
-                // reais — team header nao aparece porque nao tem 'bra'
-                // preciso e o filtro initial-lowercase rejeita ele.
-                var starts = FindPlayerStarts(decoded);
-                // Coleta tamanhos dos records nao-ultimos primeiro
-                var prevSizes = new List<int>();
-                for (int i = 0; i < starts.Count - 1; i++)
-                    prevSizes.Add(starts[i + 1] - starts[i]);
-                // Mediana pra estimar tamanho do ultimo record
-                int medianSize = 60;
-                if (prevSizes.Count > 0)
+                // Player records: encontra markers + parseia via NL formula
+                foreach (var recStart in FindPlayerStarts(decoded))
                 {
-                    prevSizes.Sort();
-                    medianSize = prevSizes[prevSizes.Count / 2];
-                }
+                    if (recStart + 5 >= decoded.Length) continue;
+                    int NL = decoded[recStart + 4];
+                    if (NL < 3 || NL > 30) continue;
+                    int recSize = NL + 55;
+                    if (recStart + recSize > decoded.Length) continue;
 
-                for (int i = 0; i < starts.Count; i++)
-                {
-                    int recStart = starts[i];
-                    int naiveEnd = i + 1 < starts.Count ? starts[i + 1] : decoded.Length;
-                    int recSize = naiveEnd - recStart;
-                    bool isLast = i + 1 >= starts.Count;
-                    if (isLast)
-                        recSize = Math.Min(recSize, medianSize);
+                    int posOff = recStart + 5 + NL;
+                    int starOff = recStart + 5 + NL + 1;
+                    int forcaOff = recStart + 5 + NL + 2;   // = recSize - 48
+                    int compOff = recStart + recSize - 33;
+                    int salarioOff = recStart + recSize - 25;
 
-                    if (recSize < FORCA_OFFSET_FROM_REC_END + 1) continue;
-                    int forcaLocal = recSize - FORCA_OFFSET_FROM_REC_END;
-                    int salarioLocal = recSize - SALARIO_OFFSET_FROM_REC_END;
                     var p = new SavePlayer
                     {
-                        Nome = ExtractPlayerName(decoded, recStart, forcaLocal),
+                        Nome = ExtractPlayerName(decoded, recStart, NL),
                         RecordStartInEft = recStart,
                         RecordSizeInEft = recSize,
-                        ForcaOffsetInFile = bodyStart + recStart + forcaLocal,
-                        SalarioOffsetInFile = bodyStart + recStart + salarioLocal,
+                        Posicao = PosicaoLabel(decoded[posOff]),
+                        Estrela = decoded[starOff] != 0,
+                        Forca = decoded[forcaOff],
+                        Comportamento = decoded[compOff],
+                        PosicaoOffsetInFile = bodyStart + posOff,
+                        EstrelaOffsetInFile = bodyStart + starOff,
+                        ForcaOffsetInFile = bodyStart + forcaOff,
+                        SalarioOffsetInFile = bodyStart + salarioOff,
                     };
-                    if (p.ForcaOffsetInFile < bytes.Length)
-                        p.Forca = bytes[p.ForcaOffsetInFile];
-                    if (p.SalarioOffsetInFile + 2 <= bytes.Length)
-                        p.Salario = BitConverter.ToUInt16(bytes, p.SalarioOffsetInFile);
+                    if (salarioOff + 2 <= decoded.Length)
+                        p.Salario = BitConverter.ToUInt16(decoded, salarioOff);
                     team.Players.Add(p);
                 }
 
@@ -129,30 +131,61 @@ namespace ElifootLauncher
 
         public static void Write(string path, SaveFile sf)
         {
+            // Re-encoding com cipher rolante eh complexo (mudar 1 byte muda
+            // cipher de todos os subsequentes). Solucao: para cada EFT
+            // modificado, decoda, aplica mudancas, re-codifica INTEIRO.
             var bytes = (byte[])sf.RawBytes.Clone();
+            var eftPositions = FindAllEftStarts(bytes);
+
             foreach (var team in sf.Teams)
             {
+                int eftIdx = eftPositions.IndexOf(team.EftStartOffset);
+                if (eftIdx < 0) continue;
+                int eftStart = eftPositions[eftIdx];
+                int eftEnd = eftIdx + 1 < eftPositions.Count ? eftPositions[eftIdx + 1] : bytes.Length;
+                int bodyStart = eftStart + 4;
+
+                var decoded = DecodeCaesar(bytes, bodyStart, eftEnd);
+                bool dirty = false;
+
+                // Verba (nao passa pela cifra — offset fixo no header raw)
                 if (team.VerbaOffset > 0 && team.VerbaOffset + 4 <= bytes.Length)
                 {
                     var v = (uint)Math.Max(0, Math.Min(uint.MaxValue, (ulong)team.Verba));
                     var vb = BitConverter.GetBytes(v);
                     Array.Copy(vb, 0, bytes, team.VerbaOffset, 4);
+                    // Verba armazenada duas vezes consecutivas
+                    if (team.VerbaOffset + 8 <= bytes.Length)
+                        Array.Copy(vb, 0, bytes, team.VerbaOffset + 4, 4);
                 }
+
                 foreach (var p in team.Players)
                 {
-                    if (p.ForcaOffsetInFile > 0 && p.ForcaOffsetInFile < bytes.Length)
+                    int forcaLocal = p.ForcaOffsetInFile - bodyStart;
+                    int salLocal = p.SalarioOffsetInFile - bodyStart;
+                    if (forcaLocal >= 0 && forcaLocal < decoded.Length)
                     {
-                        var f = Math.Max(FORCA_MIN, Math.Min(FORCA_MAX, p.Forca));
-                        bytes[p.ForcaOffsetInFile] = (byte)(f & 0xFF);
-                        if (f > 255 && p.ForcaOffsetInFile + 1 < bytes.Length)
-                            bytes[p.ForcaOffsetInFile + 1] = (byte)((f >> 8) & 0xFF);
+                        int f = Math.Max(FORCA_MIN, Math.Min(FORCA_MAX, p.Forca));
+                        byte fb = (byte)(f & 0xFF);
+                        if (decoded[forcaLocal] != fb) { decoded[forcaLocal] = fb; dirty = true; }
                     }
-                    if (p.SalarioOffsetInFile > 0 && p.SalarioOffsetInFile + 2 <= bytes.Length)
+                    if (salLocal >= 0 && salLocal + 2 <= decoded.Length)
                     {
-                        var s = (ushort)Math.Max(SALARIO_MIN, Math.Min(SALARIO_MAX, p.Salario));
-                        var sb = BitConverter.GetBytes(s);
-                        Array.Copy(sb, 0, bytes, p.SalarioOffsetInFile, 2);
+                        int s = Math.Max(SALARIO_MIN, Math.Min(SALARIO_MAX, p.Salario));
+                        var sb = BitConverter.GetBytes((ushort)s);
+                        if (decoded[salLocal] != sb[0] || decoded[salLocal + 1] != sb[1])
+                        {
+                            decoded[salLocal] = sb[0];
+                            decoded[salLocal + 1] = sb[1];
+                            dirty = true;
+                        }
                     }
+                }
+
+                if (dirty)
+                {
+                    var reencoded = EncodeCaesar(decoded);
+                    Array.Copy(reencoded, 0, bytes, bodyStart, reencoded.Length);
                 }
             }
             File.WriteAllBytes(path, bytes);
@@ -174,46 +207,19 @@ namespace ElifootLauncher
             return list;
         }
 
-        // Verba do time = uint32 LE. Offset varia entre 2 layouts observados:
-        //  A) Juventus-style (single-coach BR): +0xDC = marker 500000
-        //     (bytes 20 A1 07 00), verba em +0xE0.
-        //  B) Criciuma-style (multi-coach ou coach info embutido):
-        //     byte +0xDC = 0x00 padding, verba em +0xDD.
-        // Descobrimos observando byte +0xDC.
-        private static int FindVerbaOffset(byte[] bytes, int eftStart)
+        // Verba do time = uint32 LE armazenado 2 vezes consecutivas dentro do
+        // header do EFT. Escaneamos 0x80..0x120 procurando essa assinatura.
+        private static int FindVerbaOffset(byte[] bytes, int eftStart, int eftEnd)
         {
-            int dc = eftStart + 0xDC;
-            if (dc + 4 > bytes.Length) return -1;
-
-            // Layout B: byte em +0xDC eh 0x00 (padding). Verba em +0xDD.
-            if (bytes[dc] == 0x00 && dc + 5 <= bytes.Length)
+            int max = Math.Min(eftEnd - 8, eftStart + 0x120);
+            for (int off = eftStart + 0x80; off <= max; off++)
             {
-                uint vDd = (uint)BitConverter.ToInt32(bytes, dc + 1);
-                if (IsPlausibleVerba(vDd)) return dc + 1;
-            }
-
-            // Layout A: verba em +0xE0
-            if (dc + 8 <= bytes.Length)
-            {
-                uint vE0 = (uint)BitConverter.ToInt32(bytes, dc + 4);
-                if (IsPlausibleVerba(vE0)) return dc + 4;
-            }
-
-            // Fallback: procura primeira uint32 plausivel no range 0xD8..0xE8
-            for (int off = 0xD8; off <= 0xE8; off++)
-            {
-                int abs = eftStart + off;
-                if (abs + 4 > bytes.Length) continue;
-                uint v = (uint)BitConverter.ToInt32(bytes, abs);
-                if (IsPlausibleVerba(v)) return abs;
+                uint v1 = (uint)BitConverter.ToInt32(bytes, off);
+                uint v2 = (uint)BitConverter.ToInt32(bytes, off + 4);
+                if (v1 == v2 && v1 >= 10_000 && v1 <= 1_000_000_000) return off;
             }
             return -1;
         }
-
-        // Verba plausivel: um time BR novo comeca com 500k..5M. Podemos ir
-        // ate 100M pra times ricos. Acima disso quase sempre eh outro campo.
-        private static bool IsPlausibleVerba(uint v)
-            => v >= 50_000 && v <= 100_000_000;
 
         private static byte[] DecodeCaesar(byte[] bytes, int start, int end)
         {
@@ -230,28 +236,35 @@ namespace ElifootLauncher
             return plain;
         }
 
-        // Nome do time decoded: byte em ~0x2C eh comprimento shifted (+0x20).
-        // Exatamente N bytes de nome seguem. Depois vem short name idem.
-        // Pra usuario, mostramos o nome longo em UPPERCASE tipo game screen.
+        // Reverse: cipher[i] = (plain[i] + delta) mod 256;
+        // delta = (delta + plain[i] - 0x20) mod 256
+        private static byte[] EncodeCaesar(byte[] plain)
+        {
+            var cipher = new byte[plain.Length];
+            int delta = 0;
+            for (int i = 0; i < plain.Length; i++)
+            {
+                int c = (plain[i] + delta) & 0xFF;
+                cipher[i] = (byte)c;
+                delta = (delta + plain[i] - 0x20) & 0xFF;
+            }
+            return cipher;
+        }
+
         private static string ExtractTeamName(byte[] decoded)
         {
-            // Encontra length byte: procura em 0x28..0x40 o primeiro byte
-            // >= 0x20 seguido de letras minusculas.
             for (int i = 0x28; i < 0x40 && i + 1 < decoded.Length; i++)
             {
                 byte lenByte = decoded[i];
-                if (lenByte < 0x22 || lenByte > 0x40) continue; // len 2..32
+                if (lenByte < 0x22 || lenByte > 0x40) continue;
                 int nameLen = lenByte - 0x20;
                 if (i + 1 + nameLen > decoded.Length) continue;
-                // Verifica se os bytes seguintes formam nome plausivel
                 var candidate = TeamNameFromBytes(decoded, i + 1, nameLen);
                 if (candidate != null) return candidate;
             }
             return "?";
         }
 
-        // Converte N bytes de nome do time em string. Retorna null se
-        // bytes nao parecem nome (falha check).
         private static string? TeamNameFromBytes(byte[] decoded, int start, int len)
         {
             var sb = new StringBuilder(len);
@@ -261,13 +274,9 @@ namespace ElifootLauncher
             {
                 byte b = decoded[i];
                 char? c = null;
-                // Ordem importa: acentos (bytes baixos) e separadores especiais
-                // ANTES da faixa geral A-Z/a-z.
                 if (b == 0x40) c = ' ';
                 else if (b == 0x4D || b == 0x4B || b == 0x2D) c = '-';
                 else if (b == 0x2E) c = '.';
-                else if (b == 0x2F) c = '/';
-                // Acentos ISO-8859-1 shifted +0x20 mod 256:
                 else if (b == 0x01) { c = 'á'; letterCount++; }
                 else if (b == 0x02) { c = 'â'; letterCount++; }
                 else if (b == 0x03) { c = 'ã'; letterCount++; }
@@ -287,16 +296,11 @@ namespace ElifootLauncher
                 else { invalid++; continue; }
                 if (c != null) sb.Append(c.Value);
             }
-            // Precisa ter maioria de letras validas
             if (letterCount < 3) return null;
             if (invalid > len / 3) return null;
-            var s = sb.ToString().Trim();
-            return s.ToUpperInvariant();
+            return sb.ToString().Trim().ToUpperInvariant();
         }
 
-        // Detecta inicios de player records. Marker: byte + 3 letras lowercase
-        // (nacionalidade) + byte uppercase (pos_code). Nao so 'bra' — times
-        // tem jogadores estrangeiros (por, ita, esp, arg, etc).
         private static List<int> FindPlayerStarts(byte[] decoded)
         {
             var starts = new List<int>();
@@ -304,16 +308,11 @@ namespace ElifootLauncher
             {
                 byte a = decoded[i + 1], b = decoded[i + 2], c = decoded[i + 3];
                 byte pos = decoded[i + 4];
+                byte m = decoded[i];
+                byte initial = decoded[i + 5];
                 bool nat = a >= 'a' && a <= 'z' && b >= 'a' && b <= 'z' && c >= 'a' && c <= 'z';
                 bool posOk = pos >= 'A' && pos <= 'Z';
-                // Marker byte: qualquer coisa < 0x30 (control chars, espaco,
-                // !, ", #, $, etc.). Saves da comunidade (7.e98) usam markers
-                // como 0x1F para alguns times. Confiamos nos outros checks
-                // (nat lowercase, pos uppercase, initial lowercase) pra evitar
-                // falsos positivos.
-                byte m = decoded[i];
                 bool markerOk = m < 0x30;
-                byte initial = decoded[i + 5];
                 bool initialOk = initial >= 'a' && initial <= 'z';
                 if (nat && posOk && markerOk && initialOk)
                     starts.Add(i);
@@ -321,24 +320,16 @@ namespace ElifootLauncher
             return starts;
         }
 
-        // Formato do record de jogador:
-        //   +4: pos_code (A-Z), +5: initial minuscula, +6..: shifted rest
-        //   Nome termina 3 bytes antes da forca (empirico).
-        //   Espaco (0x40) -> apos, prox byte = initial da 2a palavra unshifted.
-        private static string ExtractPlayerName(byte[] decoded, int recStart, int forcaLocal)
+        // Extrai nome: raw[5]=inicial unshifted, raw[6..5+NL-1]=resto shifted
+        private static string ExtractPlayerName(byte[] decoded, int recStart, int NL)
         {
-            if (decoded.Length < recStart + 6) return "?";
-            var sb = new StringBuilder();
+            if (decoded.Length < recStart + 5 + NL) return "?";
+            var sb = new StringBuilder(NL);
             char initial = (char)decoded[recStart + 5];
             sb.Append(char.ToUpperInvariant(initial));
 
-            // Nome termina 2 bytes antes da forca (empirico). Antes usava
-            // -3 mas cortava o ultimo char (Jefferson -> Jefferso).
-            int nameEnd = recStart + forcaLocal - 2;
-            if (nameEnd > decoded.Length) nameEnd = decoded.Length;
-
             bool afterSpace = false;
-            for (int i = recStart + 6; i < nameEnd; i++)
+            for (int i = recStart + 6; i < recStart + 5 + NL; i++)
             {
                 byte b = decoded[i];
                 if (afterSpace && b >= 0x61 && b <= 0x7A)
@@ -348,13 +339,12 @@ namespace ElifootLauncher
                     continue;
                 }
                 afterSpace = false;
-                char? c = MapNameByte(b);
-                if (c == null) break;
-                sb.Append(c.Value);
-                if (c.Value == ' ') afterSpace = true;
+                char? cc = MapNameByte(b);
+                if (cc == null) { sb.Append('?'); continue; }
+                sb.Append(cc.Value);
+                if (cc.Value == ' ') afterSpace = true;
             }
-            while (sb.Length > 0 && sb[sb.Length - 1] == ' ') sb.Length--;
-            return sb.ToString();
+            return sb.ToString().TrimEnd();
         }
 
         private static char? MapNameByte(byte b)
@@ -378,6 +368,15 @@ namespace ElifootLauncher
             }
             return null;
         }
+
+        private static string PosicaoLabel(byte b) => b switch
+        {
+            0 => "G",
+            1 => "D",
+            2 => "M",
+            3 => "A",
+            _ => "?"
+        };
 
         private static int IndexOf(byte[] haystack, byte[] needle, int start)
         {

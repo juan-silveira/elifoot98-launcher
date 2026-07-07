@@ -99,9 +99,10 @@ namespace ElifootLauncher
             };
             _players.Columns.Add("#", 30);
             _players.Columns.Add("Pos", 40);
-            _players.Columns.Add("Nome", 260);
-            _players.Columns.Add("Força", 90);
-            _players.Columns.Add("Salário", 120);
+            _players.Columns.Add("Nome", 200);
+            _players.Columns.Add("Força", 70);
+            _players.Columns.Add("Salário", 90);
+            _players.Columns.Add("Comportamento", 130);
             gbPlayers.Controls.Add(_players);
             _players.MouseDoubleClick += Players_DoubleClick;
 
@@ -257,23 +258,20 @@ namespace ElifootLauncher
             foreach (var p in _currentTeam.Players)
             {
                 var it = new ListViewItem(n.ToString());
-                it.SubItems.Add(GuessPosition(n));
-                it.SubItems.Add(p.Nome);
+                it.SubItems.Add(p.Posicao);
+                string displayName = p.Estrela ? p.Nome + "*" : p.Nome;
+                it.SubItems.Add(displayName);
                 it.SubItems.Add(p.Forca.ToString());
                 it.SubItems.Add(p.Salario.ToString());
+                string comp = p.Comportamento >= 0 && p.Comportamento < SaveCodec.ComportamentoLabels.Length
+                    ? SaveCodec.ComportamentoLabels[p.Comportamento]
+                    : "?";
+                it.SubItems.Add(comp);
                 it.Tag = p;
                 _players.Items.Add(it);
                 n++;
             }
             _players.EndUpdate();
-        }
-
-        private static string GuessPosition(int idx)
-        {
-            if (idx <= 2) return "G";
-            if (idx <= 6) return "D";
-            if (idx <= 11) return "M";
-            return "A";
         }
 
         private void SaveCurrent()
