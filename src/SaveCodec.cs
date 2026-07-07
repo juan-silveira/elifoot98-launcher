@@ -224,16 +224,36 @@ namespace ElifootLauncher
 
         // Verba do time = uint32 LE armazenado 2 vezes consecutivas dentro do
         // header do EFT. Escaneamos 0x80..0x120 procurando essa assinatura.
+        //
+        // Nuance: verbas com byte alto = 0 (V < 16M) criam FALSE-MATCH em
+        // offset shifted (por 1 byte), pq a shifted-uint32 fica V*256 e o
+        // padding 0x00 antes cria o twice-pattern. E ha tambem shift-fake +1
+        // que da V/256. Para distinguir:
+        // - Coleta TODAS as matches em [0x80..0x120]
+        // - Filtra pra faixa razoavel [100k, 50M]
+        // - Prefere o MAIOR (fake shift+1 divide por 256, ficando bem menor)
         private static int FindVerbaOffset(byte[] bytes, int eftStart, int eftEnd)
         {
             int max = Math.Min(eftEnd - 8, eftStart + 0x120);
+            int bestOff = -1;
+            uint bestVal = 0;
+            int fallbackOff = -1;
+            uint fallbackVal = 0;
             for (int off = eftStart + 0x80; off <= max; off++)
             {
                 uint v1 = (uint)BitConverter.ToInt32(bytes, off);
                 uint v2 = (uint)BitConverter.ToInt32(bytes, off + 4);
-                if (v1 == v2 && v1 >= 10_000 && v1 <= 1_000_000_000) return off;
+                if (v1 != v2) continue;
+                if (v1 < 10_000 || v1 > 1_000_000_000) continue;
+                if (fallbackOff < 0) { fallbackOff = off; fallbackVal = v1; }
+                if (v1 >= 100_000 && v1 <= 50_000_000 && v1 > bestVal)
+                {
+                    bestOff = off;
+                    bestVal = v1;
+                }
             }
-            return -1;
+            if (bestOff >= 0) return bestOff;
+            return fallbackOff;
         }
 
         private static byte[] DecodeCaesar(byte[] bytes, int start, int end)
