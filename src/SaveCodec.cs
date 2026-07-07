@@ -349,7 +349,11 @@ namespace ElifootLauncher
                 else if (b == 0x1A) { c = 'ú'; letterCount++; }
                 else if (b == 0x1C) { c = 'ü'; letterCount++; }
                 else if (b >= 0x61 && b <= 0x7A) { c = (char)b; letterCount++; }
-                else if (b >= 0x41 && b <= 0x5A) { c = (char)b; letterCount++; }
+                // Nomes de times armazenam digitos como P/Q/R/S/T/U/V/W/X/Y
+                // (shifted +0x20 from '0'-'9'). Ex: 1993=QYYS, 1970=QYWP.
+                // Nunca ha letras uppercase reais em team names — todas
+                // sao lowercase e display faz uppercase.
+                else if (b >= 0x50 && b <= 0x59) { c = (char)(b - 0x20); letterCount++; }
                 else if (b >= 0x30 && b <= 0x39) c = (char)b;
                 else { invalid++; continue; }
                 if (c != null) sb.Append(c.Value);
@@ -409,7 +413,9 @@ namespace ElifootLauncher
         {
             if (b >= 0x81 && b <= 0x9A) return (char)(b - 0x20);
             if (b == 0x40) return ' ';
-            if (b >= 0x30 && b <= 0x39) return (char)b; // digitos (nomes tipo "M Rodrigues*", ou "1993")
+            if (b >= 0x30 && b <= 0x39) return (char)b; // digitos
+            // Digitos shifted (P/Q/R/S/T/U/V/W/X/Y = 0-9)
+            if (b >= 0x50 && b <= 0x59) return (char)(b - 0x20);
             switch (b)
             {
                 case 0x01: return 'á';
