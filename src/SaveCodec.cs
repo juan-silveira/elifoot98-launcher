@@ -109,7 +109,30 @@ namespace ElifootLauncher
                     int naiveEnd = idx + 1 < starts.Count ? starts[idx + 1] : decoded.Length;
                     int recSize = naiveEnd - recStart;
                     bool isLast = idx + 1 >= starts.Count;
-                    if (isLast) recSize = Math.Min(recSize, medianSize);
+                    if (isLast)
+                    {
+                        // Estrategia especializada pro ultimo record: tenta
+                        // varios recSizes (55 = NL+55 pra NL de 0..30) e
+                        // escolhe o que produz posicao valida (0-3) e forca
+                        // razoavel (1-100). Se nenhum bater, cai pra mediana.
+                        int found = -1;
+                        for (int tryNL = 3; tryNL <= 25; tryNL++)
+                        {
+                            int trySize = tryNL + 55;
+                            if (recStart + trySize > decoded.Length) break;
+                            int tryPosAbs = bodyStart + recStart + trySize - 50;
+                            int tryForcaAbs = bodyStart + recStart + trySize - 48;
+                            if (tryForcaAbs >= bytes.Length) break;
+                            byte posB = bytes[tryPosAbs];
+                            byte forcaB = bytes[tryForcaAbs];
+                            if (posB <= 3 && forcaB >= 1 && forcaB <= 100)
+                            {
+                                found = trySize;
+                                break;
+                            }
+                        }
+                        recSize = found > 0 ? found : Math.Min(recSize, medianSize);
+                    }
                     if (recSize < 55) continue;
 
                     // Offsets fixos do FIM do record:
@@ -346,7 +369,7 @@ namespace ElifootLauncher
                 byte m = decoded[i];
                 byte initial = decoded[i + 5];
                 bool nat = a >= 'a' && a <= 'z' && b >= 'a' && b <= 'z' && c >= 'a' && c <= 'z';
-                bool posOk = pos >= 'A' && pos <= 'Z';
+                bool posOk = pos >= 0x30 && pos <= 0x5A;
                 bool markerOk = m < 0x30;
                 bool initialOk = initial >= 'a' && initial <= 'z';
                 if (nat && posOk && markerOk && initialOk)
@@ -386,6 +409,7 @@ namespace ElifootLauncher
         {
             if (b >= 0x81 && b <= 0x9A) return (char)(b - 0x20);
             if (b == 0x40) return ' ';
+            if (b >= 0x30 && b <= 0x39) return (char)b; // digitos (nomes tipo "M Rodrigues*", ou "1993")
             switch (b)
             {
                 case 0x01: return 'á';
