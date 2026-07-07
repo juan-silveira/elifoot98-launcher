@@ -137,6 +137,9 @@ namespace ElifootLauncher
 
                     if (salarioOff + 2 > bytes.Length) break;
 
+                    // Forca eh uint16 LE em [sz-48..sz-47]. Normal 0-99 usa
+                    // so o low byte; user pode setar ate 9999 (uint16 max).
+                    int forcaVal = BitConverter.ToUInt16(bytes, forcaOff);
                     var p = new SavePlayer
                     {
                         Nome = ExtractPlayerName(decoded, recOff, NL),
@@ -144,7 +147,7 @@ namespace ElifootLauncher
                         RecordSizeInEft = recSize,
                         Posicao = PosicaoLabel(bytes[posOff]),
                         Estrela = bytes[starOff] != 0,
-                        Forca = bytes[forcaOff],
+                        Forca = forcaVal,
                         Comportamento = bytes[compOff],
                         PosicaoOffsetInFile = posOff,
                         EstrelaOffsetInFile = starOff,
@@ -173,10 +176,12 @@ namespace ElifootLauncher
                 }
                 foreach (var p in team.Players)
                 {
-                    if (p.ForcaOffsetInFile > 0 && p.ForcaOffsetInFile < bytes.Length)
+                    if (p.ForcaOffsetInFile > 0 && p.ForcaOffsetInFile + 2 <= bytes.Length)
                     {
                         int f = Math.Max(FORCA_MIN, Math.Min(FORCA_MAX, p.Forca));
-                        bytes[p.ForcaOffsetInFile] = (byte)(f & 0xFF);
+                        var fb = BitConverter.GetBytes((ushort)f);
+                        bytes[p.ForcaOffsetInFile] = fb[0];
+                        bytes[p.ForcaOffsetInFile + 1] = fb[1];
                     }
                     if (p.SalarioOffsetInFile > 0 && p.SalarioOffsetInFile + 2 <= bytes.Length)
                     {
