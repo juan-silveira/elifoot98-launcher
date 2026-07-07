@@ -126,8 +126,8 @@ namespace ElifootRegistrador
                 Text = "Fechar",
                 Location = new Point(380, 278),
                 Size = new Size(100, 28),
-                DialogResult = DialogResult.OK,
             };
+            btnFechar.Click += (s, e) => Close();
             CancelButton = btnFechar;
 
             Controls.AddRange(new Control[]

@@ -78,8 +78,10 @@ namespace ElifootRegistrador
                     Arguments = $"-conf \"{confPath}\"",
                     WorkingDirectory = launcher.DosBoxDir,
                     UseShellExecute = false,
-                    WindowStyle = ProcessWindowStyle.Minimized,
-                    CreateNoWindow = false,
+                    // Hidden > Minimized: nao mostra taskbar tambem. STARTF_USESHOWWINDOW
+                    // + SW_HIDE eh setado, o que evita SDL abrir focado
+                    WindowStyle = ProcessWindowStyle.Hidden,
+                    CreateNoWindow = true,
                 };
                 proc = Process.Start(psi);
                 if (proc == null)
@@ -93,6 +95,30 @@ namespace ElifootRegistrador
                 //   - 'DOSBox Status Window' (secundaria, logs)
                 //   - 'DOSBox Staging - N cycles/ms' (principal SDL, recebe input)
                 // proc.MainWindowHandle retorna a errada. Precisa filtrar por titulo/classe.
+                // Loop AGRESSIVO escondendo qualquer janela do proc ID.
+                // Roda desde ANTES do SDL renderizar — assim capturamos o
+                // primeiro CreateWindow do SDL e escondemos imediatamente.
+                var earlyHideCts = new CancellationTokenSource();
+                var earlyHideThread = new Thread(() =>
+                {
+                    while (!earlyHideCts.IsCancellationRequested)
+                    {
+                        try
+                        {
+                            EnumWindows((h, _) =>
+                            {
+                                GetWindowThreadProcessId(h, out uint pid);
+                                if (pid == (uint)proc.Id && IsWindowVisible(h))
+                                    ShowWindow(h, SW_HIDE);
+                                return true;
+                            }, IntPtr.Zero);
+                        }
+                        catch { }
+                        Thread.Sleep(5); // agressivo, cobre ~200 checks/s
+                    }
+                }) { IsBackground = true };
+                earlyHideThread.Start();
+
                 IntPtr hwndMain = IntPtr.Zero;
                 IntPtr hwndStatus = IntPtr.Zero;
                 for (int i = 0; i < 40 && hwndMain == IntPtr.Zero; i++)
@@ -100,6 +126,7 @@ namespace ElifootRegistrador
                     Thread.Sleep(200);
                     FindDosBoxWindows(proc.Id, out hwndMain, out hwndStatus, diag: i == 5 ? diag : null);
                 }
+                earlyHideCts.Cancel();
                 if (hwndMain == IntPtr.Zero)
                 {
                     result.Error = "Nao achei a janela SDL principal do DOSBox.";
@@ -122,18 +149,26 @@ namespace ElifootRegistrador
                     {
                         try
                         {
-                            if (IsWindowVisible(hwndMainCopy)) ShowWindow(hwndMainCopy, SW_HIDE);
-                            if (hwndStatusCopy != IntPtr.Zero && IsWindowVisible(hwndStatusCopy))
-                                ShowWindow(hwndStatusCopy, SW_HIDE);
+                            // Enumera TODAS as janelas do proc a cada tick,
+                            // nao so as 2 detectadas — pega quaisquer novas
+                            // (ex.: popups do SDL sobre erros).
+                            EnumWindows((h, _) =>
+                            {
+                                GetWindowThreadProcessId(h, out uint pid);
+                                if (pid == (uint)procCopy.Id && IsWindowVisible(h))
+                                    ShowWindow(h, SW_HIDE);
+                                return true;
+                            }, IntPtr.Zero);
                         }
                         catch { }
-                        Thread.Sleep(50);
+                        Thread.Sleep(5);
                     }
                 }) { IsBackground = true };
                 hideThread.Start();
 
-                // 3) Espera CRACK subir e desenhar o menu
-                Thread.Sleep(1500);
+                // 3) Espera CRACK subir e desenhar o menu.
+                // Aumentado de 1500 pra 2500ms pra dar folga em maquinas lentas.
+                Thread.Sleep(2500);
 
                 // 4) Nao precisa mexer com foco: WM_KEYDOWN direto na hwnd SDL.
                 // SDL 2 tem WndProc que processa WM_KEYDOWN/WM_CHAR/WM_KEYUP e

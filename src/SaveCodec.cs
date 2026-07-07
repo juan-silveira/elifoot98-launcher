@@ -121,22 +121,31 @@ namespace ElifootLauncher
                     int NL = recSize - 55;
 
                     if (NL < 3 || NL > 30) continue;
+                    // Campos numericos lidos do arquivo RAW (nao cifrados —
+                    // por design do formato, esses bytes ficam intactos).
+                    // Nome vem do DECODED (cifra aplicada em texto).
+                    int posOffFile = bodyStart + posOff;
+                    int starOffFile = bodyStart + starOff;
+                    int forcaOffFile = bodyStart + forcaOff;
+                    int compOffFile = bodyStart + compOff;
+                    int salarioOffFile = bodyStart + salarioOff;
+
                     var p = new SavePlayer
                     {
                         Nome = ExtractPlayerName(decoded, recStart, NL),
                         RecordStartInEft = recStart,
                         RecordSizeInEft = recSize,
-                        Posicao = PosicaoLabel(decoded[posOff]),
-                        Estrela = decoded[starOff] != 0,
-                        Forca = decoded[forcaOff],
-                        Comportamento = decoded[compOff],
-                        PosicaoOffsetInFile = bodyStart + posOff,
-                        EstrelaOffsetInFile = bodyStart + starOff,
-                        ForcaOffsetInFile = bodyStart + forcaOff,
-                        SalarioOffsetInFile = bodyStart + salarioOff,
+                        Posicao = posOffFile < bytes.Length ? PosicaoLabel(bytes[posOffFile]) : "?",
+                        Estrela = starOffFile < bytes.Length && bytes[starOffFile] != 0,
+                        Forca = forcaOffFile < bytes.Length ? bytes[forcaOffFile] : 0,
+                        Comportamento = compOffFile < bytes.Length ? bytes[compOffFile] : 0,
+                        PosicaoOffsetInFile = posOffFile,
+                        EstrelaOffsetInFile = starOffFile,
+                        ForcaOffsetInFile = forcaOffFile,
+                        SalarioOffsetInFile = salarioOffFile,
                     };
-                    if (salarioOff + 2 <= decoded.Length)
-                        p.Salario = BitConverter.ToUInt16(decoded, salarioOff);
+                    if (salarioOffFile + 2 <= bytes.Length)
+                        p.Salario = BitConverter.ToUInt16(bytes, salarioOffFile);
                     team.Players.Add(p);
                 }
 
@@ -175,34 +184,24 @@ namespace ElifootLauncher
                         Array.Copy(vb, 0, bytes, team.VerbaOffset + 4, 4);
                 }
 
+                // Campos numericos: escrever direto no RAW file (nao passam
+                // pela cifra). Nao precisa re-encodar EFT.
                 foreach (var p in team.Players)
                 {
-                    int forcaLocal = p.ForcaOffsetInFile - bodyStart;
-                    int salLocal = p.SalarioOffsetInFile - bodyStart;
-                    if (forcaLocal >= 0 && forcaLocal < decoded.Length)
+                    if (p.ForcaOffsetInFile > 0 && p.ForcaOffsetInFile < bytes.Length)
                     {
                         int f = Math.Max(FORCA_MIN, Math.Min(FORCA_MAX, p.Forca));
-                        byte fb = (byte)(f & 0xFF);
-                        if (decoded[forcaLocal] != fb) { decoded[forcaLocal] = fb; dirty = true; }
+                        bytes[p.ForcaOffsetInFile] = (byte)(f & 0xFF);
                     }
-                    if (salLocal >= 0 && salLocal + 2 <= decoded.Length)
+                    if (p.SalarioOffsetInFile > 0 && p.SalarioOffsetInFile + 2 <= bytes.Length)
                     {
                         int s = Math.Max(SALARIO_MIN, Math.Min(SALARIO_MAX, p.Salario));
                         var sb = BitConverter.GetBytes((ushort)s);
-                        if (decoded[salLocal] != sb[0] || decoded[salLocal + 1] != sb[1])
-                        {
-                            decoded[salLocal] = sb[0];
-                            decoded[salLocal + 1] = sb[1];
-                            dirty = true;
-                        }
+                        bytes[p.SalarioOffsetInFile] = sb[0];
+                        bytes[p.SalarioOffsetInFile + 1] = sb[1];
                     }
                 }
-
-                if (dirty)
-                {
-                    var reencoded = EncodeCaesar(decoded);
-                    Array.Copy(reencoded, 0, bytes, bodyStart, reencoded.Length);
-                }
+                _ = dirty; // suprime warning; nao precisamos re-encoder
             }
             File.WriteAllBytes(path, bytes);
         }
