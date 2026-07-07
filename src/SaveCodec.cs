@@ -226,24 +226,33 @@ namespace ElifootLauncher
             return plain;
         }
 
-        // Team name: byte em decoded[0x32] = 0x20 + name_len
+        // Team name: byte em decoded[0x2E] = 0x20 + name_len. Nome comeca em
+        // 0x2F. Padding de 0x20 (space) precede o length byte.
         private static string ExtractTeamName(byte[] decoded)
         {
-            if (decoded.Length <= 0x33) return "?";
-            byte lenByte = decoded[0x32];
-            if (lenByte < 0x22 || lenByte > 0x50) return "?";
-            int nameLen = lenByte - 0x20;
-            if (0x33 + nameLen > decoded.Length) return "?";
-
-            var sb = new StringBuilder(nameLen);
-            for (int i = 0x33; i < 0x33 + nameLen; i++)
+            // Length byte tipicamente em 0x2E mas pode variar. Escaneia
+            // 0x28..0x32 procurando o primeiro byte >= 0x22 e <= 0x50 seguido
+            // de chars validos.
+            for (int lenPos = 0x28; lenPos <= 0x32 && lenPos + 1 < decoded.Length; lenPos++)
             {
-                byte b = decoded[i];
-                char? c = MapTeamChar(b);
-                if (c != null) sb.Append(c.Value);
-                else sb.Append('?');
+                byte lenByte = decoded[lenPos];
+                if (lenByte < 0x22 || lenByte > 0x50) continue;
+                int nameLen = lenByte - 0x20;
+                if (lenPos + 1 + nameLen > decoded.Length) continue;
+
+                var sb = new StringBuilder(nameLen);
+                int validChars = 0;
+                for (int i = lenPos + 1; i < lenPos + 1 + nameLen; i++)
+                {
+                    byte b = decoded[i];
+                    char? c = MapTeamChar(b);
+                    if (c != null) { sb.Append(c.Value); validChars++; }
+                    else sb.Append('?');
+                }
+                if (validChars >= nameLen * 3 / 4)
+                    return sb.ToString().Trim().ToUpperInvariant();
             }
-            return sb.ToString().Trim().ToUpperInvariant();
+            return "?";
         }
 
         private static char? MapTeamChar(byte b)
