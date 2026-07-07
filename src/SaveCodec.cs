@@ -90,21 +90,37 @@ namespace ElifootLauncher
                 if (team.VerbaOffset > 0)
                     team.Verba = (uint)BitConverter.ToInt32(bytes, team.VerbaOffset);
 
-                // Player records: encontra markers + parseia via NL formula
-                foreach (var recStart in FindPlayerStarts(decoded))
+                // Encontra markers + calcula recSize via boundary + estatistica
+                // pro ultimo. NL = recSize - 55 (fixo).
+                var starts = FindPlayerStarts(decoded);
+                var prevSizes = new List<int>();
+                for (int j = 0; j < starts.Count - 1; j++)
+                    prevSizes.Add(starts[j + 1] - starts[j]);
+                int medianSize = 60;
+                if (prevSizes.Count > 0)
                 {
-                    if (recStart + 5 >= decoded.Length) continue;
-                    int NL = decoded[recStart + 4];
-                    if (NL < 3 || NL > 30) continue;
-                    int recSize = NL + 55;
-                    if (recStart + recSize > decoded.Length) continue;
+                    prevSizes.Sort();
+                    medianSize = prevSizes[prevSizes.Count / 2];
+                }
 
-                    int posOff = recStart + 5 + NL;
-                    int starOff = recStart + 5 + NL + 1;
-                    int forcaOff = recStart + 5 + NL + 2;   // = recSize - 48
+                for (int idx = 0; idx < starts.Count; idx++)
+                {
+                    int recStart = starts[idx];
+                    int naiveEnd = idx + 1 < starts.Count ? starts[idx + 1] : decoded.Length;
+                    int recSize = naiveEnd - recStart;
+                    bool isLast = idx + 1 >= starts.Count;
+                    if (isLast) recSize = Math.Min(recSize, medianSize);
+                    if (recSize < 55) continue;
+
+                    // Offsets fixos do FIM do record:
+                    int posOff = recStart + recSize - 50;
+                    int starOff = recStart + recSize - 49;
+                    int forcaOff = recStart + recSize - 48;
                     int compOff = recStart + recSize - 33;
                     int salarioOff = recStart + recSize - 25;
+                    int NL = recSize - 55;
 
+                    if (NL < 3 || NL > 30) continue;
                     var p = new SavePlayer
                     {
                         Nome = ExtractPlayerName(decoded, recStart, NL),
