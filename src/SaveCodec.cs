@@ -306,13 +306,13 @@ namespace ElifootLauncher
                 byte pos = decoded[i + 4];
                 bool nat = a >= 'a' && a <= 'z' && b >= 'a' && b <= 'z' && c >= 'a' && c <= 'z';
                 bool posOk = pos >= 'A' && pos <= 'Z';
-                // Marker byte: 0x20..0x23 (space, !, ", #). Times como
-                // Desportiva usam SPACE (0x20). Palmeiras usa " para alguns
-                // (Marquinhos, Neném). Vasco usa " em todos.
+                // Marker byte: qualquer coisa < 0x30 (control chars, espaco,
+                // !, ", #, $, etc.). Saves da comunidade (7.e98) usam markers
+                // como 0x1F para alguns times. Confiamos nos outros checks
+                // (nat lowercase, pos uppercase, initial lowercase) pra evitar
+                // falsos positivos.
                 byte m = decoded[i];
-                bool markerOk = m >= 0x20 && m <= 0x23;
-                // Byte +5 tem que ser letra minuscula (inicial do nome). Isso
-                // filtra falsos positivos em regioes de padding.
+                bool markerOk = m < 0x30;
                 byte initial = decoded[i + 5];
                 bool initialOk = initial >= 'a' && initial <= 'z';
                 if (nat && posOk && markerOk && initialOk)

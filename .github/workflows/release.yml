@@ -75,27 +75,32 @@ jobs:
           generate_release_notes: true
           name: ${{ steps.version.outputs.value }}
           body: |
-            ## Downloads
+            ## Download
 
-            Nesta release existem três executáveis distintos:
+            **`elifoot98-launcher-setup-*.exe`** — instalador do launcher + Elifoot 98 + otvdm. Instala em `C:\Elifoot98Launcher`.
 
-            - **`elifoot98-launcher-setup-*.exe`** — instalador do launcher principal + Elifoot 98 + otvdm. Instala em `C:\Elifoot98Launcher`.
-            - **`elifoot98-registrador-setup-*.exe`** — instalador do Registrador (gera Contra-Senha via `CRACK.EXE`). Instala em `C:\Elifoot98Registrador`.
-            - **`elifoot98-registrador-portable-*.exe`** — versão **portable** do Registrador em um único `.exe` (~9 MB), com CRACK.EXE + DOSBox embutidos. Não instala nada — só clica e usa. Extrai temporário em `%TEMP%\ElifootRegistrador` no primeiro uso.
+            ## O que tem no launcher
 
-            > Separamos por questão de licenciamento — o `CRACK.EXE` é o keygen original do autor Andre Elias.
+            - **Jogar Elifoot 98** — abre o jogo em janela (640×600 ou resolução configurada), centralizado, sem tela cheia forçada
+            - **Editor de Equipes** — abre o EDITEQ.EXE original
+            - **Editor de Árbitros** — edita a lista de juízes (nome + país) diretamente no `REFEREE.TXE`
+            - **Editor de Save** — edita **verba** do clube + **força** e **salário** dos jogadores em qualquer `.e98`
+              - Lista todos os times do save (funciona com patches da comunidade de 42 a 128+ times)
+              - Aceita saves single-coach e multi-coach (até 6 técnicos)
+              - Backup `.bak` automático na primeira gravação
+            - **Configurações** — resolução da janela e modo fullscreen
 
             ## Instalação
 
-            1. Baixe o instalador desejado abaixo (ou os dois)
+            1. Baixe o `elifoot98-launcher-setup-*.exe` abaixo
             2. Se o navegador bloquear: `...` → **Manter** → **Manter mesmo assim**
-            3. Clique com o botão direito no `.exe` → **Propriedades** → marque **Desbloquear** (opcional)
+            3. Botão direito → **Propriedades** → marque **Desbloquear** (opcional)
             4. Execute — se aparecer **SmartScreen**: **Mais informações** → **Executar assim mesmo**
-            5. UAC vai pedir permissão para criar pasta na raiz de C:
+            5. UAC vai pedir permissão pra criar pasta na raiz de C:
             6. Siga o assistente
 
-            > Instaladores não são assinados digitalmente (custa caro pra hobby). Verifique SHA256 se quiser.
+            > O instalador não é assinado digitalmente (custa caro pra hobby). Verifique SHA256 se quiser.
 
             ## Requisitos
             - Windows 10 (1809+) ou 11
-            - .NET Framework 4.8 (vem em Win 10/11)
+            - .NET Framework 4.8 (já vem em Win 10/11)
