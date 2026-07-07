@@ -111,27 +111,48 @@ namespace ElifootLauncher
                     bool isLast = idx + 1 >= starts.Count;
                     if (isLast)
                     {
-                        // Estrategia especializada pro ultimo record: tenta
-                        // varios recSizes (55 = NL+55 pra NL de 0..30) e
-                        // escolhe o que produz posicao valida (0-3) e forca
-                        // razoavel (1-100). Se nenhum bater, cai pra mediana.
-                        int found = -1;
+                        // Estrategia pro ultimo record: tenta NL de 3..25.
+                        // Score cada candidato por quantas validacoes passa.
+                        // Melhor score vence. Valida:
+                        //  - Posicao 0-3
+                        //  - Forca 1-99 (mais restrito que 100)
+                        //  - Salario 250..99999 e multiplo de 250
+                        //  - Comportamento 0-5
+                        int bestSize = -1;
+                        int bestScore = -1;
                         for (int tryNL = 3; tryNL <= 25; tryNL++)
                         {
                             int trySize = tryNL + 55;
                             if (recStart + trySize > decoded.Length) break;
-                            int tryPosAbs = bodyStart + recStart + trySize - 50;
-                            int tryForcaAbs = bodyStart + recStart + trySize - 48;
-                            if (tryForcaAbs >= bytes.Length) break;
-                            byte posB = bytes[tryPosAbs];
-                            byte forcaB = bytes[tryForcaAbs];
-                            if (posB <= 3 && forcaB >= 1 && forcaB <= 100)
+                            int posAbs = bodyStart + recStart + trySize - 50;
+                            int starAbs = bodyStart + recStart + trySize - 49;
+                            int forcaAbs = bodyStart + recStart + trySize - 48;
+                            int compAbs = bodyStart + recStart + trySize - 33;
+                            int salAbs = bodyStart + recStart + trySize - 25;
+                            if (salAbs + 2 > bytes.Length) break;
+
+                            int score = 0;
+                            byte posB = bytes[posAbs];
+                            byte forcaB = bytes[forcaAbs];
+                            byte compB = bytes[compAbs];
+                            int salB = BitConverter.ToUInt16(bytes, salAbs);
+                            if (posB <= 3) score += 2;
+                            if (forcaB >= 1 && forcaB <= 99) score += 2;
+                            if (compB <= 5) score += 2;
+                            if (salB >= 250 && salB <= 99999 && salB % 250 == 0) score += 3;
+                            // Sanity: estrela deveria ser 0 ou 1
+                            if (bytes[starAbs] <= 1) score += 1;
+
+                            if (score > bestScore)
                             {
-                                found = trySize;
-                                break;
+                                bestScore = score;
+                                bestSize = trySize;
                             }
                         }
-                        recSize = found > 0 ? found : Math.Min(recSize, medianSize);
+                        // Requer score minimo pra evitar chute completo
+                        recSize = bestScore >= 6 && bestSize > 0
+                            ? bestSize
+                            : Math.Min(recSize, medianSize);
                     }
                     if (recSize < 55) continue;
 
@@ -349,10 +370,10 @@ namespace ElifootLauncher
                 else if (b == 0x1A) { c = 'ú'; letterCount++; }
                 else if (b == 0x1C) { c = 'ü'; letterCount++; }
                 else if (b >= 0x61 && b <= 0x7A) { c = (char)b; letterCount++; }
-                // Nomes de times armazenam digitos como P/Q/R/S/T/U/V/W/X/Y
-                // (shifted +0x20 from '0'-'9'). Ex: 1993=QYYS, 1970=QYWP.
-                // Nunca ha letras uppercase reais em team names — todas
-                // sao lowercase e display faz uppercase.
+                // Shifted lowercase (0x81..0x9A → a..z) — usado em saves
+                // comunidade (7.e98) que encodam team name igual player name
+                else if (b >= 0x81 && b <= 0x9A) { c = (char)(b - 0x20); letterCount++; }
+                // Digitos shifted (P/Q/R/S/T/U/V/W/X/Y = 0-9)
                 else if (b >= 0x50 && b <= 0x59) { c = (char)(b - 0x20); letterCount++; }
                 else if (b >= 0x30 && b <= 0x39) c = (char)b;
                 else { invalid++; continue; }
