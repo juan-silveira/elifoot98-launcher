@@ -60,24 +60,39 @@ jobs:
         run: |
           & "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" "/DAppVersion=${{ steps.version.outputs.value }}" installer\setup.iss
 
+      - name: Zip installer (evita bloqueios de navegador em .exe)
+        shell: pwsh
+        run: |
+          $exe = Get-ChildItem installer\Output\*.exe | Select-Object -First 1
+          $zip = "installer\Output\$([System.IO.Path]::GetFileNameWithoutExtension($exe.Name)).zip"
+          Compress-Archive -Path $exe.FullName -DestinationPath $zip -Force
+          Write-Host "zip: $zip"
+
       - name: Upload build artifact (always, for debug)
         uses: actions/upload-artifact@v4
         with:
           name: launcher-installer
-          path: installer/Output/*.exe
+          path: |
+            installer/Output/*.exe
+            installer/Output/*.zip
           if-no-files-found: error
 
       - name: Create GitHub Release
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
-          files: installer/Output/*.exe
+          files: |
+            installer/Output/*.exe
+            installer/Output/*.zip
           generate_release_notes: true
           name: ${{ steps.version.outputs.value }}
           body: |
             ## Download
 
-            **`elifoot98-launcher-setup-*.exe`** — instalador do launcher + Elifoot 98 + otvdm. Instala em `C:\Elifoot98Launcher`.
+            - **`elifoot98-launcher-setup-*.zip`** — RECOMENDADO. Baixa sem bloqueio de browser. Extraia e execute o `.exe` de dentro.
+            - **`elifoot98-launcher-setup-*.exe`** — instalador direto (browsers podem bloquear).
+
+            Instala em `C:\Elifoot98Launcher`.
 
             ## O que tem no launcher
 
@@ -96,12 +111,12 @@ jobs:
 
             ## Instalação
 
-            1. Baixe o `elifoot98-launcher-setup-*.exe` abaixo
-            2. Se o navegador bloquear: `...` → **Manter** → **Manter mesmo assim**
-            3. Botão direito → **Propriedades** → marque **Desbloquear** (opcional)
-            4. Execute — se aparecer **SmartScreen**: **Mais informações** → **Executar assim mesmo**
-            5. UAC vai pedir permissão pra criar pasta na raiz de C:
-            6. Siga o assistente
+            1. Baixe o `.zip` (recomendado — evita bloqueio de navegador).
+            2. Extraia o `.exe` de dentro (botão direito → Extrair).
+            3. Botão direito no `.exe` → **Propriedades** → marque **Desbloquear** (opcional, mas ajuda).
+            4. Execute — se aparecer **SmartScreen**: **Mais informações** → **Executar assim mesmo**.
+            5. UAC vai pedir permissão pra criar pasta na raiz de C:.
+            6. Siga o assistente.
 
             > O instalador não é assinado digitalmente (custa caro pra hobby). Verifique SHA256 se quiser.
 
