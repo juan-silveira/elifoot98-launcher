@@ -79,7 +79,7 @@ namespace ElifootLauncher
 
         public static readonly string[] ComportamentoLabels = {
             "Fair Play", "Cordeirinho", "Cavalheiro",
-            "Caneleiro", "Violento", "Assassino"
+            "Caneleiro", "Caceteiro", "Sarrafeiro"
         };
 
         public static SaveFile Read(string path)
