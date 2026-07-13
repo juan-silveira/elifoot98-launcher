@@ -23,6 +23,12 @@
     <EmbeddedResource Include="elifoot.ico">
       <LogicalName>ElifootLauncher.elifoot.ico</LogicalName>
     </EmbeddedResource>
+    <EmbeddedResource Include="Embedded\eli.cod">
+      <LogicalName>ElifootLauncher.Embedded.eli.cod</LogicalName>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Embedded\elif98.ini">
+      <LogicalName>ElifootLauncher.Embedded.elif98.ini</LogicalName>
+    </EmbeddedResource>
   </ItemGroup>
   <ItemGroup>
     <Reference Include="System.IO.Compression" />

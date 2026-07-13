@@ -1,5 +1,8 @@
 using System;
+using System.Diagnostics;
 using System.Drawing;
+using System.IO;
+using System.Reflection;
 using System.Windows.Forms;
 
 namespace ElifootLauncher
@@ -7,6 +10,7 @@ namespace ElifootLauncher
     public class SettingsForm : Form
     {
         public LauncherConfig Config { get; }
+        private readonly GameLauncher _launcher = new GameLauncher();
 
         private readonly ComboBox _resolutionBox;
         private readonly CheckBox _fullscreenBox;
@@ -28,7 +32,7 @@ namespace ElifootLauncher
             Config = cfg;
 
             Text = "Configurações";
-            ClientSize = new Size(400, 240);
+            ClientSize = new Size(400, 290);
             FormBorderStyle = FormBorderStyle.FixedDialog;
             MaximizeBox = false;
             MinimizeBox = false;
@@ -66,18 +70,27 @@ namespace ElifootLauncher
                 ForeColor = Color.FromArgb(100, 100, 100),
             };
 
+            var btnExperiment = new Button
+            {
+                Text = "Experimentar todos os recursos",
+                Location = new Point(20, 195),
+                Size = new Size(360, 32),
+                FlatStyle = FlatStyle.System,
+            };
+            btnExperiment.Click += (s, e) => ExperimentarRecursos();
+
             var btnOk = new Button
             {
                 Text = "Salvar",
                 DialogResult = DialogResult.OK,
-                Location = new Point(220, 190),
+                Location = new Point(220, 240),
                 Size = new Size(80, 30),
             };
             var btnCancel = new Button
             {
                 Text = "Cancelar",
                 DialogResult = DialogResult.Cancel,
-                Location = new Point(310, 190),
+                Location = new Point(310, 240),
                 Size = new Size(80, 30),
             };
             AcceptButton = btnOk;
@@ -92,7 +105,49 @@ namespace ElifootLauncher
                 Config.Save();
             };
 
-            Controls.AddRange(new Control[] { lblRes, _resolutionBox, _fullscreenBox, lblNota, btnOk, btnCancel });
+            Controls.AddRange(new Control[] { lblRes, _resolutionBox, _fullscreenBox, lblNota, btnExperiment, btnOk, btnCancel });
+        }
+
+        private void ExperimentarRecursos()
+        {
+            // 1) Fecha o Elifoot se estiver aberto (mata otvdmw.exe rodando ELIFOOT/EDITEQ)
+            try
+            {
+                foreach (var p in Process.GetProcessesByName("otvdmw"))
+                {
+                    try { p.Kill(); p.WaitForExit(3000); } catch { }
+                    finally { p.Dispose(); }
+                }
+            }
+            catch { }
+
+            // 2) Copia eli.cod + elif98.ini embutidos pra vendor/otvdm/WINDOWS
+            var destDir = _launcher.OtvdmWindowsDir;
+            try
+            {
+                Directory.CreateDirectory(destDir);
+                ExtractEmbedded("ElifootLauncher.Embedded.eli.cod",
+                                Path.Combine(destDir, "eli.cod"));
+                ExtractEmbedded("ElifootLauncher.Embedded.elif98.ini",
+                                Path.Combine(destDir, "elif98.ini"));
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(this, $"Erro ao ativar recursos:\n{ex.Message}",
+                    "Erro", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return;
+            }
+
+            MessageBox.Show(this, "Recursos ativados. Abra o jogo pra experimentar.",
+                "Pronto", MessageBoxButtons.OK, MessageBoxIcon.Information);
+        }
+
+        private static void ExtractEmbedded(string resourceName, string destPath)
+        {
+            using var stream = Assembly.GetExecutingAssembly().GetManifestResourceStream(resourceName)
+                ?? throw new IOException($"Recurso {resourceName} nao encontrado no launcher");
+            using var fs = File.Create(destPath);
+            stream.CopyTo(fs);
         }
 
         private static int FindResolutionIndex(int w, int h)
