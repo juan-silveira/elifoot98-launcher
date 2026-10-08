@@ -60,16 +60,6 @@ jobs:
           ls -la "$D"
           unzip -l Elifoot98-teste-macOS.zip | grep iniciar.exe
 
-      - name: Pastas consultadas pelo jogo (diagnostico)
-        if: always()
-        run: |
-          S="app/Elifoot98.app/Contents/MacOS/elifoot98.sh"
-          "$(dirname "$WINE_BIN")/wineserver" -k || true; sleep 3
-          sed -i '' 's/WINEDEBUG=-all/WINEDEBUG=${WD:--all}/' "$S"
-          WD=+file ELIFOOT_WINE="$WINE_BIN" bash "$S" jogo > shots/trace.log 2>&1 &
-          sleep 45; "$(dirname "$WINE_BIN")/wineserver" -k || true
-          wc -l shots/trace.log
-
       - name: Guardar screenshots
         if: always()
         uses: actions/upload-artifact@v4

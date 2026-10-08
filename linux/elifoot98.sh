@@ -143,11 +143,9 @@ fi
 # E: = pasta do jogo (caminhos curtos pro programa 16-bit)
 ln -sfn "$APP" "$WINEPREFIX/dosdevices/e:"
 
-# Fixa tambem as pastas de sistema do prefixo, caso o GetSystemDirectory do
-# otvdm aponte pra elas (o Linux usa so as duas do otvdm)
-for d in "$WIN" "$WIN/SYSTEM" "$WINEPREFIX/drive_c/windows" "$WINEPREFIX/drive_c/windows/system32" "$WINEPREFIX/drive_c/windows/syswow64"; do
-  [[ -d "$d" ]] && touch -t 200001011200.00 "$d"
-done
+# O otvdm entrega a data em UTC: o instante fixo e 2000-01-01 14:00 UTC (o
+# linux/eli.cod foi gerado pra ele), seja qual for o fuso do computador
+TZ=UTC touch -t 200001011400.00 "$WIN" "$WIN/SYSTEM"
 
 # iniciar.exe (linux/iniciar.c) abre o otvdm e manda um movimento de mouse
 # pro jogo: sem isso, no Wine, a janela "Acerca" da abertura nao aparece
