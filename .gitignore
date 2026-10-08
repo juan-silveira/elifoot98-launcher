@@ -34,3 +34,6 @@ src-registrador/payload.zip
 
 # Licenca pessoal — nao commitar (o binario ja embute os arquivos)
 eli-cod/
+
+# Pacote Linux
+dist/

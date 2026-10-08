@@ -10,8 +10,30 @@ permissions:
   contents: write
 
 jobs:
+  build-linux:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Fetch otvdm
+        run: bash scripts/fetch-deps.sh
+
+      - name: Build Linux package
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then V="${GITHUB_REF#refs/tags/v}"; else V="0.0.0-dev"; fi
+          bash scripts/build-linux.sh "$V"
+
+      - name: Upload Linux package
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-package
+          path: dist/*.tar.gz
+          if-no-files-found: error
+
   build-installer:
     runs-on: windows-latest
+    needs: build-linux
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -68,6 +90,12 @@ jobs:
           Compress-Archive -Path $exe.FullName -DestinationPath $zip -Force
           Write-Host "zip: $zip"
 
+      - name: Download Linux package
+        uses: actions/download-artifact@v4
+        with:
+          name: linux-package
+          path: installer/Output
+
       - name: Upload build artifact (always, for debug)
         uses: actions/upload-artifact@v4
         with:
@@ -75,6 +103,7 @@ jobs:
           path: |
             installer/Output/*.exe
             installer/Output/*.zip
+            installer/Output/*.tar.gz
           if-no-files-found: error
 
       - name: Create GitHub Release
@@ -84,6 +113,7 @@ jobs:
           files: |
             installer/Output/*.exe
             installer/Output/*.zip
+            installer/Output/*.tar.gz
           generate_release_notes: true
           name: ${{ steps.version.outputs.value }}
           body: |
@@ -91,6 +121,7 @@ jobs:
 
             - **`elifoot98-launcher-setup-*.zip`** — RECOMENDADO. Baixa sem bloqueio de browser. Extraia e execute o `.exe` de dentro.
             - **`elifoot98-launcher-setup-*.exe`** — instalador direto (browsers podem bloquear).
+            - **`elifoot98-linux-*.tar.gz`** — Linux: extraia e rode `./instalar.sh` (jogo já registrado; usa o Wine do sistema ou baixa um portátil na 1ª vez).
 
             Instala em `C:\Elifoot98Launcher`.
 

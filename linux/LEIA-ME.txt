@@ -1,0 +1,35 @@
+ELIFOOT 98 PARA LINUX
+=====================
+
+Instalar
+--------
+  ./instalar.sh
+
+Depois abra "Elifoot 98" no menu de aplicativos (ou rode "elifoot98" no
+terminal). Também é criado o atalho "Elifoot 98 - Editor de Equipes".
+
+Para jogar sem instalar, rode direto:  ./elifoot98.sh
+
+O jogo já vem registrado (Registro para autor).
+
+Se ao abrir aparecer só a tela verde, aperte Enter: a janela "Acerca" às
+vezes abre escondida atrás da principal.
+
+Wine
+----
+O jogo roda pelo Wine. Se o Wine do sistema não tiver suporte a programas
+32-bit (no Ubuntu/Mint: pacote wine32), o Elifoot oferece baixar um Wine
+portátil (~95 MB) na primeira vez. Nada é instalado no sistema.
+
+Opções
+------
+  ELIFOOT_RES=1024x768 elifoot98     janela maior (padrão 800x600)
+
+Saves
+-----
+Ficam em ~/.local/share/elifoot98/game/JOGOS
+
+Desinstalar
+-----------
+  ~/.local/share/elifoot98/desinstalar.sh
+(os saves são copiados para ~/Elifoot98-saves antes)
