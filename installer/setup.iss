@@ -61,9 +61,11 @@ Source: "..\vendor\otvdm\*"; DestDir: "{app}\vendor\otvdm"; Flags: ignoreversion
 ; VC++ 2015-2022 Redistributable x86 (necessario pro otvdm em Tiny10 e similares)
 Source: "..\vendor\vcredist\vc_redist.x86.exe"; DestDir: "{tmp}"; Flags: deleteafterinstall
 
-; Arquivos do jogo (ficam em ..\game\) — mas SEM CRACK.EXE que agora
-; e distribuido no instalador do Registrador separado.
-Source: "..\game\*"; DestDir: "{app}\game"; Flags: ignoreversion recursesubdirs createallsubdirs; Excludes: "CRACK.EXE"
+; DOSBox-Staging (roda o CRACK.EXE escondido no "Ativar todos os recursos")
+Source: "..\vendor\dosbox\*"; DestDir: "{app}\vendor\dosbox"; Flags: ignoreversion recursesubdirs createallsubdirs
+
+; Arquivos do jogo (ficam em ..\game\), incluindo o CRACK.EXE
+Source: "..\game\*"; DestDir: "{app}\game"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 ; Documentacao
 Source: "..\README.md"; DestDir: "{app}"; Flags: ignoreversion
