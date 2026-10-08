@@ -54,9 +54,16 @@ jobs:
           D="$HOME/Library/Application Support/Elifoot98/vendor/otvdm/WINDOWS"
           # secondCode do linux/eli.cod (Registro.ContraSenha, tipo 9)
           printf '[System]\r\nsecondCode=959-240-641-242-102\r\n' > "$D/elif98.ini"
-          ELIFOOT_WINE="$WINE_BIN" bash "$S" jogo > shots/jogo.log 2>&1 &
-          for t in 60 120 180; do sleep 60; screencapture -x "shots/2-jogo-${t}s.png"; done
+          # +win: registra as janelas criadas (titulo "Acerca" = jogo valido;
+          # "ELIFOOT.EXE" com "Invalid file" = eli.cod recusado)
+          sed -i '' 's/WINEDEBUG=-all/WINEDEBUG=${WD:--all}/' "$S"
+          WD=+win ELIFOOT_WINE="$WINE_BIN" bash "$S" jogo > shots/jogo.log 2>&1 &
+          sleep 90; screencapture -x shots/2-jogo-90s.png
+          osascript -e 'tell application "System Events" to key code 36' 2>&1 || echo "sem permissao pra teclar"
+          sleep 10; screencapture -x shots/3-jogo-enter.png
           ls -la "$D"
+          echo "--- janelas com titulo ---"
+          grep -a -o -E 'CreateWindowEx[^)]*' shots/jogo.log | grep -a -o -E 'L"[^"]+"' | sort | uniq -c | sort -rn | head -40
 
       - name: Guardar screenshots
         if: always()
