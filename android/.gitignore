@@ -1,0 +1,12 @@
+# Baixados/gerados pelo preparar.sh
+.cache/
+third_party/
+app/jni/SDL/
+app/src/main/assets/
+
+# Build
+.gradle/
+build/
+app/build/
+app/.cxx/
+local.properties

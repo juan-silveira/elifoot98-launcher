@@ -1,0 +1,149 @@
+diff --git a/platform/mac/atomic_ref.gcc.h b/platform/mac/atomic_ref.gcc.h
+index 0e5c310..414e8fe 100644
+--- a/platform/mac/atomic_ref.gcc.h
++++ b/platform/mac/atomic_ref.gcc.h
+@@ -46,25 +46,25 @@ struct is_always_wait_free
+ template <typename T>
+ std::enable_if_t<std::is_enum<T>::value, T> load(T const & obj, std::memory_order order) noexcept
+ {
+-	return (T)__atomic_load_n((std::underlying_type_t<T> const *)&obj, order);
++	return (T)__atomic_load_n((std::underlying_type_t<T> const *)&obj, (int)order);
+ }
+ 
+ template <typename T>
+ std::enable_if_t<!std::is_enum<T>::value, T> load(T const & obj, std::memory_order order) noexcept
+ {
+-	return __atomic_load_n(&obj, order);
++	return __atomic_load_n(&obj, (int)order);
+ }
+ 
+ template <typename T>
+ void store(T & obj, T desired, std::memory_order order) noexcept
+ {
+-	__atomic_store(&obj, &desired, order);
++	__atomic_store(&obj, &desired, (int)order);
+ }
+ 
+ template <typename T>
+ T exchange(T & obj, T desired, std::memory_order order) noexcept
+ {
+-	return __atomic_exchange_n(&obj, desired, order);
++	return __atomic_exchange_n(&obj, desired, (int)order);
+ }
+ 
+ template <typename T>
+@@ -82,43 +82,43 @@ bool compare_exchange_strong(T & obj, T & expected, T desired, std::memory_order
+ template <typename T>
+ T fetch_add(T & obj, T arg, std::memory_order order) noexcept
+ {
+-	return __atomic_fetch_add(&obj, arg, order);
++	return __atomic_fetch_add(&obj, arg, (int)order);
+ }
+ 
+ template <typename T>
+ T fetch_sub(T & obj, T arg, std::memory_order order) noexcept
+ {
+-	return __atomic_fetch_sub(&obj, arg, order);
++	return __atomic_fetch_sub(&obj, arg, (int)order);
+ }
+ 
+ template <typename T>
+ T fetch_and(T & obj, T arg, std::memory_order order) noexcept
+ {
+-	return __atomic_fetch_and(&obj, arg, order);
++	return __atomic_fetch_and(&obj, arg, (int)order);
+ }
+ 
+ template <typename T>
+ T fetch_or(T & obj, T arg, std::memory_order order) noexcept
+ {
+-	return __atomic_fetch_or(&obj, arg, order);
++	return __atomic_fetch_or(&obj, arg, (int)order);
+ }
+ 
+ template <typename T>
+ T fetch_xor(T & obj, T arg, std::memory_order order) noexcept
+ {
+-	return __atomic_fetch_xor(&obj, arg, order);
++	return __atomic_fetch_xor(&obj, arg, (int)order);
+ }
+ 
+ template <typename T>
+ auto fetch_add(T * & obj, std::ptrdiff_t arg, std::memory_order order) noexcept
+ {
+-	return __atomic_fetch_add(&obj, arg * sizeof(T), order);
++	return __atomic_fetch_add(&obj, arg * sizeof(T), (int)order);
+ }
+ 
+ template <typename T>
+ auto fetch_sub(T * & obj, std::ptrdiff_t arg, std::memory_order order) noexcept
+ {
+-	return __atomic_fetch_sub(&obj, arg * sizeof(T), order);
++	return __atomic_fetch_sub(&obj, arg * sizeof(T), (int)order);
+ }
+ 
+ }
+diff --git a/source/sdl/startupArgs.cpp b/source/sdl/startupArgs.cpp
+index bf73e61..d3b7ec8 100644
+--- a/source/sdl/startupArgs.cpp
++++ b/source/sdl/startupArgs.cpp
+@@ -18,6 +18,9 @@
+ 
+ #include "boxedwine.h"
+ #include "startupArgs.h"
++#ifdef __ANDROID__
++#include <SDL.h>
++#endif
+ 
+ #include "devtty.h"
+ #include "devurandom.h"
+diff --git a/source/x11/xwindow.cpp b/source/x11/xwindow.cpp
+index fff67a4..353a84c 100644
+--- a/source/x11/xwindow.cpp
++++ b/source/x11/xwindow.cpp
+@@ -1056,17 +1056,37 @@ int XWindow::configure(U32 mask, XWindowChanges* changes) {
+ 	if (mask & CWBorderWidth) {
+ 		border_width = changes->border_width;
+ 	}
+-	if (mask & CWSibling) {
+-		kpanic("XReconfigureWMWindow CWSibling not handled");
+-	}
+ 	if (mask & CWStackMode) {
++		// Elifoot 98 (app Android): respeita o stack_mode e o sibling. Antes todo
++		// pedido subia a janela pro topo, entao quando o Wine colocava a janela
++		// principal *abaixo* de um dialogo ela ia pra cima e o dialogo sumia.
++		// Valores do X11: Above=0, Below=1, TopIf=2, BottomIf=3, Opposite=4.
++		// As janelas com dono (WM_TRANSIENT_FOR, como os formularios do Delphi)
++		// sao desenhadas na ordem da transientChildren do dono: ela muda junto.
++		XWindowPtr sibling = (mask & CWSibling) ? XServer::getServer()->getWindow(changes->sibling) : nullptr;
++		XWindowPtr self = shared_from_this();
++		bool below = changes->stack_mode == 1 || changes->stack_mode == 3;
++		auto reempilhar = [&](std::vector<XWindowPtr>& lista) {
++			int index = vectorIndexOf(lista, self);
++			if (index < 0) return;
++			lista.erase(lista.begin() + index);
++			int siblingIndex = sibling ? vectorIndexOf(lista, sibling) : -1;
++			int pos;
++			if (siblingIndex >= 0) {
++				pos = below ? siblingIndex : siblingIndex + 1;
++			} else {
++				pos = below ? 0 : (int)lista.size();
++			}
++			lista.insert(lista.begin() + pos, self);
++		};
+ 		if (parent) {
+ 			BOXEDWINE_CRITICAL_SECTION_WITH_MUTEX(parent->childrenMutex);
+-			int index = vectorIndexOf(parent->zchildren, shared_from_this());
+-			if (index >= 0 && index < (int)parent->zchildren.size() - 1) {
+-				parent->zchildren.erase(parent->zchildren.begin() + index);
+-				parent->zchildren.push_back(shared_from_this());
+-			}
++			reempilhar(parent->zchildren);
++		}
++		XWindowPtr dono = transientCached.lock();
++		if (dono) {
++			BOXEDWINE_CRITICAL_SECTION_WITH_MUTEX(dono->childrenMutex);
++			reempilhar(dono->transientChildren);
+ 		}
+ 	}
+ 	if (sizeChanged) {

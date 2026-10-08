@@ -1,0 +1,52 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace 'io.github.juansilveira.elifoot98'
+    compileSdk 35
+    ndkVersion '28.2.13676358'
+
+    defaultConfig {
+        applicationId 'io.github.juansilveira.elifoot98'
+        minSdk 26
+        targetSdk 35
+        versionCode 608
+        versionName '0.6.8'
+        externalNativeBuild {
+            cmake {
+                arguments '-DANDROID_STL=c++_static'
+                abiFilters 'arm64-v8a', 'x86_64'
+            }
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            // Sem keystore propria por enquanto: assina com a chave de debug
+            signingConfig signingConfigs.debug
+        }
+    }
+
+    externalNativeBuild {
+        cmake {
+            path 'jni/CMakeLists.txt'
+            version '3.22.1'
+        }
+    }
+
+    // Os zips ja sao comprimidos; guardar sem recomprimir acelera a copia
+    androidResources {
+        noCompress 'zip'
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_11
+        targetCompatibility JavaVersion.VERSION_11
+    }
+
+    lint {
+        abortOnError false
+    }
+}
