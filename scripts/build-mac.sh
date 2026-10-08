@@ -7,6 +7,8 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 VER="${1:-0.0.0}"
+NUMVER="${VER%%-*}"   # .NET/Info.plist so aceitam versao numerica
+[[ "$NUMVER" =~ ^[0-9]+(\.[0-9]+)*$ ]] || NUMVER=0.0.0
 DIST="$ROOT/dist"
 APP="$DIST/Elifoot98.app"
 MACOS="$APP/Contents/MacOS"
@@ -19,7 +21,7 @@ PUB="$DIST/publish-mac"
 dotnet publish "$ROOT/src-cross" -c Release -r osx-x64 --self-contained \
   -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true \
   -p:EnableCompressionInSingleFile=true -p:PublishTrimmed=true -p:TrimMode=partial \
-  -p:DebugType=none -p:Version="${VER%%-*}" -o "$PUB" >/dev/null
+  -p:DebugType=none -p:Version="$NUMVER" -o "$PUB" >/dev/null
 cp "$PUB/ElifootLauncher" "$MACOS/"
 rm -rf "$PUB"
 
@@ -29,6 +31,19 @@ chmod +x "$MACOS/elifoot98.sh" "$MACOS/ElifootLauncher"
 cp "$ROOT/linux/eli.cod" "$ROOT/linux/elifoot98.png" "$MACOS/linux/"
 cp -R "$ROOT/game" "$MACOS/"
 rm -f "$MACOS/game/CRACK.EXE"
+# O APFS so aceita nomes UTF-8: EQUIPAS/ARA<0x80>A_BR.EFT (C cedilha do DOS,
+# CP850) vira ARACA_BR.EFT. O jogo lista a pasta, nao depende do nome.
+python3 - "$MACOS/game" <<'PY'
+import os, sys, unicodedata
+for raiz, pastas, arqs in os.walk(os.fsencode(sys.argv[1])):
+    for nome in arqs:
+        try:
+            nome.decode('utf-8')
+        except UnicodeDecodeError:
+            novo = unicodedata.normalize('NFKD', nome.decode('cp850')).encode('ascii', 'ignore')
+            os.rename(os.path.join(raiz, nome), os.path.join(raiz, novo))
+            print('renomeado:', nome, '->', novo.decode())
+PY
 unzip -q "$ROOT/linux/otvdm-master-2703.zip" -d "$DIST/otvdm-zip"
 mv "$DIST/otvdm-zip"/otvdm-* "$MACOS/vendor/otvdm" && rm -rf "$DIST/otvdm-zip"
 echo "$VER" > "$MACOS/VERSAO"
@@ -60,8 +75,8 @@ cat > "$APP/Contents/Info.plist" <<EOF
   <key>CFBundleName</key><string>Elifoot 98</string>
   <key>CFBundleDisplayName</key><string>Elifoot 98</string>
   <key>CFBundleIdentifier</key><string>io.github.juan-silveira.elifoot98</string>
-  <key>CFBundleVersion</key><string>${VER%%-*}</string>
-  <key>CFBundleShortVersionString</key><string>${VER%%-*}</string>
+  <key>CFBundleVersion</key><string>$NUMVER</string>
+  <key>CFBundleShortVersionString</key><string>$NUMVER</string>
   <key>CFBundleExecutable</key><string>ElifootLauncher</string>
   <key>CFBundleIconFile</key><string>elifoot98</string>
   <key>CFBundlePackageType</key><string>APPL</string>

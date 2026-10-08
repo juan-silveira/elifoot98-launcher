@@ -1,29 +1,36 @@
 name: Teste macOS
 
-# Roda o Elifoot98.app numa maquina macOS (Apple Silicon + Rosetta) e guarda
-# screenshots do launcher e do jogo. Roda ao enviar a branch mac-teste.
+# Monta o Elifoot98.app no Ubuntu (como a release) e roda numa maquina macOS
+# (Apple Silicon + Rosetta), guardando screenshots do launcher e do jogo.
 on:
   push:
     branches: [mac-teste]
   workflow_dispatch:
 
 jobs:
-  mac:
-    runs-on: macos-14
+  build:
+    runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup .NET SDK 8
-        uses: actions/setup-dotnet@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: "8.0.x"
+      - run: bash scripts/build-mac.sh teste
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mac-app
+          path: dist/Elifoot98-teste-macOS.zip
+
+  mac:
+    needs: build
+    runs-on: macos-14
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: mac-app
 
       - name: Rosetta 2 (o Wine e o launcher sao x86_64)
         run: softwareupdate --install-rosetta --agree-to-license || true
-
-      - name: Build Elifoot98.app
-        run: bash scripts/build-mac.sh teste
 
       - name: Wine portatil (o mesmo que o script baixa)
         run: |
@@ -34,7 +41,7 @@ jobs:
 
       - name: Launcher
         run: |
-          mkdir -p shots app && cd app && unzip -q ../dist/Elifoot98-teste-macOS.zip
+          mkdir -p shots app && cd app && unzip -q ../Elifoot98-teste-macOS.zip
           ./Elifoot98.app/Contents/MacOS/ElifootLauncher > ../shots/launcher.log 2>&1 &
           sleep 25
           screencapture -x ../shots/1-launcher.png

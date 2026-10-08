@@ -8,6 +8,8 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 VER="${1:-0.0.0}"
+NUMVER="${VER%%-*}"   # .NET/Info.plist so aceitam versao numerica
+[[ "$NUMVER" =~ ^[0-9]+(\.[0-9]+)*$ ]] || NUMVER=0.0.0
 DIST="$ROOT/dist"
 TOOLS="$ROOT/vendor/tools"
 
@@ -26,7 +28,7 @@ PUB="$DIST/publish"
 dotnet publish "$ROOT/src-cross" -c Release -r linux-x64 --self-contained \
   -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true \
   -p:EnableCompressionInSingleFile=true -p:PublishTrimmed=true -p:TrimMode=partial \
-  -p:DebugType=none -p:Version="${VER%%-*}" -o "$PUB" >/dev/null
+  -p:DebugType=none -p:Version="$NUMVER" -o "$PUB" >/dev/null
 
 # Arquivos do jogo + launcher, comuns aos dois pacotes
 copiar_app() {
