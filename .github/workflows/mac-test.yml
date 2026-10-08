@@ -60,6 +60,30 @@ jobs:
           ls -la "$D"
           unzip -l Elifoot98-teste-macOS.zip | grep iniciar.exe
 
+      - name: eli.cod gerado pelo proprio jogo no macOS (diagnostico)
+        run: |
+          S="app/Elifoot98.app/Contents/MacOS/elifoot98.sh"
+          D="$HOME/Library/Application Support/Elifoot98/vendor/otvdm/WINDOWS"
+          "$(dirname "$WINE_BIN")/wineserver" -k || true; sleep 3
+          stat -f '%N mtime=%Sm birth=%SB atime=%Sa' -t '%Y-%m-%d %H:%M:%S' "$D" "$D/SYSTEM"
+          # o script recoloca o eli.cod do pacote; aqui o jogo gera o dele
+          sed -i '' 's|^  cmp -s "\$APP/linux/eli.cod"|  : cmp -s "$APP/linux/eli.cod"|' "$S"
+          rm -f "$D/eli.cod"
+          ELIFOOT_WINE="$WINE_BIN" bash "$S" jogo > shots/jogo2.log 2>&1 &
+          sleep 60; screencapture -x shots/4-eli-proprio.png
+          "$(dirname "$WINE_BIN")/wineserver" -k || true
+          stat -f '%N mtime=%Sm birth=%SB' -t '%Y-%m-%d %H:%M:%S' "$D" "$D/SYSTEM"
+          date; echo "TZ=$TZ"; ls -la "$D"
+          python3 - "$D/eli.cod" <<'PY'
+          import sys
+          b = open(sys.argv[1], 'rb').read(); i = 0
+          while i < len(b):
+              n = b[i]; r = bytearray(b[i:i+1+n])
+              for _ in range(2):
+                  for k in range(len(r) - 1, 0, -1): r[k] = (r[k] - r[k-1]) & 255
+              print('string:', bytes(r[1:])); i += 1 + n
+          PY
+
       - name: Guardar screenshots
         if: always()
         uses: actions/upload-artifact@v4
