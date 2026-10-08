@@ -8,10 +8,13 @@ namespace ElifootLauncher
 {
     // Registro automatico do Elifoot 98 ("Registro para autor 2"):
     //   1. le a Senha do eli.cod (a mesma que o jogo mostra no menu Registo)
-    //   2. gera a Contra-senha com o CRACK.EXE (CrackRunner)
+    //   2. calcula a Contra-senha como a validacao do jogo (seg12:2d88)
     //   3. grava secondCode=<contra-senha> no elif98.ini, como o jogo faz
     public static class Ativador
     {
+        // 9 = "Registro para autor 2" (contra-senha comeca com 9)
+        private const int TipoAutor2 = 9;
+
         public static string Ativar(GameLauncher launcher)
         {
             var dir = FindEliCodDir(launcher)
@@ -20,7 +23,7 @@ namespace ElifootLauncher
                     "Abra o Elifoot uma vez, feche e tente de novo.");
 
             var senha = SenhaFromEliCod(File.ReadAllBytes(Path.Combine(dir, "eli.cod")));
-            var contraSenha = CrackRunner.GerarContraSenha(launcher, senha);
+            var contraSenha = ContraSenha(senha, TipoAutor2);
 
             var ini = Path.Combine(dir, "elif98.ini");
             if (!WritePrivateProfileString("System", "secondCode", contraSenha, ini))
@@ -69,6 +72,46 @@ namespace ElifootLauncher
             strings[0].CopyTo(ab, 0);
             strings[1].CopyTo(ab, strings[0].Length);
             return "014-" + Formatar(ab);
+        }
+
+        // O jogo aceita a Contra-senha do tipo N quando ela e igual a senha
+        // transformada N vezes por seg12:3645.
+        public static string ContraSenha(string senha, int tipo)
+        {
+            var s = Encoding.ASCII.GetBytes(senha);
+            for (int n = 0; n < tipo; n++) s = Transformar(s);
+            return Encoding.ASCII.GetString(s);
+        }
+
+        // seg12:3645: escolhe a regra pelo 1o digito e depois soma 1 a ele
+        private static byte[] Transformar(byte[] s)
+        {
+            byte c = s[0];
+            byte[] r;
+            switch (c - '0')
+            {
+                case 0: r = Ascii(Formatar(Concat(Ascii("***"), s, s))); break;
+                case 1: r = (byte[])s.Clone(); break;
+                case 2:
+                    r = (byte[])s.Clone();
+                    r[4] = r[4] < '9' ? (byte)(r[4] + 1) : (byte)'0';
+                    break;
+                case 3:
+                case 4:
+                case 5: r = Ascii(Formatar(Concat(Ascii("+++"), s, Ascii("***"), s))); break;
+                default: r = Ascii(Formatar(Concat(Ascii("1213"), s, s, Ascii("XXX"), s))); break;
+            }
+            r[0] = (byte)(c + 1);
+            return r;
+        }
+
+        private static byte[] Ascii(string s) => Encoding.ASCII.GetBytes(s);
+
+        private static byte[] Concat(params byte[][] parts)
+        {
+            var all = new List<byte>();
+            foreach (var p in parts) all.AddRange(p);
+            return all.ToArray();
         }
 
         // Desfaz uma passada da cifra numa string Pascal (rec[0] = tamanho)

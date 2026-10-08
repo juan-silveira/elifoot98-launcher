@@ -61,11 +61,9 @@ Source: "..\vendor\otvdm\*"; DestDir: "{app}\vendor\otvdm"; Flags: ignoreversion
 ; VC++ 2015-2022 Redistributable x86 (necessario pro otvdm em Tiny10 e similares)
 Source: "..\vendor\vcredist\vc_redist.x86.exe"; DestDir: "{tmp}"; Flags: deleteafterinstall
 
-; DOSBox-Staging (roda o CRACK.EXE escondido no "Ativar todos os recursos")
-Source: "..\vendor\dosbox\*"; DestDir: "{app}\vendor\dosbox"; Flags: ignoreversion recursesubdirs createallsubdirs
-
-; Arquivos do jogo (ficam em ..\game\), incluindo o CRACK.EXE
-Source: "..\game\*"; DestDir: "{app}\game"; Flags: ignoreversion recursesubdirs createallsubdirs
+; Arquivos do jogo (ficam em ..\game\). O CRACK.EXE nao vai: a contra-senha
+; do "Ativar todos os recursos" e calculada pelo proprio launcher.
+Source: "..\game\*"; DestDir: "{app}\game"; Flags: ignoreversion recursesubdirs createallsubdirs; Excludes: "CRACK.EXE"
 
 ; Documentacao
 Source: "..\README.md"; DestDir: "{app}"; Flags: ignoreversion
@@ -93,6 +91,9 @@ Type: files; Name: "{app}\game\EQUIPAS\AMORA.EFT"
 Type: files; Name: "{app}\game\EQUIPAS\ANADIA.EFT"
 Type: files; Name: "{app}\game\EQUIPAS\ANDERLEC.EFT"
 Type: files; Name: "{app}\game\EQUIPAS\MALMOE.EFT"
+; CRACK.EXE e DOSBox instalados pela v0.6.5/v0.6.6, nao usados mais
+Type: files; Name: "{app}\game\CRACK.EXE"
+Type: filesandordirs; Name: "{app}\vendor\dosbox"
 
 [Icons]
 Name: "{autoprograms}\Elifoot 98";             Filename: "{app}\{#AppExeName}"
