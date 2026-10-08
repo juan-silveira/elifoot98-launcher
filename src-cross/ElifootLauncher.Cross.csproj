@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Launcher nativo pra Linux (e, depois, Mac). Mesmas telas do launcher
+       do Windows (src/), reaproveitando os codecs de save/arbitros/patch. -->
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <LangVersion>latest</LangVersion>
+    <RootNamespace>ElifootLauncher</RootNamespace>
+    <AssemblyName>ElifootLauncher</AssemblyName>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <ApplicationIcon>../src/elifoot.ico</ApplicationIcon>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="../src/SaveCodec.cs" Link="Shared/SaveCodec.cs" />
+    <Compile Include="../src/RefereeCodec.cs" Link="Shared/RefereeCodec.cs" />
+    <Compile Include="../src/PatchApplier.cs" Link="Shared/PatchApplier.cs" />
+    <Compile Include="../src/LauncherConfig.cs" Link="Shared/LauncherConfig.cs" />
+    <Compile Include="../src/Registro.cs" Link="Shared/Registro.cs" />
+    <EmbeddedResource Include="../linux/elifoot98.png" LogicalName="elifoot98.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Avalonia" Version="12.1.3" />
+    <PackageReference Include="Avalonia.Desktop" Version="12.1.3" />
+    <PackageReference Include="Avalonia.Themes.Fluent" Version="12.1.3" />
+  </ItemGroup>
+</Project>

@@ -1,0 +1,109 @@
+using System;
+using System.Threading.Tasks;
+using Avalonia;
+using Avalonia.Controls;
+using Avalonia.Input;
+using Avalonia.Layout;
+using Avalonia.Media;
+
+namespace ElifootLauncher
+{
+    public class SettingsWindow : Window
+    {
+        // No Linux o jogo roda num desktop virtual do Wine desse tamanho.
+        // Abaixo de 800x600 as telas do Elifoot nao cabem.
+        private static readonly (int W, int H)[] Resolutions =
+        {
+            (800, 600),
+            (1024, 768),
+            (1280, 960),
+            (1600, 1200),
+        };
+
+        public SettingsWindow(LauncherConfig cfg, LinuxGame game)
+        {
+            Title = "Configurações";
+            Width = 400;
+            SizeToContent = SizeToContent.Height;
+            CanResize = false;
+            WindowStartupLocation = WindowStartupLocation.CenterOwner;
+            Icon = Dialogos.Icone();
+
+            var resolution = new ComboBox { HorizontalAlignment = HorizontalAlignment.Stretch };
+            foreach (var (w, h) in Resolutions)
+                resolution.Items.Add($"{w} × {h}");
+            resolution.SelectedIndex = Math.Max(0, Array.IndexOf(Resolutions, (cfg.ResolutionWidth, cfg.ResolutionHeight)));
+
+            var fullscreen = new CheckBox { Content = "Abrir em tela cheia", IsChecked = cfg.Fullscreen };
+
+            var btnAtivar = new Button
+            {
+                Content = "Ativar todos os recursos",
+                Height = 32,
+                HorizontalAlignment = HorizontalAlignment.Stretch,
+                HorizontalContentAlignment = HorizontalAlignment.Center,
+            };
+            btnAtivar.Click += async (_, _) =>
+            {
+                btnAtivar.IsEnabled = false;
+                Cursor = new Cursor(StandardCursorType.Wait);
+                try
+                {
+                    await Task.Run(game.Ativar);
+                    await Dialogos.Mensagem(this,
+                        "Recursos ativados! Abra o jogo para usar.\n\nSe o jogo estiver aberto, feche e abra de novo.",
+                        "Pronto");
+                }
+                catch (Exception ex)
+                {
+                    await Dialogos.Mensagem(this, ex.Message, "Não foi possível ativar");
+                }
+                finally
+                {
+                    Cursor = Cursor.Default;
+                    btnAtivar.IsEnabled = true;
+                }
+            };
+
+            var btnOk = new Button { Content = "Salvar", MinWidth = 80, HorizontalContentAlignment = HorizontalAlignment.Center, IsDefault = true };
+            var btnCancel = new Button { Content = "Cancelar", MinWidth = 80, HorizontalContentAlignment = HorizontalAlignment.Center, IsCancel = true };
+            btnOk.Click += (_, _) =>
+            {
+                var (w, h) = Resolutions[resolution.SelectedIndex];
+                cfg.ResolutionWidth = w;
+                cfg.ResolutionHeight = h;
+                cfg.Fullscreen = fullscreen.IsChecked == true;
+                cfg.Save();
+                Close(true);
+            };
+            btnCancel.Click += (_, _) => Close(false);
+
+            Content = new StackPanel
+            {
+                Margin = new Thickness(20),
+                Spacing = 10,
+                Children =
+                {
+                    new TextBlock { Text = "Tamanho da janela do jogo:" },
+                    resolution,
+                    fullscreen,
+                    new TextBlock
+                    {
+                        Text = "O jogo desenha suas telas em 640×480; janelas maiores dão mais espaço em volta, sem cortar nada.",
+                        TextWrapping = TextWrapping.Wrap,
+                        Foreground = new SolidColorBrush(Color.FromRgb(100, 100, 100)),
+                    },
+                    btnAtivar,
+                    new StackPanel
+                    {
+                        Orientation = Orientation.Horizontal,
+                        Spacing = 8,
+                        HorizontalAlignment = HorizontalAlignment.Right,
+                        Margin = new Thickness(0, 8, 0, 0),
+                        Children = { btnOk, btnCancel },
+                    },
+                },
+            };
+        }
+    }
+}

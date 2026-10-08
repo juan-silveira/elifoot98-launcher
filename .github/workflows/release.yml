@@ -16,8 +16,10 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Fetch otvdm
-        run: bash scripts/fetch-deps.sh
+      - name: Setup .NET SDK 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
 
       - name: Build Linux package
         run: |
@@ -28,7 +30,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: linux-package
-          path: dist/*.tar.gz
+          path: |
+            dist/*.deb
+            dist/*.AppImage
           if-no-files-found: error
 
   build-installer:
@@ -103,7 +107,8 @@ jobs:
           path: |
             installer/Output/*.exe
             installer/Output/*.zip
-            installer/Output/*.tar.gz
+            installer/Output/*.deb
+            installer/Output/*.AppImage
           if-no-files-found: error
 
       - name: Create GitHub Release
@@ -113,7 +118,8 @@ jobs:
           files: |
             installer/Output/*.exe
             installer/Output/*.zip
-            installer/Output/*.tar.gz
+            installer/Output/*.deb
+            installer/Output/*.AppImage
           generate_release_notes: true
           name: ${{ steps.version.outputs.value }}
           body: |
@@ -121,7 +127,9 @@ jobs:
 
             - **`elifoot98-launcher-setup-*.zip`** — RECOMENDADO. Baixa sem bloqueio de browser. Extraia e execute o `.exe` de dentro.
             - **`elifoot98-launcher-setup-*.exe`** — instalador direto (browsers podem bloquear).
-            - **`elifoot98-linux-*.tar.gz`** — Linux: extraia e rode `./instalar.sh` (jogo já registrado; usa o Wine do sistema ou baixa um portátil na 1ª vez).
+            - **`elifoot98_*_amd64.deb`** — Linux (Debian/Ubuntu/Mint): instale e abra "Elifoot 98" no menu.
+            - **`Elifoot98-*-x86_64.AppImage`** — Linux (qualquer distro): marque como executável e rode.
+            - No Linux o jogo já vem registrado e usa o Wine do sistema (ou baixa um portátil na 1ª vez).
 
             Instala em `C:\Elifoot98Launcher`.
 
