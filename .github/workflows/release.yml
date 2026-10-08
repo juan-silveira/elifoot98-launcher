@@ -108,7 +108,7 @@ jobs:
               - Preserva `JOGOS/` (seus saves)
               - Renomeia `EQUIPAS/` atual pra `EQUIPAS_OLD` (ou `_2`, `_3`, ...) antes de aplicar
             - **Configurações** — resolução da janela e modo fullscreen
-            - **Ativar todos os recursos** (em Configurações) — digite a Senha do menu Registo do Elifoot e o launcher gera a Contra-senha na hora
+            - **Ativar todos os recursos** (em Configurações) — registra o jogo sozinho (Registro para autor 2), sem precisar abrir o menu Registo
 
             ## Instalação
 

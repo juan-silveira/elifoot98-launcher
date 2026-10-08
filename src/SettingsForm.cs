@@ -1,5 +1,6 @@
 using System;
 using System.Drawing;
+using System.Threading.Tasks;
 using System.Windows.Forms;
 
 namespace ElifootLauncher
@@ -74,10 +75,27 @@ namespace ElifootLauncher
                 Size = new Size(360, 32),
                 FlatStyle = FlatStyle.System,
             };
-            btnExperiment.Click += (s, e) =>
+            btnExperiment.Click += async (s, e) =>
             {
-                using var form = new AtivacaoForm(_launcher);
-                form.ShowDialog(this);
+                btnExperiment.Enabled = false;
+                UseWaitCursor = true;
+                try
+                {
+                    await Task.Run(() => Ativador.Ativar(_launcher));
+                    MessageBox.Show(this,
+                        "Recursos ativados! Abra o jogo para usar.\n\nSe o jogo estiver aberto, feche e abra de novo.",
+                        "Pronto", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show(this, ex.Message, "Não foi possível ativar",
+                        MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                }
+                finally
+                {
+                    UseWaitCursor = false;
+                    btnExperiment.Enabled = true;
+                }
             };
 
             var btnOk = new Button

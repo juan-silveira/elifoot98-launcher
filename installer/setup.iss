@@ -71,6 +71,12 @@ Source: "..\game\*"; DestDir: "{app}\game"; Flags: ignoreversion recursesubdirs 
 Source: "..\README.md"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\LICENSE";   DestDir: "{app}"; Flags: ignoreversion
 
+[Dirs]
+; Usuario comum precisa gravar na pasta (eli.cod/elif98.ini em vendor\otvdm\WINDOWS,
+; otvdm.ini, saves em game\JOGOS). Sem isso, em Windows com ACL de C:\ restrita, o
+; otvdm (32-bit sem manifest) grava em silencio na VirtualStore do usuario.
+Name: "{app}"; Permissions: users-modify
+
 [InstallDelete]
 ; Equipes que nao fazem parte do set original (removidas na v0.6.4) — apaga em upgrades
 Type: files; Name: "{app}\game\EQUIPAS\ACADEMIC.EFT"
