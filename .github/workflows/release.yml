@@ -28,6 +28,7 @@ jobs:
         run: |
           if [[ "$GITHUB_REF" == refs/tags/v* ]]; then V="${GITHUB_REF#refs/tags/v}"; else V="0.0.0-dev"; fi
           bash scripts/build-linux.sh "$V"
+          bash scripts/build-mac.sh "$V"
 
       - name: Upload Linux package
         uses: actions/upload-artifact@v4
@@ -36,6 +37,7 @@ jobs:
           path: |
             dist/*.deb
             dist/*.AppImage
+            dist/*-macOS.zip
           if-no-files-found: error
 
   build-installer:
@@ -112,6 +114,7 @@ jobs:
             installer/Output/*.zip
             installer/Output/*.deb
             installer/Output/*.AppImage
+            installer/Output/*-macOS.zip
           if-no-files-found: error
 
       - name: Create GitHub Release
@@ -123,6 +126,7 @@ jobs:
             installer/Output/*.zip
             installer/Output/*.deb
             installer/Output/*.AppImage
+            installer/Output/*-macOS.zip
           generate_release_notes: true
           name: ${{ steps.version.outputs.value }}
           body: |
@@ -132,7 +136,9 @@ jobs:
             - **`elifoot98-launcher-setup-*.exe`** — instalador direto (browsers podem bloquear).
             - **`elifoot98_*_amd64.deb`** — Linux (Debian/Ubuntu/Mint): instale e abra "Elifoot 98" no menu.
             - **`Elifoot98-*-x86_64.AppImage`** — Linux (qualquer distro): marque como executável e rode.
-            - No Linux o jogo já vem registrado e usa o Wine do sistema (ou baixa um portátil na 1ª vez).
+            - **`Elifoot98-*-macOS.zip`** — macOS 10.15+ (Intel ou Apple Silicon com Rosetta 2): extraia e arraste o `Elifoot98.app` para Aplicativos. O app não é assinado pela Apple: na 1ª vez, clique com o botão direito → **Abrir** (ou rode `xattr -cr /Applications/Elifoot98.app`).
+            - No Linux e no macOS o launcher tem as mesmas funções do Windows e usa o Wine do sistema (ou baixa um portátil na 1ª vez: ~95 MB no Linux, ~180 MB no macOS).
+            - O otvdm usado no Linux/macOS é a build de desenvolvimento 2703 (GPL-2.0, código em https://github.com/otya128/winevdm, commit a31d1c27).
 
             Instala em `C:\Elifoot98Launcher`.
 
