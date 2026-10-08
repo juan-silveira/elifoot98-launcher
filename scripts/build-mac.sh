@@ -2,7 +2,7 @@
 # Monta o pacote macOS: dist/Elifoot98-<versao>-macOS.zip com o Elifoot98.app
 # (launcher Avalonia x86_64 — no Apple Silicon roda via Rosetta 2, que o Wine
 # tambem precisa). Roda no Linux ou no macOS.
-# uso: scripts/build-mac.sh [versao]   (requer .NET SDK 8, python3, zip)
+# uso: scripts/build-mac.sh [versao]   (requer .NET SDK 8, python3, zip e gcc-mingw-w64-i686)
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -25,10 +25,20 @@ dotnet publish "$ROOT/src-cross" -c Release -r osx-x64 --self-contained \
 cp "$PUB/ElifootLauncher" "$MACOS/"
 rm -rf "$PUB"
 
+# Auxiliar iniciar.exe (linux/iniciar.c); sem mingw o jogo abre direto, sem ele
+compilar_iniciar() {
+  if command -v i686-w64-mingw32-gcc >/dev/null; then
+    i686-w64-mingw32-gcc -O2 -s -mwindows -o "$1/iniciar.exe" "$ROOT/linux/iniciar.c"
+  else
+    echo "AVISO: i686-w64-mingw32-gcc ausente; pacote sai sem iniciar.exe" >&2
+  fi
+}
+
 # Jogo + otvdm (mesmo do Linux: build 2703, com a correcao dos menus no Wine)
 cp "$ROOT/linux/elifoot98.sh" "$MACOS/"
 chmod +x "$MACOS/elifoot98.sh" "$MACOS/ElifootLauncher"
 cp "$ROOT/linux/eli.cod" "$ROOT/linux/elifoot98.png" "$MACOS/linux/"
+compilar_iniciar "$MACOS/linux"
 cp -R "$ROOT/game" "$MACOS/"
 rm -f "$MACOS/game/CRACK.EXE"
 # O APFS so aceita nomes UTF-8: EQUIPAS/ARA<0x80>A_BR.EFT (C cedilha do DOS,

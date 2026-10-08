@@ -15,6 +15,7 @@ jobs:
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: "8.0.x"
+      - run: sudo apt-get install -y -qq gcc-mingw-w64-i686
       - run: bash scripts/build-mac.sh teste
       - uses: actions/upload-artifact@v4
         with:
@@ -54,16 +55,10 @@ jobs:
           D="$HOME/Library/Application Support/Elifoot98/vendor/otvdm/WINDOWS"
           # secondCode do linux/eli.cod (Registro.ContraSenha, tipo 9)
           printf '[System]\r\nsecondCode=959-240-641-242-102\r\n' > "$D/elif98.ini"
-          # +win: registra as janelas criadas (titulo "Acerca" = jogo valido;
-          # "ELIFOOT.EXE" com "Invalid file" = eli.cod recusado)
-          sed -i '' 's/WINEDEBUG=-all/WINEDEBUG=${WD:--all}/' "$S"
-          WD=+win ELIFOOT_WINE="$WINE_BIN" bash "$S" jogo > shots/jogo.log 2>&1 &
-          sleep 90; screencapture -x shots/2-jogo-90s.png
-          osascript -e 'tell application "System Events" to key code 36' 2>&1 || echo "sem permissao pra teclar"
-          sleep 10; screencapture -x shots/3-jogo-enter.png
+          ELIFOOT_WINE="$WINE_BIN" bash "$S" jogo > shots/jogo.log 2>&1 &
+          for t in 30 60 90; do sleep 30; screencapture -x "shots/2-jogo-${t}s.png"; done
           ls -la "$D"
-          echo "--- janelas com titulo ---"
-          grep -a -o -E 'CreateWindowEx[^)]*' shots/jogo.log | grep -a -o -E 'L"[^"]+"' | sort | uniq -c | sort -rn | head -40
+          unzip -l Elifoot98-teste-macOS.zip | grep iniciar.exe
 
       - name: Guardar screenshots
         if: always()

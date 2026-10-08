@@ -3,7 +3,7 @@
 #   elifoot98_<versao>_amd64.deb          (instala em /opt/elifoot98 + atalho no menu)
 #   Elifoot98-<versao>-x86_64.AppImage    (arquivo unico, so rodar)
 # uso: scripts/build-linux.sh [versao]
-# requer .NET SDK 8
+# requer .NET SDK 8 e gcc-mingw-w64-i686
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -30,6 +30,15 @@ dotnet publish "$ROOT/src-cross" -c Release -r linux-x64 --self-contained \
   -p:EnableCompressionInSingleFile=true -p:PublishTrimmed=true -p:TrimMode=partial \
   -p:DebugType=none -p:Version="$NUMVER" -o "$PUB" >/dev/null
 
+# Auxiliar iniciar.exe (linux/iniciar.c); sem mingw o jogo abre direto, sem ele
+compilar_iniciar() {
+  if command -v i686-w64-mingw32-gcc >/dev/null; then
+    i686-w64-mingw32-gcc -O2 -s -mwindows -o "$1/iniciar.exe" "$ROOT/linux/iniciar.c"
+  else
+    echo "AVISO: i686-w64-mingw32-gcc ausente; pacote sai sem iniciar.exe" >&2
+  fi
+}
+
 # Arquivos do jogo + launcher, comuns aos dois pacotes
 copiar_app() {
   local dest="$1"
@@ -37,6 +46,7 @@ copiar_app() {
   cp "$ROOT/linux/elifoot98.sh" "$PUB/ElifootLauncher" "$dest/"
   chmod +x "$dest/elifoot98.sh" "$dest/ElifootLauncher"
   cp "$ROOT/linux/eli.cod" "$ROOT/linux/elifoot98.png" "$dest/linux/"
+  compilar_iniciar "$dest/linux"
   cp -r "$ROOT/game" "$dest/"
   rm -f "$dest/game/CRACK.EXE"
   cp -r "$OTVDM" "$dest/vendor/otvdm"

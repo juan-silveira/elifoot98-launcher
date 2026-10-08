@@ -21,6 +21,9 @@ jobs:
         with:
           dotnet-version: "8.0.x"
 
+      - name: Compilador do iniciar.exe
+        run: sudo apt-get install -y -qq gcc-mingw-w64-i686
+
       - name: Build Linux package
         run: |
           if [[ "$GITHUB_REF" == refs/tags/v* ]]; then V="${GITHUB_REF#refs/tags/v}"; else V="0.0.0-dev"; fi

@@ -145,8 +145,16 @@ ln -sfn "$APP" "$WINEPREFIX/dosdevices/e:"
 
 touch -t 200001011200.00 "$WIN" "$WIN/SYSTEM"
 
+# iniciar.exe (linux/iniciar.c) abre o otvdm e manda um movimento de mouse
+# pro jogo: sem isso, no Wine, a janela "Acerca" da abertura nao aparece
+OTVDM='E:\vendor\otvdm\otvdmw.exe'
+INICIAR=""
+[[ -f "$APP/linux/iniciar.exe" ]] && INICIAR='E:\linux\iniciar.exe'
+
 cd "$APP/game"
 if [[ "$FULLSCREEN" == "1" ]]; then
-  exec "$WINE" 'E:\vendor\otvdm\otvdmw.exe' "E:\\game\\$EXE"
+  [[ -n "$INICIAR" ]] && exec "$WINE" "$INICIAR" "$OTVDM" "E:\\game\\$EXE"
+  exec "$WINE" "$OTVDM" "E:\\game\\$EXE"
 fi
-exec "$WINE" explorer "/desktop=Elifoot98,$RES" 'E:\vendor\otvdm\otvdmw.exe' "E:\\game\\$EXE"
+[[ -n "$INICIAR" ]] && exec "$WINE" explorer "/desktop=Elifoot98,$RES" "$INICIAR" "$OTVDM" "E:\\game\\$EXE"
+exec "$WINE" explorer "/desktop=Elifoot98,$RES" "$OTVDM" "E:\\game\\$EXE"
