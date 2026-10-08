@@ -5,18 +5,25 @@ using System.Text;
 
 namespace ElifootLauncher
 {
-    // Lado Linux do launcher. O jogo roda pelo elifoot98.sh (Wine + otvdm),
-    // que copia os arquivos do pacote (somente leitura) pra pasta gravavel
-    // ~/.local/share/elifoot98 — e la que o launcher le e grava.
+    // Lado Linux/macOS do launcher. O jogo roda pelo elifoot98.sh (Wine + otvdm),
+    // que copia os arquivos do pacote (somente leitura) pra pasta gravavel —
+    // ~/.local/share/elifoot98 ou ~/Library/Application Support/Elifoot98 —
+    // e la que o launcher le e grava.
     public class LinuxGame
     {
         public string AppDir { get; } = AppContext.BaseDirectory;
         public string Script => Path.Combine(AppDir, "elifoot98.sh");
-        public string DataDir { get; } = Path.Combine(
-            Environment.GetEnvironmentVariable("XDG_DATA_HOME") is { Length: > 0 } xdg
-                ? xdg
-                : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".local", "share"),
-            "elifoot98");
+        public string DataDir { get; } = PastaDeDados();
+
+        // Mesma regra do elifoot98.sh
+        private static string PastaDeDados()
+        {
+            var home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+            if (OperatingSystem.IsMacOS())
+                return Path.Combine(home, "Library", "Application Support", "Elifoot98");
+            var xdg = Environment.GetEnvironmentVariable("XDG_DATA_HOME");
+            return Path.Combine(string.IsNullOrEmpty(xdg) ? Path.Combine(home, ".local", "share") : xdg, "elifoot98");
+        }
         public string GameDir => Path.Combine(DataDir, "game");
         public string JogosDir => Path.Combine(GameDir, "JOGOS");
         public string RefereeTxePath => Path.Combine(GameDir, "REFEREE.TXE");
@@ -47,7 +54,8 @@ namespace ElifootLauncher
                 // desktop virtual do Wine as telas do jogo precisam de 800x600
                 var (w, h) = cfg.ResolutionWidth < 800 ? (800, 600) : (cfg.ResolutionWidth, cfg.ResolutionHeight);
                 psi.Environment["ELIFOOT_RES"] = $"{w}x{h}";
-                psi.Environment["ELIFOOT_FULLSCREEN"] = cfg.Fullscreen ? "1" : "0";
+                // Sem tela cheia vale o padrao do script (no macOS o jogo abre maximizado)
+                if (cfg.Fullscreen) psi.Environment["ELIFOOT_FULLSCREEN"] = "1";
             }
             return Process.Start(psi);
         }

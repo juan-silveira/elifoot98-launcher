@@ -1,0 +1,59 @@
+name: Teste macOS
+
+# Roda o Elifoot98.app numa maquina macOS (Apple Silicon + Rosetta) e guarda
+# screenshots do launcher e do jogo. Roda ao enviar a branch mac-teste.
+on:
+  push:
+    branches: [mac-teste]
+  workflow_dispatch:
+
+jobs:
+  mac:
+    runs-on: macos-14
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET SDK 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Rosetta 2 (o Wine e o launcher sao x86_64)
+        run: softwareupdate --install-rosetta --agree-to-license || true
+
+      - name: Build Elifoot98.app
+        run: bash scripts/build-mac.sh teste
+
+      - name: Wine portatil (o mesmo que o script baixa)
+        run: |
+          curl -fsSL -o wine.tar.xz https://github.com/Gcenx/macOS_Wine_builds/releases/download/11.18/wine-devel-11.18-osx64.tar.xz
+          echo "aa0ea4c82e636ae7bca2076387cb0a5affa26509ad13f119ecd0d62bd7ba6f82  wine.tar.xz" | shasum -a 256 -c -
+          tar xJf wine.tar.xz
+          echo "WINE_BIN=$PWD/$(ls -d Wine*.app)/Contents/Resources/wine/bin/wine" >> "$GITHUB_ENV"
+
+      - name: Launcher
+        run: |
+          mkdir -p shots app && cd app && unzip -q ../dist/Elifoot98-teste-macOS.zip
+          ./Elifoot98.app/Contents/MacOS/ElifootLauncher > ../shots/launcher.log 2>&1 &
+          sleep 25
+          screencapture -x ../shots/1-launcher.png
+          pkill -f ElifootLauncher || true
+
+      - name: Jogo (registrado como pelo "Ativar todos os recursos")
+        run: |
+          S="app/Elifoot98.app/Contents/MacOS/elifoot98.sh"
+          bash "$S" preparar
+          D="$HOME/Library/Application Support/Elifoot98/vendor/otvdm/WINDOWS"
+          # secondCode do linux/eli.cod (Registro.ContraSenha, tipo 9)
+          printf '[System]\r\nsecondCode=959-240-641-242-102\r\n' > "$D/elif98.ini"
+          ELIFOOT_WINE="$WINE_BIN" bash "$S" jogo > shots/jogo.log 2>&1 &
+          for t in 60 120 180; do sleep 60; screencapture -x "shots/2-jogo-${t}s.png"; done
+          ls -la "$D"
+
+      - name: Guardar screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mac-shots
+          path: shots/

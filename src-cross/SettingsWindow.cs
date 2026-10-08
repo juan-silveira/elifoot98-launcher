@@ -35,6 +35,14 @@ namespace ElifootLauncher
             resolution.SelectedIndex = Math.Max(0, Array.IndexOf(Resolutions, (cfg.ResolutionWidth, cfg.ResolutionHeight)));
 
             var fullscreen = new CheckBox { Content = "Abrir em tela cheia", IsChecked = cfg.Fullscreen };
+            var nota = "O jogo desenha suas telas em 640×480; janelas maiores dão mais espaço em volta, sem cortar nada.";
+            if (OperatingSystem.IsMacOS())
+            {
+                // O Wine do macOS nao tem desktop virtual: o jogo sempre abre maximizado
+                resolution.IsEnabled = false;
+                fullscreen.IsEnabled = false;
+                nota = "No macOS o jogo sempre abre maximizado.";
+            }
 
             var btnAtivar = new Button
             {
@@ -89,7 +97,7 @@ namespace ElifootLauncher
                     fullscreen,
                     new TextBlock
                     {
-                        Text = "O jogo desenha suas telas em 640×480; janelas maiores dão mais espaço em volta, sem cortar nada.",
+                        Text = nota,
                         TextWrapping = TextWrapping.Wrap,
                         Foreground = new SolidColorBrush(Color.FromRgb(100, 100, 100)),
                     },
