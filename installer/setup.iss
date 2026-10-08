@@ -69,6 +69,23 @@ Source: "..\game\*"; DestDir: "{app}\game"; Flags: ignoreversion recursesubdirs 
 Source: "..\README.md"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\LICENSE";   DestDir: "{app}"; Flags: ignoreversion
 
+[InstallDelete]
+; Equipes que nao fazem parte do set original (removidas na v0.6.4) — apaga em upgrades
+Type: files; Name: "{app}\game\EQUIPAS\ACADEMIC.EFT"
+Type: files; Name: "{app}\game\EQUIPAS\ADMIRA.EFT"
+Type: files; Name: "{app}\game\EQUIPAS\AEK_LARN.EFT"
+Type: files; Name: "{app}\game\EQUIPAS\AJAX.EFT"
+Type: files; Name: "{app}\game\EQUIPAS\ALCANENE.EFT"
+Type: files; Name: "{app}\game\EQUIPAS\ALVERCA.EFT"
+Type: files; Name: "{app}\game\EQUIPAS\AL_AHLY.EFT"
+Type: files; Name: "{app}\game\EQUIPAS\AMAZULU.EFT"
+Type: files; Name: "{app}\game\EQUIPAS\AMERICA.EFT"
+Type: files; Name: "{app}\game\EQUIPAS\AMERI_SP.EFT"
+Type: files; Name: "{app}\game\EQUIPAS\AMORA.EFT"
+Type: files; Name: "{app}\game\EQUIPAS\ANADIA.EFT"
+Type: files; Name: "{app}\game\EQUIPAS\ANDERLEC.EFT"
+Type: files; Name: "{app}\game\EQUIPAS\MALMOE.EFT"
+
 [Icons]
 Name: "{autoprograms}\Elifoot 98";             Filename: "{app}\{#AppExeName}"
 Name: "{autoprograms}\Desinstalar Elifoot 98"; Filename: "{uninstallexe}"
