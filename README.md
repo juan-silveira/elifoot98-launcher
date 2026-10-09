@@ -4,6 +4,43 @@ Wrapper para rodar o **Elifoot 98** (1998, João Duarte Almeida) em Windows 10/1
 
 Traz UI para configurar resolução e modo janela/fullscreen, e embute [otvdm](https://github.com/otya128/winevdm) (para os executáveis 16-bit) e uma versão portable do DOSBox (para o `CRACK.EXE` DOS-only).
 
+## Download
+
+Baixe a última versão em **[Releases](https://github.com/juan-silveira/elifoot98-launcher/releases/latest)**:
+Windows (`setup .zip`), Linux (`.deb` ou `.AppImage`), macOS (`.zip`) e Android (`.apk`).
+
+## Ferramentas
+
+- **Editor de Equipes** — busca e filtro por país, nota/lesão/comportamento/estrela de cada jogador (o jogo tira do nome), validação com as regras do jogo antes de gravar e cores livres. O editor original continua disponível.
+- **Scout** — todos os jogadores do seu save, com filtros, ordenação por várias colunas, Score (0 a 1000), Impacto e histórico de jogos, gols, lesões e expulsões ([como o score é calculado](docs/score.md)).
+- **Editor de Save** — inflação, dinheiro, moral, estádio, cores, troca de equipe do treinador e atributos dos jogadores, sempre dentro dos limites do jogo.
+- **Editor de Árbitros**, **Aplicar Patch** e opção de **estrangeiros** Original (com limites) ou Liberado.
+- **Android** — o jogo roda em retrato ou paisagem, com botões na tela, zoom com pinça e táticas indisponíveis em cinza.
+
+## Telas
+
+### Linux / Windows / macOS
+
+| Scout | Editor de Equipes |
+|---|---|
+| ![Scout](docs/img/linux-scout.png) | ![Editor de Equipes](docs/img/linux-editor-equipes.png) |
+
+| Editor de Save | Launcher |
+|---|---|
+| ![Editor de Save](docs/img/linux-editor-save.png) | ![Launcher](docs/img/linux-launcher.png) |
+
+### Android
+
+| Launcher | Jogo (retrato) | Táticas | Scout |
+|---|---|---|---|
+| ![Launcher](docs/img/android-launcher.png) | ![Jogo em retrato](docs/img/android-jogo-retrato.png) | ![Táticas](docs/img/android-taticas.png) | ![Scout](docs/img/android-scout.png) |
+
+| Editor de Equipes | Editor de Save |
+|---|---|
+| ![Editor de Equipes](docs/img/android-editor-equipes.png) | ![Editor de Save](docs/img/android-editor-save.png) |
+
+![Jogo em paisagem](docs/img/android-jogo-paisagem.png)
+
 ## Estado atual
 
 Em desenvolvimento inicial. Roadmap:
@@ -15,6 +52,7 @@ Em desenvolvimento inicial. Roadmap:
 - [x] Integração com DOSBox portable para CRACK
 - [x] Instalador Inno Setup
 - [x] Testes em VM Windows 10 e 11, Linux e Android
+- [x] Editor de Equipes, Scout e Editor de Save nativos
 - [ ] Testes em Mac
 
 ## Por que este projeto

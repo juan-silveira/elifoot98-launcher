@@ -127,7 +127,9 @@ public class ScoutActivity extends Activity {
         boolean deitado = getResources().getDisplayMetrics().widthPixels > getResources().getDisplayMetrics().heightPixels;
         if (!deitado) sub.setVisibility(View.GONE);
         larguras = deitado ? LARGURAS : LARGURAS_EM_PE;
-        barra.addView(texto("Save ", 14, CINZA, false));
+        TextView rotSave = texto("Save", 14, CINZA, false);
+        rotSave.setPadding(dp(12), 0, dp(6), 0);  // em pe o subtitulo some e o "Save" encostava no titulo
+        barra.addView(rotSave);
         spSave = spinnerBranco();
         spSave.setAdapter(adaptadorTexto(saves));
         spSave.setOnItemSelectedListener(new Selecao(p -> carregarSave()));
