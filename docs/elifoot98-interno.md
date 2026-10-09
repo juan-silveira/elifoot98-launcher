@@ -298,6 +298,13 @@ Na lista de jogadores dessa janela, os grupos G, D, M e A vêm nessa ordem e a
 separador); S e L aparecem numa coluna entre a força e o salário. **Validado**
 lendo a lista no Boxedwine (o app Android usa isso no botão "Tát").
 
+Dentro de cada posição, a lista mostra os jogadores em **ordem alfabética**, e
+não na ordem em que estão no save (a do save muda de uma rodada para a outra).
+**Validado** na tela do SC Palmeiras: Cláber, Edimilson, Júnior, Neném,
+Roque Jr; Amaral, Euller, Galeano, Leandro, Marquinhos, Rogerio; Alex, Oséas,
+Viola — enquanto no save a ordem era outra (Oséas, Viola, Júnior…). Os editores
+de save do launcher usam a mesma ordem.
+
 ### Substituições automáticas (`seg03:67f7`)
 
 **Código.** Chamada logo depois de cada lesão e de cada expulsão. Só acontece se
@@ -707,3 +714,8 @@ em `FLAGS/<código>.BMP`.
   `seg03:7ff4`) e o que exatamente a conta de `seg09:3899` representa na tela.
 - t48–t49 do registro do jogador (provável identificador) e os campos `+0x04`,
   `+0x0E`, `+0x12`, `+0x36` em memória.
+- A rotina que ordena a lista da janela do time (a ordem alfabética foi
+  observada na tela, mas o código não foi lido) e o critério de desempate de
+  nomes acentuados.
+- O Score e o Impacto do Scout não são do jogo: saem de simulações com as regras
+  deste documento (`docs/score.md`, `tools/sim/sim.c`), não de partidas reais.
