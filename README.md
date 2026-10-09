@@ -9,12 +9,13 @@ Traz UI para configurar resolução e modo janela/fullscreen, e embute [otvdm](h
 Em desenvolvimento inicial. Roadmap:
 
 - [x] Scaffold do projeto (C# WinForms + .NET Framework 4.8)
-- [ ] Form principal com 3 botões (Elifoot / Editor / CRACK)
-- [ ] Diálogo de configurações (resolução + modo janela)
-- [ ] Integração com otvdm (bundled) para Elifoot e Editor
-- [ ] Integração com DOSBox portable para CRACK
-- [ ] Instalador Inno Setup
-- [ ] Testes em VM Windows 10 e 11
+- [x] Form principal com 3 botões (Elifoot / Editor / CRACK)
+- [x] Diálogo de configurações (resolução + modo janela)
+- [x] Integração com otvdm (bundled) para Elifoot e Editor
+- [x] Integração com DOSBox portable para CRACK
+- [x] Instalador Inno Setup
+- [x] Testes em VM Windows 10 e 11, Linux e Android
+- [ ] Testes em Mac
 
 ## Por que este projeto
 
@@ -57,7 +58,7 @@ Além do launcher em si:
 
 Este launcher é distribuído sob **GPL-3.0** (compatível com DOSBox, que é GPL-2.0-or-later).
 
-O jogo Elifoot 98 é obra de **João Duarte Almeida**, distribuído originalmente como shareware. Seu autor faleceu em 2019. Este projeto tem propósito de preservação e não tem fins lucrativos.
+O jogo Elifoot 98 é obra de **André Elias e João Duarte Almeida**, distribuído originalmente como shareware. Este projeto tem propósito de preservação e não tem fins lucrativos.
 
 ## Créditos
 
