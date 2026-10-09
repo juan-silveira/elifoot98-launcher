@@ -39,6 +39,19 @@ public final class SaveCodec {
     }
 
     // Regra do jogo (seg03:7516): estrela = Nota >= 8 e posicao Meio ou Avancado
+    // Ordem da tela do time no jogo: G, D, M, A e, dentro de cada posicao, nome em ordem alfabetica
+    public static java.util.List<Jogador> ordemDoJogo(java.util.List<Jogador> jogadores) {
+        java.text.Collator col = java.text.Collator.getInstance(new java.util.Locale("pt", "BR"));
+        col.setStrength(java.text.Collator.PRIMARY);
+        java.util.List<Jogador> l = new java.util.ArrayList<>(jogadores);
+        l.sort((a, b) -> {
+            int pa = "GDMA".indexOf(a.posicao), pb = "GDMA".indexOf(b.posicao);
+            if (pa != pb) return Integer.compare(pa < 0 ? 9 : pa, pb < 0 ? 9 : pb);
+            return col.compare(a.nome, b.nome);
+        });
+        return l;
+    }
+
     public static boolean temEstrela(String posicao, int nota) {
         return nota >= 8 && ("M".equals(posicao) || "A".equals(posicao));
     }

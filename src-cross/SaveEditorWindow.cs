@@ -362,7 +362,7 @@ namespace ElifootLauncher
         private void MostrarJogadores(int selecionado = -1)
         {
             if (_currentTeam == null) { _lista.ItemsSource = null; return; }
-            _lista.ItemsSource = _currentTeam.Players.Select((p, i) => new LinhaJogador { Indice = i, Jogador = p }).ToList();
+            _lista.ItemsSource = SaveCodec.OrdemDoJogo(_currentTeam.Players).Select((p, i) => new LinhaJogador { Indice = i, Jogador = p }).ToList();
             if (selecionado >= 0) _lista.SelectedIndex = selecionado;
         }
 

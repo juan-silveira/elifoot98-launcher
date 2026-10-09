@@ -470,7 +470,7 @@ namespace ElifootLauncher
             _players.Items.Clear();
             if (_currentTeam != null)
             {
-                foreach (var j in _currentTeam.Players)
+                foreach (var j in SaveCodec.OrdemDoJogo(_currentTeam.Players))
                 {
                     string comp = j.Comportamento >= 0 && j.Comportamento < SaveCodec.ComportamentoLabels.Length
                         ? SaveCodec.ComportamentoLabels[j.Comportamento] : "?";

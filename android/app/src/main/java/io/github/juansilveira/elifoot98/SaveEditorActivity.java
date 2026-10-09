@@ -519,14 +519,21 @@ public class SaveEditorActivity extends Activity {
         }
     }
 
+    // Jogadores na ordem do jogo (G, D, M, A e nome); a lista e o toque usam esta ordem
+    private List<SaveCodec.Jogador> ordenados = new ArrayList<>();
+
     private final class Jogadores extends BaseAdapter {
-        @Override public int getCount() { return timeAtual == null ? 0 : timeAtual.jogadores.size(); }
-        @Override public Object getItem(int i) { return timeAtual.jogadores.get(i); }
+        @Override public void notifyDataSetChanged() {
+            ordenados = timeAtual == null ? new ArrayList<>() : SaveCodec.ordemDoJogo(timeAtual.jogadores);
+            super.notifyDataSetChanged();
+        }
+        @Override public int getCount() { return ordenados.size(); }
+        @Override public Object getItem(int i) { return ordenados.get(i); }
         @Override public long getItemId(int i) { return i; }
 
         @Override
         public View getView(int i, View v, ViewGroup pai) {
-            SaveCodec.Jogador j = timeAtual.jogadores.get(i);
+            SaveCodec.Jogador j = ordenados.get(i);
             String comp = j.comportamento >= 0 && j.comportamento < SaveCodec.COMPORTAMENTOS.length
                 ? SaveCodec.COMPORTAMENTOS[j.comportamento] : "?";
             String sit = (j.suspensao > 0 ? "S" + j.suspensao : "") + (j.jogosLesionado > 0 ? " L" + j.jogosLesionado : "");
@@ -726,7 +733,7 @@ public class SaveEditorActivity extends Activity {
 
     private void editarJogador(int pos) {
         if (timeAtual == null || pos >= timeAtual.jogadores.size()) return;
-        SaveCodec.Jogador j = timeAtual.jogadores.get(pos);
+        SaveCodec.Jogador j = ordenados.get(pos);
         boolean deitado = getResources().getDisplayMetrics().widthPixels > getResources().getDisplayMetrics().heightPixels;
         LinearLayout ficha = new LinearLayout(this);
         ficha.setOrientation(LinearLayout.VERTICAL);

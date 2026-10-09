@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Text;
 
 namespace ElifootLauncher
@@ -158,6 +159,21 @@ namespace ElifootLauncher
 
         // Regra do jogo (seg03:7516): estrela = Nota >= 8 e posicao Meio ou Avancado
         public static bool TemEstrela(string posicao, int nota) => nota >= 8 && (posicao == "M" || posicao == "A");
+
+        // Ordem da tela do time no jogo: G, D, M, A e, dentro de cada posicao, nome em ordem
+        // alfabetica (o save guarda outra ordem, que muda a cada rodada)
+        public static List<SavePlayer> OrdemDoJogo(IEnumerable<SavePlayer> jogadores) =>
+            jogadores.OrderBy(j => "GDMA".IndexOf(j.Posicao, StringComparison.Ordinal) is var p && p >= 0 ? p : 9)
+                .ThenBy(j => SemAcento(j.Nome), StringComparer.Ordinal).ToList();
+
+        // Sem depender de cultura (o build do Linux roda em globalizacao invariante)
+        private static string SemAcento(string s)
+        {
+            const string com = "ÁÀÂÃÄÉÈÊËÍÌÎÏÓÒÔÕÖÚÙÛÜÇÑáàâãäéèêëíìîïóòôõöúùûüçñ", sem = "AAAAAEEEEIIIIOOOOOUUUUCNaaaaaeeeeiiiiooooouuuucn";
+            var c = s.ToCharArray();
+            for (int i = 0; i < c.Length; i++) { int k = com.IndexOf(c[i]); if (k >= 0) c[i] = sem[k]; }
+            return new string(c).ToUpperInvariant();
+        }
 
         public static SaveFile Read(string path)
         {
