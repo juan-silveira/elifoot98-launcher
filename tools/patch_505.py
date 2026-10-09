@@ -18,6 +18,9 @@ bytes do EXE guardam uma soma do resto do arquivo (blocos de 6000 bytes,
 byte x (posicao no bloco mod 5 + 1)); com qualquer byte mudado ele trava antes da
 tela "Acerca". O patch recalcula essa soma.
 
+Funciona no 98.002 e no 98.003 (os enderecos usados sao os mesmos nas duas
+versoes). O game/ELIFOOT.EXE do projeto e o 98.003 com este patch.
+
 uso: patch_505.py ELIFOOT.EXE   (altera o arquivo; recusa se nao for o original)
 """
 import struct

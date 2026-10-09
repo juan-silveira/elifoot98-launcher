@@ -13,6 +13,29 @@ Endereços como `seg03:7516` são *segmento:deslocamento* no executável (format
 Windows 16 bits, escrito em Delphi 1). Os segmentos são numerados a partir de 1,
 na ordem da tabela de segmentos do NE.
 
+### Versões 98.002 e 98.003
+
+A análise foi feita no **98.002** (`ELIFOOT.EXE` de 21/03/1998). O projeto passou
+a usar o **98.003** (23/05/1998), a última versão, tirada do instalador original
+`elif98.exe` que o autor publicava em `www.ip.pt/~ip213368` (cópia do Internet
+Archive de 24/01/2001). **Validado** comparando os dois executáveis:
+
+- mesmo tamanho (836.356 bytes); `EDITEQ.EXE`, `BIVBX11.DLL`, `GAUGE.VBX`,
+  `COUNTRY.TXE` e `REFEREE.TXE` do instalador são idênticos aos que já usávamos;
+- **seg03** (motor da partida, atributos do nome, escalação, leitura do save) e
+  **seg14 a seg26** (VCL, runtime e dados) são idênticos byte a byte: tudo deste
+  documento sobre esses segmentos vale igual no 98.003;
+- **seg12** (registro, senha e autoverificação) tem o mesmo código; só mudam
+  endereços de outros segmentos que ele usa;
+- **seg04** é idêntico até `0x3200` (táticas e a janela do time);
+- seg01, seg02, seg05 a seg11 e seg13 foram recompilados: endereços citados
+  nesses segmentos são do 98.002 e podem estar em outro lugar no 98.003.
+
+No 98.003 a "Acerca" mostra `98.003`, o registro do launcher continua valendo e
+o save tem o mesmo formato (**validado**: um save do 98.002 abre no 98.003, e o
+save gravado pelo 98.003 depois de uma rodada é lido e regravado byte a byte
+pelos editores do launcher).
+
 ---
 
 ## 1. Registro (senha e contra-senha)
