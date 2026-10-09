@@ -61,7 +61,7 @@ O jogo Elifoot 98 é obra de **João Duarte Almeida**, distribuído originalment
 
 ## Créditos
 
-- Elifoot 98 — João Duarte Almeida (1998)
+- Elifoot 98 — André Elias e João Duarte Almeida (1998)
 - Inspiração: [elifoot98web](https://github.com/elifoot98web/elifoot98web) — versão browser
 - otvdm — otya128
 - DOSBox — DOSBox Team
