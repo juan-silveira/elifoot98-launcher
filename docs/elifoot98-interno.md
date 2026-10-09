@@ -298,6 +298,18 @@ Na lista de jogadores dessa janela, os grupos G, D, M e A vêm nessa ordem e a
 separador); S e L aparecem numa coluna entre a força e o salário. **Validado**
 lendo a lista no Boxedwine (o app Android usa isso no botão "Tát").
 
+### Tática 5-0-5 (tecla T) — patch do launcher
+
+O menu "Seleccionar" original tem só as 12 formações F1–F12. O
+`tools/patch_505.py` acrescenta o item **5-0-5** com a tecla **T**, sem mexer nas
+12: o item usa o mesmo evento do 6-4-0, que passa a olhar quem o chamou e escala
+5-0-5 com a rotina do próprio jogo (`seg04:2E12`). **Validado** no jogo (Linux):
+o menu mostra "5-0-5 T" e a tecla T escalou 1 G, 5 D e 5 A; F5 continuou dando
+4-4-2. O item novo fica sempre ativo (o jogo não o confere como faz com F1–F12).
+
+Curiosidade do código original: a conferência do 6-4-0 (`seg04:2B6D`) usa
+6-4-**1**, então o 6-4-0 fica cinza quando o elenco não tem nenhum avançado.
+
 Dentro de cada posição, a lista mostra os jogadores em **ordem alfabética**, e
 não na ordem em que estão no save (a do save muda de uma rodada para a outra).
 **Validado** na tela do SC Palmeiras: Cláber, Edimilson, Júnior, Neném,
@@ -707,6 +719,20 @@ Os arquivos são listas de strings na cifra dos `.TXE` (a mesma do REFEREE.TXE):
 
 `COUNTRY.TXE` tem 217 países ("AFG Afeganistão" …); a bandeira de cada um está
 em `FLAGS/<código>.BMP`.
+
+## Autoverificação do executável (`seg12:39D9` → `seg12:3825`)
+
+**Validado.** Ao abrir, o jogo lê o próprio `ELIFOOT.EXE` e compara os **4
+últimos bytes** do arquivo com uma soma do resto dele:
+
+```
+soma = Σ byte[i] × ((i mod 6000) mod 5 + 1)   para i de 0 até tamanho − 5   (32 bits)
+```
+
+(o arquivo é lido em blocos de 6000 bytes; o peso recomeça a cada bloco). A soma
+calculada assim bate com a guardada no EXE original (`0x0CD8400F`). Com qualquer
+byte alterado (até um zero de preenchimento sem uso) e a soma antiga, o jogo fica
+na tela verde e não mostra a "Acerca"; com a soma recalculada, abre normalmente.
 
 ## Ainda não comprovado (fora deste documento)
 

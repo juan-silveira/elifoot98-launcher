@@ -95,7 +95,32 @@ public class ElifootActivity extends SDLActivity {
             enter.getBackground(), new IconeEnter(dp(3))}));
         enter.setContentDescription("Enter");
         esquerda.addView(enter);
-        esquerda.addView(botao("Tát", v -> taticas()));
+        Button tat = botao("Tát", v -> taticas());
+        // Easter egg: segurar o "Tát" por 3 s pergunta se quer usar o macete Alt+Shift+F4: no
+        // computador o atalho fecha a janela do time e comeca a rodada sem conferir a escalacao
+        Runnable macete = () -> {
+            tat.setPressed(false);
+            maceteDisparado = true;
+            new android.app.AlertDialog.Builder(this)
+                .setTitle("Macete Alt+Shift+F4")
+                .setMessage("Fecha a janela do time e começa a rodada sem o jogo conferir a escalação, como o atalho Alt+Shift+F4 do teclado no computador. "
+                    + "Assim o time joga com os titulares que você marcou (✱), de nenhum a todos do elenco.\n\nMarque os titulares antes. Usar o macete agora?")
+                .setPositiveButton("Usar", (d, w) -> altShiftF4())
+                .setNegativeButton("Cancelar", null)
+                .setOnDismissListener(d -> imersivo())
+                .show();
+        };
+        tat.setOnTouchListener((v, e) -> {
+            if (e.getActionMasked() == android.view.MotionEvent.ACTION_DOWN) {
+                maceteDisparado = false;
+                handler.postDelayed(macete, 3000);
+            } else if (e.getActionMasked() == android.view.MotionEvent.ACTION_UP || e.getActionMasked() == android.view.MotionEvent.ACTION_CANCEL) {
+                handler.removeCallbacks(macete);
+                if (maceteDisparado) return true;  // o toque longo nao abre as taticas
+            }
+            return false;
+        });
+        esquerda.addView(tat);
         esquerda.addView(botao("A", v -> tecla(KeyEvent.KEYCODE_A)));          // Automatico
         esquerda.addView(botao("M", v -> tecla(KeyEvent.KEYCODE_M)));          // Melhores
         esquerda.addView(botao("✱", v -> comando("*")));   // jogador selecionado: titular
@@ -574,6 +599,18 @@ public class ElifootActivity extends SDLActivity {
         }
     }
 
+    private boolean maceteDisparado;
+
+    // Mesma sequencia do teclado fisico: segura Alt e Shift, aperta F4, solta tudo
+    private static void altShiftF4() {
+        SDLActivity.onNativeKeyDown(KeyEvent.KEYCODE_ALT_LEFT);
+        SDLActivity.onNativeKeyDown(KeyEvent.KEYCODE_SHIFT_LEFT);
+        SDLActivity.onNativeKeyDown(KeyEvent.KEYCODE_F4);
+        SDLActivity.onNativeKeyUp(KeyEvent.KEYCODE_F4);
+        SDLActivity.onNativeKeyUp(KeyEvent.KEYCODE_SHIFT_LEFT);
+        SDLActivity.onNativeKeyUp(KeyEvent.KEYCODE_ALT_LEFT);
+    }
+
     private static void tecla(int codigo) {
         SDLActivity.onNativeKeyDown(codigo);
         SDLActivity.onNativeKeyUp(codigo);
@@ -603,7 +640,7 @@ public class ElifootActivity extends SDLActivity {
     // Formacoes do menu Seleccionar (F1..F12), Automatico (A) e Melhores (M)
     private static final String[] TATICAS = {
         "3-3-4", "3-4-3", "4-2-4", "4-3-3", "4-4-2", "4-5-1",
-        "5-2-3", "5-3-2", "5-4-1", "5-5-0", "6-3-1", "6-4-0",
+        "5-2-3", "5-3-2", "5-4-1", "5-5-0", "6-3-1", "6-4-0", "5-0-5",
     };
 
     // Formacao = tecla do menu Seleccionar. A F10 vai pelo iniciar.exe direto pro
@@ -638,7 +675,9 @@ public class ElifootActivity extends SDLActivity {
             int g = Integer.parseInt(c[0]), d = Integer.parseInt(c[1]), m = Integer.parseInt(c[2]), a = Integer.parseInt(c[3]);
             for (int i = 0; i < TATICAS.length; i++) {
                 String[] f = TATICAS[i].split("-");
-                pode[i] = g >= 1 && d >= Integer.parseInt(f[0]) && m >= Integer.parseInt(f[1]) && a >= Integer.parseInt(f[2]);
+                // o jogo confere o 6-4-0 como 6-4-1 (seg04:2B6D): sem atacante ele fica cinza
+                int precisaA = TATICAS[i].equals("6-4-0") ? 1 : Integer.parseInt(f[2]);
+                pode[i] = g >= 1 && d >= Integer.parseInt(f[0]) && m >= Integer.parseInt(f[1]) && a >= precisaA;
             }
         } catch (NumberFormatException ignorado) {
             java.util.Arrays.fill(pode, true);
@@ -652,7 +691,7 @@ public class ElifootActivity extends SDLActivity {
         boolean[] pode = new boolean[n], formacoes = permitidas(menu);
         for (int i = 0; i < TATICAS.length; i++) {
             nomes[i] = TATICAS[i];
-            teclas[i] = "F" + (i + 1);
+            teclas[i] = i == 12 ? "T" : "F" + (i + 1);
             pode[i] = formacoes[i];
         }
         nomes[TATICAS.length] = "Automático";
@@ -696,6 +735,7 @@ public class ElifootActivity extends SDLActivity {
         });
         lista.setOnItemClickListener((p, v, i, id) -> {
             if (i == 9) comando("K" + 0x79);  // VK_F10
+            else if (i == 12) tecla(KeyEvent.KEYCODE_T);  // 5-0-5: tecla T (tools/patch_505.py)
             else if (i < TATICAS.length) tecla(KeyEvent.KEYCODE_F1 + i);
             else tecla(i == TATICAS.length ? KeyEvent.KEYCODE_A : KeyEvent.KEYCODE_M);
             if (dialogo[0] != null) dialogo[0].dismiss();
