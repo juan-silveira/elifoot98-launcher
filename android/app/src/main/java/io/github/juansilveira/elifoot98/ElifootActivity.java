@@ -10,6 +10,7 @@ import android.util.TypedValue;
 import android.view.Gravity;
 import android.view.KeyEvent;
 import android.view.View;
+import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.LinearLayout;
 import android.widget.RelativeLayout;
@@ -86,6 +87,7 @@ public class ElifootActivity extends SDLActivity {
 
         // Faixa esquerda (o jogo e 4:3): mesmos controles do elifoot98web
         esquerda = grade(RelativeLayout.ALIGN_PARENT_LEFT);
+        esquerda.setId(View.generateViewId());
         esquerda.addView(botao("⌨", v -> alternarTeclado()));
         esquerda.addView(botao("Esc", v -> tecla(KeyEvent.KEYCODE_ESCAPE)));
         Button enter = botao("", v -> tecla(KeyEvent.KEYCODE_ENTER));
@@ -99,16 +101,13 @@ public class ElifootActivity extends SDLActivity {
         esquerda.addView(botao("✱", v -> comando("*")));   // jogador selecionado: titular
         esquerda.addView(botao("—", v -> comando("-")));   // jogador selecionado: reserva
 
-        // Faixa direita: abas das janelas do jogo
+        // Abas das janelas do jogo: faixa direita deitado, faixa que rola de lado em pe
         abas = new LinearLayout(this);
-        abas.setOrientation(LinearLayout.VERTICAL);
         rolagem = new android.widget.ScrollView(this);
-        rolagem.addView(abas);
-        RelativeLayout.LayoutParams p = new RelativeLayout.LayoutParams(dp(150), RelativeLayout.LayoutParams.WRAP_CONTENT);
-        p.addRule(RelativeLayout.ALIGN_PARENT_RIGHT);
-        p.addRule(RelativeLayout.CENTER_VERTICAL);
-        p.setMargins(dp(8), dp(8), dp(8), dp(8));
-        mLayout.addView(rolagem, p);
+        rolagemLado = new android.widget.HorizontalScrollView(this);
+        rolagemLado.setHorizontalScrollBarEnabled(false);
+        mLayout.addView(rolagem);
+        mLayout.addView(rolagemLado);
 
         // Botao "100%": aparece com o jogo ampliado (pinca) e volta ao tamanho original
         botao100 = new Button(this);
@@ -150,8 +149,109 @@ public class ElifootActivity extends SDLActivity {
         mLayout.addView(carregando, new RelativeLayout.LayoutParams(
             RelativeLayout.LayoutParams.MATCH_PARENT, RelativeLayout.LayoutParams.MATCH_PARENT));
 
+        organizar();
         handler.post(vigiarFoco);
         mLayout.getViewTreeObserver().addOnGlobalLayoutListener(aoMudarLayout);
+    }
+
+    @Override
+    public void onConfigurationChanged(android.content.res.Configuration nova) {
+        super.onConfigurationChanged(nova);
+        if (mLayout != null && esquerda != null) organizar();
+    }
+
+    // Em pe: fundo verde embaixo do jogo, atras das abas e dos botoes
+    private View fundoControles;
+
+    private void ajustarFundo() {
+        if (fundoControles == null || mSurface == null || mLayout.getHeight() == 0) return;
+        boolean pe = emPe();
+        int alvo = alturaJogo();
+        ViewGroup.LayoutParams ls = mSurface.getLayoutParams();
+        if (ls.height != alvo) {
+            ls.height = alvo;
+            if (ls instanceof RelativeLayout.LayoutParams) ((RelativeLayout.LayoutParams) ls).addRule(RelativeLayout.ALIGN_PARENT_TOP);
+            mSurface.setLayoutParams(ls);
+        }
+        fundoControles.setVisibility(pe ? View.VISIBLE : View.GONE);
+        if (!pe) return;
+        // cobre o que o jogo ampliado passaria da area dele
+        int altura = Math.max(0, mLayout.getHeight() - alvo);
+        ViewGroup.LayoutParams lp = fundoControles.getLayoutParams();
+        if (lp.height != altura) { lp.height = altura; fundoControles.setLayoutParams(lp); }
+    }
+
+    // O SDL trava a orientacao pelo formato da janela (800x600 = deitado). Aqui vale a do
+    // manifest: gira com o aparelho, e organizar() arruma o layout de cada orientacao.
+    @Override
+    public void setOrientationBis(int w, int h, boolean resizable, String hint) {
+    }
+
+    private boolean emPe() {
+        android.util.DisplayMetrics m = getResources().getDisplayMetrics();
+        return m.heightPixels > m.widthPixels;
+    }
+
+    // Deitado: botoes a esquerda e abas a direita do jogo (4:3 no meio).
+    // Em pe: o jogo encosta no topo (aplicarZoom) e abas e botoes ficam embaixo.
+    private void organizar() {
+        boolean pe = emPe();
+        if (fundoControles == null) {
+            fundoControles = new View(this);
+            fundoControles.setBackgroundColor(Color.rgb(11, 61, 11));
+            RelativeLayout.LayoutParams pf = new RelativeLayout.LayoutParams(RelativeLayout.LayoutParams.MATCH_PARENT, 0);
+            pf.addRule(RelativeLayout.ALIGN_PARENT_BOTTOM);
+            mLayout.addView(fundoControles, Math.max(0, mLayout.indexOfChild(mSurface) + 1), pf);
+        }
+        // o GridLayout guarda a coluna de cada botao: tira todos, muda as colunas e recoloca
+        java.util.List<View> botoes = new java.util.ArrayList<>();
+        for (int i = 0; i < esquerda.getChildCount(); i++) botoes.add(esquerda.getChildAt(i));
+        esquerda.removeAllViews();
+        esquerda.setColumnCount(pe ? 4 : 2);
+        for (View b : botoes) {
+            android.widget.GridLayout.LayoutParams p = new android.widget.GridLayout.LayoutParams(
+                android.widget.GridLayout.spec(android.widget.GridLayout.UNDEFINED, android.widget.GridLayout.CENTER),
+                android.widget.GridLayout.spec(android.widget.GridLayout.UNDEFINED, android.widget.GridLayout.CENTER));
+            p.width = dp(56);
+            p.height = dp(56);
+            p.setMargins(dp(5), dp(5), dp(5), dp(5));
+            esquerda.addView(b, p);
+        }
+        RelativeLayout.LayoutParams pg = new RelativeLayout.LayoutParams(
+            RelativeLayout.LayoutParams.WRAP_CONTENT, RelativeLayout.LayoutParams.WRAP_CONTENT);
+        if (pe) {
+            pg.addRule(RelativeLayout.ALIGN_PARENT_BOTTOM);
+            pg.addRule(RelativeLayout.CENTER_HORIZONTAL);
+            pg.setMargins(0, 0, 0, dp(24));
+        } else {
+            pg.addRule(RelativeLayout.ALIGN_PARENT_LEFT);
+            pg.addRule(RelativeLayout.CENTER_VERTICAL);
+            pg.setMargins(dp(8), 0, dp(8), 0);
+        }
+        esquerda.setLayoutParams(pg);
+
+        if (abas.getParent() != null) ((ViewGroup) abas.getParent()).removeView(abas);
+        abas.setOrientation(pe ? LinearLayout.HORIZONTAL : LinearLayout.VERTICAL);
+        (pe ? rolagemLado : rolagem).addView(abas);
+        faixaAbas = pe ? rolagemLado : rolagem;
+        (pe ? rolagem : rolagemLado).setVisibility(View.GONE);
+        faixaAbas.setVisibility(esquerda.getVisibility());
+        RelativeLayout.LayoutParams pa;
+        if (pe) {
+            pa = new RelativeLayout.LayoutParams(RelativeLayout.LayoutParams.MATCH_PARENT, RelativeLayout.LayoutParams.WRAP_CONTENT);
+            pa.addRule(RelativeLayout.ABOVE, esquerda.getId());
+            pa.setMargins(dp(8), 0, dp(8), dp(12));
+        } else {
+            pa = new RelativeLayout.LayoutParams(dp(150), RelativeLayout.LayoutParams.WRAP_CONTENT);
+            pa.addRule(RelativeLayout.ALIGN_PARENT_RIGHT);
+            pa.addRule(RelativeLayout.CENTER_VERTICAL);
+            pa.setMargins(dp(8), dp(8), dp(8), dp(8));
+        }
+        faixaAbas.setLayoutParams(pa);
+        if (mSurface != null && escala > 1) zoom(1, 0, 0);  // a area do jogo muda ao girar
+        ultimasJanelas = "";  // refaz as abas no formato novo
+        try { if (jogo != null) atualizarAbas(); } catch (IOException ignored) { }
+        if (mSurface != null) mSurface.post(this::aplicarZoom);
     }
 
     @Override
@@ -211,7 +311,7 @@ public class ElifootActivity extends SDLActivity {
         LinearLayout l = new LinearLayout(this);
         l.setOrientation(LinearLayout.VERTICAL);
         l.setGravity(Gravity.CENTER);
-        l.setBackgroundColor(Color.BLACK);
+        l.setBackgroundColor(Color.rgb(0, 114, 0));  // o mesmo verde do launcher
         l.setClickable(true);  // segura os toques enquanto carrega
         l.addView(Ui.logo(this, 300));
         android.widget.TextView t = new android.widget.TextView(this);
@@ -260,8 +360,11 @@ public class ElifootActivity extends SDLActivity {
         b.setFocusable(false);
         b.setPadding(dp(8), 0, dp(8), 0);
         b.setOnClickListener(v -> comando(hwnd));
-        LinearLayout.LayoutParams p = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(44));
-        p.setMargins(0, dp(4), 0, dp(4));
+        boolean pe = emPe();
+        if (pe) b.setMaxWidth(dp(180));
+        LinearLayout.LayoutParams p = new LinearLayout.LayoutParams(
+            pe ? LinearLayout.LayoutParams.WRAP_CONTENT : LinearLayout.LayoutParams.MATCH_PARENT, dp(44));
+        if (pe) p.setMargins(dp(4), 0, dp(4), 0); else p.setMargins(0, dp(4), 0, dp(4));
         b.setLayoutParams(p);
         return b;
     }
@@ -308,6 +411,8 @@ public class ElifootActivity extends SDLActivity {
     private static final float ZOOM_MAX = 4f;
     private android.widget.GridLayout esquerda;
     private android.widget.ScrollView rolagem;
+    private android.widget.HorizontalScrollView rolagemLado;
+    private View faixaAbas;
     private Button botao100, botaoControles;
     private android.view.ScaleGestureDetector pinca;
     private float escala = 1, zoomX, zoomY, tecladoY;
@@ -331,22 +436,44 @@ public class ElifootActivity extends SDLActivity {
     private void zoom(float nova, float x, float y) {
         escala = nova;
         float w = mSurface.getWidth(), h = mSurface.getHeight();
-        zoomX = Math.max(w - w * escala, Math.min(0, x));
-        zoomY = Math.max(h - h * escala, Math.min(0, y));
+        // Limita pelo retangulo do jogo (4:3 centrado), nao pela superficie: ampliado, o jogo
+        // preenche a area toda sem mostrar as faixas pretas; se ainda couber, fica centrado
+        float e = Math.min(w / LARGURA, h / ALTURA), iw = LARGURA * e, ih = ALTURA * e;
+        float ox = (w - iw) / 2, oy = (h - ih) / 2;
+        zoomX = limitar(x, w, ox, iw);
+        zoomY = limitar(y, h, oy, ih);
         if (escala <= 1.01f) { escala = 1; zoomX = 0; zoomY = 0; }
         boolean ampliado = escala > 1;
         if (ampliado != (botao100.getVisibility() == View.VISIBLE)) {
-            // ampliado: botoes e abas saem da frente (o botao "Botoes" traz de volta)
+            // ampliado deitado: botoes e abas saem da frente (o botao "Botoes" traz de volta).
+            // Em pe eles ficam na area propria, embaixo do jogo, e continuam a vista.
+            boolean pe = emPe();
             botao100.setVisibility(ampliado ? View.VISIBLE : View.GONE);
-            botaoControles.setVisibility(ampliado ? View.VISIBLE : View.GONE);
-            mostrarControles(!ampliado);
+            botaoControles.setVisibility(ampliado && !pe ? View.VISIBLE : View.GONE);
+            mostrarControles(!ampliado || pe);
         }
         aplicarZoom();
     }
 
+    // Deslocamento t de um eixo: a imagem (de o a o+tam, na superficie de tamanho total) ampliada
+    // por escala ocupa t+escala*o .. t+escala*(o+tam) na tela
+    private float limitar(float t, float total, float o, float tam) {
+        float ini = escala * o, fim = escala * (o + tam);
+        if (fim - ini <= total) return (total - (fim - ini)) / 2 - ini;
+        return Math.max(total - fim, Math.min(-ini, t));
+    }
+
     private void mostrarControles(boolean sim) {
         esquerda.setVisibility(sim ? View.VISIBLE : View.GONE);
-        rolagem.setVisibility(sim ? View.VISIBLE : View.GONE);
+        faixaAbas.setVisibility(sim ? View.VISIBLE : View.GONE);
+    }
+
+    // Em pe a superficie do jogo ocupa so a area acima das abas e dos botoes: o jogo (4:3,
+    // -fullscreenAspect) fica centrado nela e o zoom/arraste vale nela toda
+    private static final int ALTURA_CONTROLES = 232;  // dp: abas (44+12) + 2 fileiras de botoes (2x66) + margens
+
+    private int alturaJogo() {
+        return emPe() ? Math.max(dp(200), mLayout.getHeight() - dp(ALTURA_CONTROLES)) : RelativeLayout.LayoutParams.MATCH_PARENT;
     }
 
     private void aplicarZoom() {
@@ -357,6 +484,7 @@ public class ElifootActivity extends SDLActivity {
         mSurface.setScaleY(escala);
         mSurface.setTranslationX(zoomX);
         mSurface.setTranslationY(zoomY + tecladoY);
+        ajustarFundo();
     }
 
     private boolean sobre(View v, android.view.MotionEvent e) {
@@ -373,7 +501,7 @@ public class ElifootActivity extends SDLActivity {
         if (acao == android.view.MotionEvent.ACTION_DOWN) {
             // botoes, abas, "Carregando...": toque normal
             deTela = mSurface != null && carregando == null
-                && !sobre(esquerda, e) && !sobre(rolagem, e) && !sobre(botao100, e) && !sobre(botaoControles, e);
+                && !sobre(esquerda, e) && !sobre(faixaAbas, e) && !sobre(botao100, e) && !sobre(botaoControles, e);
             pincando = false;
             tocandoJogo = false;
         }
@@ -479,23 +607,105 @@ public class ElifootActivity extends SDLActivity {
     };
 
     // Formacao = tecla do menu Seleccionar. A F10 vai pelo iniciar.exe direto pro
-    // jogo: pelo teclado o Windows usa ela pra ativar a barra de menus. As que o
-    // elenco nao permite (cinza no menu do jogo) o jogo ignora.
+    // jogo: pelo teclado o Windows usa ela pra ativar a barra de menus. Antes de
+    // abrir a lista, o iniciar.exe conta os jogadores disponiveis (taticas.txt);
+    // as formacoes que o elenco nao permite aparecem cinza, sem toque.
     private void taticas() {
-        String[] itens = new String[TATICAS.length + 2];
-        for (int i = 0; i < TATICAS.length; i++) itens[i] = TATICAS[i] + "   (F" + (i + 1) + ")";
-        itens[TATICAS.length] = "Automático   (A)";
-        itens[TATICAS.length + 1] = "Melhores   (M)";
-        new android.app.AlertDialog.Builder(this)
+        File arq = new File(jogo.jogo, "taticas.txt");
+        arq.delete();
+        comando("T");
+        long ate = android.os.SystemClock.uptimeMillis() + 1500;
+        handler.post(new Runnable() {
+            @Override
+            public void run() {
+                if (!arq.exists() && android.os.SystemClock.uptimeMillis() < ate) { handler.postDelayed(this, 100); return; }
+                String menu = "";
+                try { if (arq.exists()) menu = Jogo.ler(arq); } catch (IOException ignored) { }
+                mostrarTaticas(menu);
+            }
+        });
+    }
+
+    // taticas.txt = "G D M A": jogadores sem S/L de cada posicao (iniciar.exe le a lista
+    // da janela do time). Mesma regra do menu do jogo (seg03:0e4c): 1 G e os D, M, A da
+    // formacao. Sem leitura (vazio), tudo liberado.
+    private static boolean[] permitidas(String disponiveis) {
+        boolean[] pode = new boolean[TATICAS.length];
+        java.util.Arrays.fill(pode, true);
+        String[] c = disponiveis.trim().split("\\s+");
+        if (c.length != 4) return pode;
+        try {
+            int g = Integer.parseInt(c[0]), d = Integer.parseInt(c[1]), m = Integer.parseInt(c[2]), a = Integer.parseInt(c[3]);
+            for (int i = 0; i < TATICAS.length; i++) {
+                String[] f = TATICAS[i].split("-");
+                pode[i] = g >= 1 && d >= Integer.parseInt(f[0]) && m >= Integer.parseInt(f[1]) && a >= Integer.parseInt(f[2]);
+            }
+        } catch (NumberFormatException ignorado) {
+            java.util.Arrays.fill(pode, true);
+        }
+        return pode;
+    }
+
+    private void mostrarTaticas(String menu) {
+        int n = TATICAS.length + 2;
+        String[] nomes = new String[n], teclas = new String[n];
+        boolean[] pode = new boolean[n], formacoes = permitidas(menu);
+        for (int i = 0; i < TATICAS.length; i++) {
+            nomes[i] = TATICAS[i];
+            teclas[i] = "F" + (i + 1);
+            pode[i] = formacoes[i];
+        }
+        nomes[TATICAS.length] = "Automático";
+        teclas[TATICAS.length] = "A";
+        nomes[TATICAS.length + 1] = "Melhores";
+        teclas[TATICAS.length + 1] = "M";
+        pode[TATICAS.length] = true;
+        pode[TATICAS.length + 1] = true;
+
+        android.widget.ListView lista = new android.widget.ListView(this);
+        lista.setBackgroundColor(Color.rgb(11, 61, 11));
+        lista.setDivider(new android.graphics.drawable.ColorDrawable(Color.rgb(20, 82, 20)));
+        lista.setDividerHeight(1);
+        android.app.AlertDialog[] dialogo = new android.app.AlertDialog[1];
+        lista.setAdapter(new android.widget.BaseAdapter() {
+            @Override public int getCount() { return n; }
+            @Override public Object getItem(int i) { return nomes[i]; }
+            @Override public long getItemId(int i) { return i; }
+            @Override public boolean areAllItemsEnabled() { return false; }
+            @Override public boolean isEnabled(int i) { return pode[i]; }
+
+            @Override
+            public View getView(int i, View v, ViewGroup pai) {
+                LinearLayout l = new LinearLayout(ElifootActivity.this);
+                l.setGravity(Gravity.CENTER_VERTICAL);
+                l.setPadding(dp(18), 0, dp(18), 0);
+                l.setMinimumHeight(dp(40));
+                android.widget.TextView t = new android.widget.TextView(ElifootActivity.this);
+                t.setText(nomes[i]);
+                t.setTextSize(TypedValue.COMPLEX_UNIT_SP, 16);
+                t.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
+                t.setTextColor(pode[i] ? Color.WHITE : Color.rgb(110, 140, 110));
+                l.addView(t, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1));
+                android.widget.TextView k = new android.widget.TextView(ElifootActivity.this);
+                k.setText(pode[i] ? teclas[i] : "sem jogadores");
+                k.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13);
+                k.setTextColor(pode[i] ? Color.rgb(252, 254, 4) : Color.rgb(110, 140, 110));
+                l.addView(k);
+                return l;
+            }
+        });
+        lista.setOnItemClickListener((p, v, i, id) -> {
+            if (i == 9) comando("K" + 0x79);  // VK_F10
+            else if (i < TATICAS.length) tecla(KeyEvent.KEYCODE_F1 + i);
+            else tecla(i == TATICAS.length ? KeyEvent.KEYCODE_A : KeyEvent.KEYCODE_M);
+            if (dialogo[0] != null) dialogo[0].dismiss();
+        });
+        dialogo[0] = new android.app.AlertDialog.Builder(this)
             .setTitle("Táticas")
-            .setItems(itens, (d, i) -> {
-                if (i == 9) comando("K" + 0x79);  // VK_F10
-                else if (i < TATICAS.length) tecla(KeyEvent.KEYCODE_F1 + i);
-                else tecla(i == TATICAS.length ? KeyEvent.KEYCODE_A : KeyEvent.KEYCODE_M);
-                imersivo();
-            })
+            .setView(lista)
             .setOnDismissListener(d -> imersivo())
-            .show();
+            .create();
+        dialogo[0].show();
     }
 
     private Button botao(String texto, View.OnClickListener acao) {

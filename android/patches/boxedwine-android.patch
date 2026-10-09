@@ -83,6 +83,82 @@ index 0e5c310..414e8fe 100644
  }
  
  }
+diff --git a/platform/sdl/knativeinputSDL.cpp b/platform/sdl/knativeinputSDL.cpp
+index fa70c79..218c968 100644
+--- a/platform/sdl/knativeinputSDL.cpp
++++ b/platform/sdl/knativeinputSDL.cpp
+@@ -934,6 +934,27 @@ void KNativeInputSDL::processCustomEvents(std::function<bool(bool isKeyDown, int
+     }
+ }
+ 
++// Letterbox (-fullscreenAspect): centraliza de novo quando a area de desenho muda
++// (Android: retrato/paisagem, ou so a area acima dos controles)
++void KNativeInputSDL::ajustarAspecto(U32 w, U32 h) {
++    if (!aspecto || !width || !height || !w || !h || (w == aspectoW && h == aspectoH)) {
++        return;
++    }
++    aspectoW = w;
++    aspectoH = h;
++    scaleX = w * 100 / width;
++    scaleY = h * 100 / height;
++    scaleXOffset = 0;
++    scaleYOffset = 0;
++    if (scaleY > scaleX) {
++        scaleY = scaleX;
++        scaleYOffset = (h - height * scaleY / 100) / 2;
++    } else if (scaleX > scaleY) {
++        scaleX = scaleY;
++        scaleXOffset = (w - width * scaleX / 100) / 2;
++    }
++}
++
+ bool KNativeInputSDL::handlSdlEvent(SDL_Event* e) {
+ #ifdef BOXEDWINE_RECORDER
+     if (Player::instance) {
+@@ -1008,6 +1029,7 @@ bool KNativeInputSDL::handlSdlEvent(SDL_Event* e) {
+             }
+         } else if (e->window.event == SDL_WINDOWEVENT_SIZE_CHANGED) {
+             if (XServer* server = XServer::getServer(true)) server->resetCapturedMouse();
++            if (e->window.data1 > 0 && e->window.data2 > 0) ajustarAspecto((U32)e->window.data1, (U32)e->window.data2);
+         }
+     }
+     return true;
+diff --git a/platform/sdl/knativeinputSDL.h b/platform/sdl/knativeinputSDL.h
+index 33c886d..476edab 100644
+--- a/platform/sdl/knativeinputSDL.h
++++ b/platform/sdl/knativeinputSDL.h
+@@ -55,6 +55,9 @@ public:
+ 
+     U32 scaleX = 100;
+     U32 scaleXOffset = 0;
++    bool aspecto = false;   // -fullscreenAspect: refaz a escala quando a janela muda (Android gira)
++    U32 aspectoW = 0, aspectoH = 0;
++    void ajustarAspecto(U32 w, U32 h);
+     U32 scaleY = 100;
+     U32 scaleYOffset = 0;    
+     int lastX = 0;
+diff --git a/platform/sdl/knativescreenSDL.cpp b/platform/sdl/knativescreenSDL.cpp
+index f890ebd..f2f8612 100644
+--- a/platform/sdl/knativescreenSDL.cpp
++++ b/platform/sdl/knativescreenSDL.cpp
+@@ -310,6 +310,9 @@ void KNativeScreenSDL::clear() {
+ #endif
+     if (KSystem::videoOption != VIDEO_NO_WINDOW && renderer && !skipHiddenRenderer(visible, showOnDraw)) {
+         if (fullScreen == FULLSCREEN_ASPECT) {
++            // o tamanho real de desenho (o aviso de janela nova pode chegar antes da tela existir)
++            int ow = 0, oh = 0;
++            if (SDL_GetRendererOutputSize(renderer, &ow, &oh) == 0 && ow > 0 && oh > 0) input->ajustarAspecto((U32)ow, (U32)oh);
+             SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
+             SDL_RenderClear(renderer);
+             SDL_Rect desktop = {
+@@ -1038,6 +1041,7 @@ void KNativeScreenSDL::recreateMainWindow() {
+                 input->scaleY = dm.h * 100 / input->height;
+                 input->scaleXOffset = 0;
+                 input->scaleYOffset = 0;
++                input->aspecto = true;
+                 if (input->scaleY > input->scaleX) {
+                     input->scaleY = input->scaleX;
+                     input->scaleYOffset = (dm.h - input->height * input->scaleY / 100) / 2;
 diff --git a/source/sdl/startupArgs.cpp b/source/sdl/startupArgs.cpp
 index bf73e61..d3b7ec8 100644
 --- a/source/sdl/startupArgs.cpp

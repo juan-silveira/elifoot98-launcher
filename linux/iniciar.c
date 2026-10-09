@@ -17,7 +17,11 @@
  *     comando.txt  escrito pelo app com o hwnd (hex) de uma aba tocada (essa
  *                  janela vem pra frente) ou "*"/"-" (botoes ✱/—: escala como
  *                  titular/reserva o jogador selecionado na lista) ou "K<vk>"
- *                  (tecla direto pro jogo: F10 da tatica 5-5-0)
+ *                  (tecla direto pro jogo: F10 da tatica 5-5-0) ou "T" (pede o
+ *                  estado das taticas: grava taticas.txt)
+ *     taticas.txt  "G D M A": jogadores disponiveis (sem S/L) de cada posicao,
+ *                  pro app acinzentar as taticas como o menu do jogo; vazio se
+ *                  nao deu pra ler a lista
  *   No Boxedwine as janelas que o jogo abre podem ficar atras da principal;
  *   alem das abas, toda janela nova vem pra frente sozinha.
  *
@@ -232,7 +236,70 @@ static void tecla(int vk)
     PostMessageA(w, WM_KEYUP, vk, 0xC0000001);
 }
 
-/* comando.txt: hwnd (hex) de uma aba tocada, "*"/"-" dos botoes ✱/— ou "K<vk>" */
+/* "T": quais formacoes o elenco permite. O jogo acinzenta no menu Seleccionar
+ * as que nao da pra montar (seg03:0e4c): conta os jogadores sem suspensao (S) e
+ * sem lesao (L) de cada posicao e exige 1 G e os D, M, A da formacao. O menu de
+ * um programa de 16 bits nao e legivel de fora no Wine, entao a conta e refeita
+ * aqui a partir da lista de jogadores da janela do time (TprepareGameDlg):
+ *  - ela vem agrupada G, D, M, A; a ultima linha de cada grupo e mais alta (tem
+ *    o traco separador embaixo);
+ *  - S e L aparecem numa coluna entre a forca e o salario.
+ * Grava em taticas.txt "G D M A" (disponiveis) ou nada se a lista nao fechar. */
+#define SL_X0 180   /* colunas do S (x 189-195) e do L (213-219) na lista, entre */
+#define SL_X1 232   /* a forca (termina em 176) e o salario (comeca em 287)    */
+
+static HWND lista_time;
+
+static BOOL CALLBACK achar_lista(HWND w, LPARAM nao_usado)
+{
+    char classe[32];
+    if (GetClassNameA(w, classe, sizeof(classe)) && lstrcmpiA(classe, "TListBox") == 0
+        && IsWindowVisible(w) && SendMessageA(w, LB_GETCOUNT, 0, 0) > 8) {
+        lista_time = w;
+        return FALSE;
+    }
+    return TRUE;
+}
+
+static void taticas(void)
+{
+    HWND w;
+    int n, i, x, y, grupo = 0, cont[4] = {0, 0, 0, 0}, total = 0;
+    char texto[64] = "";
+    HDC dc;
+    lista_time = NULL;
+    for (w = GetTopWindow(NULL); w; w = GetWindow(w, GW_HWNDNEXT)) {
+        char classe[32];
+        if (!IsWindowVisible(w) || !GetClassNameA(w, classe, sizeof(classe))) continue;
+        if (lstrcmpA(classe, "TprepareGameDlg") == 0) { EnumChildWindows(w, achar_lista, 0); break; }
+        if (lstrcmpA(classe, "TmainWindow") != 0 && lstrcmpA(classe, "TApplication") != 0 && janela_do_jogo(w))
+            break;  /* outra janela do jogo por cima: a lista pode estar coberta */
+    }
+    if (!lista_time) { gravar_texto("taticas.txt", ""); return; }
+    n = (int)SendMessageA(lista_time, LB_GETCOUNT, 0, 0);
+    dc = GetDC(lista_time);
+    for (i = 0; i < n; i++) {
+        RECT r;
+        COLORREF fundo;
+        int fora = 0, alt;
+        if (SendMessageA(lista_time, LB_GETITEMRECT, i, (LPARAM)&r) == LB_ERR) { grupo = 9; break; }
+        alt = r.bottom - r.top;
+        fundo = GetPixel(dc, 12, r.top + 8);
+        for (x = SL_X0; x < SL_X1 && !fora; x++)
+            for (y = r.top + 2; y < r.top + 14; y++)
+                if (GetPixel(dc, x, y) != fundo) { fora = 1; break; }
+        if (grupo > 3) break;
+        if (!fora) cont[grupo]++;
+        total++;
+        if (alt > 17) grupo++;  /* ultima linha do grupo: mais alta, tem o traco separador */
+    }
+    ReleaseDC(lista_time, dc);
+    /* a ultima linha da lista nao tem traco: o grupo dela e o A (o 4o) */
+    if (total == n && grupo == 3) sprintf(texto, "%d %d %d %d", cont[0], cont[1], cont[2], cont[3]);
+    gravar_texto("taticas.txt", texto);
+}
+
+/* comando.txt: hwnd (hex) de uma aba tocada, "*"/"-" dos botoes ✱/—, "K<vk>" ou "T" */
 static void ler_comando(void)
 {
     char p[MAX_PATH], buf[32] = "";
@@ -249,6 +316,7 @@ static void ler_comando(void)
     buf[n] = 0;
     if (buf[0] == '*' || buf[0] == '-') { marcar(buf[0]); return; }
     if (buf[0] == 'K') { tecla(atoi(buf + 1)); return; }
+    if (buf[0] == 'T') { taticas(); return; }
     w = (HWND)(ULONG_PTR)strtoul(buf, NULL, 16);
     if (w && IsWindow(w)) pra_frente(w);
 }

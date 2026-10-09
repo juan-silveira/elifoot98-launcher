@@ -11,8 +11,8 @@ android {
         applicationId 'io.github.juansilveira.elifoot98'
         minSdk 26
         targetSdk 35
-        versionCode 608
-        versionName '0.6.8'
+        versionCode 700
+        versionName '0.7.0'
         externalNativeBuild {
             cmake {
                 arguments '-DANDROID_STL=c++_static'

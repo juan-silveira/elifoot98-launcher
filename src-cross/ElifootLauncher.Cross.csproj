@@ -13,6 +13,8 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="../src/SaveCodec.cs" Link="Shared/SaveCodec.cs" />
+    <Compile Include="../src/TeamCodec.cs" Link="Shared/TeamCodec.cs" />
+    <Compile Include="../src/Score.cs" Link="Shared/Score.cs" />
     <Compile Include="../src/RefereeCodec.cs" Link="Shared/RefereeCodec.cs" />
     <Compile Include="../src/PatchApplier.cs" Link="Shared/PatchApplier.cs" />
     <Compile Include="../src/LauncherConfig.cs" Link="Shared/LauncherConfig.cs" />

@@ -32,8 +32,24 @@
         <activity
             android:name=".SaveEditorActivity"
             android:label="Editor de Save"
-            android:theme="@android:style/Theme.Material.Light"
-            android:exported="false" />
+            android:theme="@android:style/Theme.Material.NoActionBar"
+            android:exported="false"
+            android:configChanges="orientation|screenSize|screenLayout|keyboardHidden" />
+
+        <activity
+            android:name=".TeamEditorActivity"
+            android:label="Editor de Equipes"
+            android:theme="@android:style/Theme.Material.NoActionBar"
+            android:exported="false"
+            android:windowSoftInputMode="adjustResize"
+            android:configChanges="orientation|screenSize|screenLayout|keyboardHidden" />
+
+        <activity
+            android:name=".ScoutActivity"
+            android:label="Scout"
+            android:theme="@android:style/Theme.Material.NoActionBar"
+            android:exported="false"
+            android:windowSoftInputMode="adjustResize" />
 
         <!-- Boxedwine/SDL num processo proprio: encerrado ao sair do jogo -->
         <activity
@@ -42,7 +58,7 @@
             android:exported="false"
             android:label="Elifoot 98"
             android:theme="@android:style/Theme.NoTitleBar.Fullscreen"
-            android:screenOrientation="sensorLandscape"
+            android:screenOrientation="fullUser"
             android:configChanges="layoutDirection|locale|orientation|uiMode|screenLayout|screenSize|smallestScreenSize|keyboard|keyboardHidden|navigation"
             android:preferMinimalPostProcessing="true" />
     </application>

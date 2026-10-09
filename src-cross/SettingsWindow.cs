@@ -73,10 +73,35 @@ namespace ElifootLauncher
                 }
             };
 
+            // Estrangeiros: Original (BOSMAN.TXE do jogo) ou Liberado (os 217 paises
+            // do COUNTRY.TXE no BOSMAN.TXE, como fez o Turbo Score)
+            var estrangeiros = new ComboBox
+            {
+                HorizontalAlignment = HorizontalAlignment.Stretch,
+                ItemsSource = new[]
+                {
+                    "Original — até 5 por equipe (Lei Bosman e língua portuguesa não contam)",
+                    "Liberado — sem limite de estrangeiros",
+                },
+            };
+            bool liberadoAntes = false;
+            try { liberadoAntes = TeamCodec.BosmanLiberado(game.GameDir); } catch { estrangeiros.IsEnabled = false; }
+            estrangeiros.SelectedIndex = liberadoAntes ? 1 : 0;
+
             var btnOk = new Button { Content = "Salvar", MinWidth = 80, HorizontalContentAlignment = HorizontalAlignment.Center, IsDefault = true };
             var btnCancel = new Button { Content = "Cancelar", MinWidth = 80, HorizontalContentAlignment = HorizontalAlignment.Center, IsCancel = true };
-            btnOk.Click += (_, _) =>
+            btnOk.Click += async (_, _) =>
             {
+                bool liberado = estrangeiros.SelectedIndex == 1;
+                if (estrangeiros.IsEnabled && liberado != liberadoAntes)
+                {
+                    try { TeamCodec.DefinirBosman(game.GameDir, liberado); }
+                    catch (Exception ex)
+                    {
+                        await Dialogos.Mensagem(this, $"Não consegui gravar o BOSMAN.TXE:\n{ex.Message}", "Erro");
+                        return;
+                    }
+                }
                 var (w, h) = Resolutions[resolution.SelectedIndex];
                 cfg.ResolutionWidth = w;
                 cfg.ResolutionHeight = h;
@@ -101,6 +126,8 @@ namespace ElifootLauncher
                         TextWrapping = TextWrapping.Wrap,
                         Foreground = new SolidColorBrush(Color.FromRgb(100, 100, 100)),
                     },
+                    new TextBlock { Text = "Jogadores estrangeiros (vale no jogo e no Editor de Equipes):", Margin = new Thickness(0, 6, 0, 0) },
+                    estrangeiros,
                     btnAtivar,
                     new StackPanel
                     {

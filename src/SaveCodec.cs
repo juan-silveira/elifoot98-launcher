@@ -19,6 +19,24 @@ namespace ElifootLauncher
         public int EstrelaOffsetInFile { get; set; }
         public int Forca { get; set; }
         public int Salario { get; set; }
+        // Atributos que o jogo deriva do nome ao criar o jogo, mas depois le do
+        // save (docs/elifoot98-interno.md): editar aqui muda o jogo
+        public int Nota { get; set; }
+        public int Lesao { get; set; }
+        // Historial do jogador (so leitura): t32 jogos, t36 golos na epoca, t40 lesoes, t44 vermelhos
+        public int Jogos { get; set; }
+        public int Gols { get; set; }
+        public int Lesoes { get; set; }
+        public int Expulsoes { get; set; }
+        public int NotaOffsetInFile { get; set; } = -1;
+        public int LesaoOffsetInFile { get; set; } = -1;
+        public int ComportamentoOffsetInFile { get; set; } = -1;
+        public int Suspensao { get; set; }       // jogos ("S")
+        public int JogosLesionado { get; set; }  // jogos ("L")
+        public int SuspensaoOffsetInFile { get; set; } = -1;
+        // Nacionalidade (codigo de 3 letras, ex.: "BRA"): inicio do registro
+        public string Pais { get; set; } = "";
+        public int JogosLesionadoOffsetInFile { get; set; } = -1;
     }
 
     public class SaveTeam
@@ -27,13 +45,59 @@ namespace ElifootLauncher
         public int EftStartOffset { get; set; }
         public long Verba { get; set; }
         public int VerbaOffset { get; set; } = -1;
+        // Cores RGB (0xRRGGBB) da letra e do fundo; -1 no offset = nao achadas
+        public int CorLetra { get; set; }
+        public int CorFundo { get; set; }
+        public int CoresOffset { get; set; } = -1;
+        public double Moral { get; set; }         // 0..2 (barra do jogo: moral x 10 / 20)
+        public int MoralOffset { get; set; } = -1;
+        public int Estadio { get; set; }          // N: capacidade = 5000 x N
+        public int EstadioOffset { get; set; } = -1;
         public List<SavePlayer> Players { get; } = new List<SavePlayer>();
+        public string Pais { get; set; } = "";     // pais da equipe (3 letras)
+        // Identificador da equipe (2 bytes antes do "EFa") e do seu treinador
+        // (2 bytes logo depois do moral; docs/elifoot98-interno.md, Treinadores)
+        public int Id { get; set; } = -1;
+        public int TecnicoId { get; set; } = -1;
+        public int TecnicoOffset { get; set; } = -1;
+        // Divisao em que joga ("1ª Divisão" ... ou "Distrital"); vazio se nao achou
+        public string Divisao { get; set; } = "";
+        // So equipes das divisoes podem ter treinador humano: no Distrital o jogo
+        // da "List index out of bounds" (testado no Android)
+        public bool PodeTerHumano => Divisao.Length > 0 && !Divisao.StartsWith("Distrital");
+    }
+
+    public class SaveTecnico
+    {
+        public int Id { get; set; }
+        public string Nome { get; set; } = "";
+        public bool Humano { get; set; }
     }
 
     public class SaveFile
     {
         public byte[] RawBytes { get; set; } = Array.Empty<byte>();
+        public int Ano { get; set; }
+        public double Inflacao { get; set; }      // o jogo mostra Inflacao x 10
+        public int InflacaoOffset { get; set; } = -1;
         public List<SaveTeam> Teams { get; } = new List<SaveTeam>();
+        public List<SaveTecnico> Tecnicos { get; } = new List<SaveTecnico>();
+        // Equipe do humano "da vez" (cabecalho, 1 + tamanho + 2): se apontar para
+        // uma equipe do computador, o jogo carrega e ja disputa a rodada
+        public int HumanoDaVez { get; set; } = -1;
+        public int HumanoDaVezOffset { get; set; } = -1;
+
+        public SaveTeam? TimeDoTecnico(SaveTecnico tec)
+        {
+            foreach (var t in Teams) if (t.TecnicoId == tec.Id) return t;
+            return null;
+        }
+
+        public SaveTecnico? Tecnico(int id)
+        {
+            foreach (var t in Tecnicos) if (t.Id == id) return t;
+            return null;
+        }
     }
 
     // Codec de save .e98 do Elifoot 98.
@@ -58,7 +122,7 @@ namespace ElifootLauncher
     //   raw[+sz-49] = estrela (0/1)
     //   raw[+sz-48] = forca (0-99)
     //   raw[+sz-33] = comportamento (0-5)
-    //   raw[+sz-25..sz-24] = salario uint16 LE
+    //   raw[+sz-25..sz-22] = salario int32 LE
     //
     // Primeiro record em cada EFT eh TEAM HEADER (178 bytes fixo). Players
     // comecam em records[1] onwards.
@@ -71,21 +135,51 @@ namespace ElifootLauncher
     public static class SaveCodec
     {
         private static readonly byte[] EFT_MAGIC = { (byte)'E', (byte)'F', (byte)'a', 0 };
+        // Estadio: o jogo so deixa construir ate N = 24 (120.000 lugares; botao "Construir"
+        // desativado em N >= 0x18, seg07:29dd). Na leitura aceita ate 40 (saves ja editados).
+        public const int ESTADIO_MAX = 24, ESTADIO_LEITURA_MAX = 40;
+        public const long DINHEIRO_MAX = 999_999_999;
+        // Suspensao sorteada de 1 a 4 jogos, lesao de 1 a 20 (seg03:48be, seg03:4940)
+        public const int SUSPENSAO_MAX = 4, JOGOS_LESIONADO_MAX = 20;
+        public const double INFLACAO_MIN = 0.5, INFLACAO_MAX = 10.0;
+        public const double MORAL_MAX = 2.0;
         public const int FORCA_MIN = 1;
         public const int FORCA_MAX = 9999;
         public const int FORCA_WARN_ABOVE = 50;
         public const int SALARIO_MIN = 50;
-        public const int SALARIO_MAX = 99999;
+        // O salario e um inteiro de 4 bytes (raw[sz-25..sz-22]); o jogo limita os
+        // que ele calcula a 50000 x moeda, mas guarda valores maiores sem problema
+        public const int SALARIO_MAX = 9999999;
 
         public static readonly string[] ComportamentoLabels = {
             "Fair Play", "Cordeirinho", "Cavalheiro",
             "Caneleiro", "Caceteiro", "Sarrafeiro"
         };
 
+        // Regra do jogo (seg03:7516): estrela = Nota >= 8 e posicao Meio ou Avancado
+        public static bool TemEstrela(string posicao, int nota) => nota >= 8 && (posicao == "M" || posicao == "A");
+
         public static SaveFile Read(string path)
         {
             var bytes = File.ReadAllBytes(path);
             var sf = new SaveFile { RawBytes = bytes };
+            LerTecnicos(bytes, sf);
+
+            // O save comeca com um texto cifrado de tamanho variavel (1 byte de
+            // tamanho); 7 bytes depois dele vem o ano (int32) e logo a inflacao
+            // (real de 10 bytes)
+            int anoOff = bytes.Length > 0 ? 1 + bytes[0] + 7 : 0;
+            if (anoOff + 14 <= bytes.Length)
+            {
+                int ano = BitConverter.ToInt32(bytes, anoOff);
+                double inf = Ext80(bytes, anoOff + 4);
+                if (ano >= 1900 && ano <= 3000 && inf >= 0.3 && inf <= 12)
+                {
+                    sf.Ano = ano;
+                    sf.Inflacao = inf;
+                    sf.InflacaoOffset = anoOff + 4;
+                }
+            }
 
             var eftPositions = FindAllEftStarts(bytes);
             for (int e = 0; e < eftPositions.Count; e++)
@@ -93,11 +187,39 @@ namespace ElifootLauncher
                 int eftStart = eftPositions[e];
                 int eftEnd = e + 1 < eftPositions.Count ? eftPositions[e + 1] : bytes.Length;
                 var team = new SaveTeam { EftStartOffset = eftStart };
+                if (eftStart >= 2) team.Id = BitConverter.ToUInt16(bytes, eftStart - 2);
 
                 int bodyStart = eftStart + 4;
                 var decoded = DecodeCaesar(bytes, bodyStart, eftEnd);
 
                 team.Nome = ExtractTeamName(decoded);
+
+                // Cores: depois dos dois nomes (textos Pascal) em 0x32
+                int o = eftStart + 0x32;
+                if (o < eftEnd && bytes[o] < 60)
+                {
+                    o += 1 + bytes[o];
+                    if (o < eftEnd && bytes[o] < 60)
+                    {
+                        o += 1 + bytes[o];
+                        if (o + 8 <= eftEnd && bytes[o + 3] == 0 && bytes[o + 7] == 0)
+                        {
+                            team.CoresOffset = o;
+                            team.CorLetra = bytes[o] << 16 | bytes[o + 1] << 8 | bytes[o + 2];
+                            team.CorFundo = bytes[o + 4] << 16 | bytes[o + 5] << 8 | bytes[o + 6];
+                        }
+                    }
+                }
+
+                // Estadio: N 9 bytes antes do EFa seguinte (depois dele: real de 6
+                // bytes e o identificador da proxima equipe); na ultima equipe, 7
+                // bytes antes da lista de identificadores
+                int nOff = e + 1 < eftPositions.Count ? eftPositions[e + 1] - 9 : UltimoEstadio(bytes, eftPositions);
+                if (nOff > eftStart && bytes[nOff] >= 1 && bytes[nOff] <= ESTADIO_LEITURA_MAX)
+                {
+                    team.EstadioOffset = nOff;
+                    team.Estadio = bytes[nOff];
+                }
 
                 // Detecta player records: raw byte 0x03 + decoded 3 lowercase
                 var records = new List<(int Offset, int NL)>();
@@ -118,9 +240,24 @@ namespace ElifootLauncher
 
                 // Verba: uint32 LE em first_record + 0x8E do arquivo
                 int firstRecFileOff = bodyStart + records[0].Offset;
+                team.Pais = PaisDoRegistro(decoded, records[0].Offset);
                 team.VerbaOffset = firstRecFileOff + 0x8E;
                 if (team.VerbaOffset + 4 <= bytes.Length)
                     team.Verba = (uint)BitConverter.ToInt32(bytes, team.VerbaOffset);
+
+                // Moral: real de 6 bytes 74 bytes depois do inicio do pais
+                int moralOff = firstRecFileOff + 74;
+                if (moralOff + 6 <= bytes.Length)
+                {
+                    double m = Real48(bytes, moralOff);
+                    if (m >= 0 && m <= 10) { team.Moral = m; team.MoralOffset = moralOff; }
+                }
+                int tecOff = moralOff + 6;
+                if (sf.Tecnicos.Count > 0 && tecOff + 2 <= bytes.Length && sf.Tecnico(BitConverter.ToUInt16(bytes, tecOff)) != null)
+                {
+                    team.TecnicoOffset = tecOff;
+                    team.TecnicoId = BitConverter.ToUInt16(bytes, tecOff);
+                }
 
                 // Skip records[0] (team header). Players from records[1..]
                 for (int idx = 1; idx < records.Count; idx++)
@@ -134,8 +271,12 @@ namespace ElifootLauncher
                     int forcaOff = bodyStart + recOff + recSize - 48;
                     int compOff = bodyStart + recOff + recSize - 33;
                     int salarioOff = bodyStart + recOff + recSize - 25;
+                    int notaOff = bodyStart + recOff + recSize - 27;
+                    int lesaoOff = bodyStart + recOff + recSize - 29;
+                    int suspOff = bodyStart + recOff + recSize - 35;
+                    int lesJogosOff = bodyStart + recOff + recSize - 31;
 
-                    if (salarioOff + 2 > bytes.Length) break;
+                    if (salarioOff + 4 > bytes.Length) break;
 
                     // Forca eh uint16 LE em [sz-48..sz-47]. Normal 0-99 usa
                     // so o low byte; user pode setar ate 9999 (uint16 max).
@@ -143,6 +284,7 @@ namespace ElifootLauncher
                     var p = new SavePlayer
                     {
                         Nome = ExtractPlayerName(decoded, recOff, NL),
+                        Pais = PaisDoRegistro(decoded, recOff),
                         RecordStartInEft = recOff,
                         RecordSizeInEft = recSize,
                         Posicao = PosicaoLabel(bytes[posOff]),
@@ -153,24 +295,142 @@ namespace ElifootLauncher
                         EstrelaOffsetInFile = starOff,
                         ForcaOffsetInFile = forcaOff,
                         SalarioOffsetInFile = salarioOff,
-                        Salario = BitConverter.ToUInt16(bytes, salarioOff),
+                        Salario = BitConverter.ToInt32(bytes, salarioOff),
+                        Nota = BitConverter.ToInt16(bytes, notaOff),
+                        Lesao = BitConverter.ToInt16(bytes, lesaoOff),
+                        NotaOffsetInFile = notaOff,
+                        LesaoOffsetInFile = lesaoOff,
+                        ComportamentoOffsetInFile = compOff,
+                        Suspensao = BitConverter.ToInt16(bytes, suspOff),
+                        JogosLesionado = BitConverter.ToInt16(bytes, lesJogosOff),
+                        SuspensaoOffsetInFile = suspOff,
+                        JogosLesionadoOffsetInFile = lesJogosOff,
+                        Jogos = BitConverter.ToInt32(bytes, bodyStart + recOff + recSize - 18),
+                        Gols = BitConverter.ToInt32(bytes, bodyStart + recOff + recSize - 14),
+                        Lesoes = BitConverter.ToInt32(bytes, bodyStart + recOff + recSize - 10),
+                        Expulsoes = BitConverter.ToInt32(bytes, bodyStart + recOff + recSize - 6),
                     };
                     team.Players.Add(p);
                 }
 
                 sf.Teams.Add(team);
             }
+            LerDivisoes(bytes, eftPositions, sf);
             return sf;
+        }
+
+        // Lista de treinadores: contador em 1 + tamanho do cabecalho + 132; cada um tem
+        // id, nome (cada byte = letra + byte anterior), 1 byte humano, 14 bytes,
+        // 2 bytes, quantidade do historico e 7 bytes por entrada. Se algo nao fechar,
+        // fica sem treinadores (o editor esconde a troca de equipe).
+        private static void LerTecnicos(byte[] b, SaveFile sf)
+        {
+            if (b.Length < 2) return;
+            int o = 1 + b[0] + 132;
+            int primeiraEquipe = IndexOf(b, EFT_MAGIC, 0);
+            if (o + 2 > b.Length || primeiraEquipe < 0) return;
+            int n = BitConverter.ToUInt16(b, o);
+            o += 2;
+            var lidos = new List<SaveTecnico>();
+            for (int k = 0; k < n; k++)
+            {
+                if (o + 3 > primeiraEquipe) return;
+                var t = new SaveTecnico { Id = BitConverter.ToUInt16(b, o) };
+                int nl = b[o + 2], p = o + 3 + nl;
+                if (nl == 0 || nl > 40 || p + 19 > primeiraEquipe) return;
+                var nome = new StringBuilder();
+                int anterior = nl;
+                for (int i = o + 3; i < p; i++)
+                {
+                    int c = (b[i] - anterior) & 0xFF;
+                    if (c < 0x20) return;
+                    nome.Append((char)c);
+                    anterior = b[i];
+                }
+                t.Nome = nome.ToString();
+                if (b[p] > 1) return;
+                t.Humano = b[p] == 1;
+                o = p + 19 + 7 * BitConverter.ToUInt16(b, p + 17);
+                lidos.Add(t);
+            }
+            if (o > primeiraEquipe) return;
+            sf.Tecnicos.AddRange(lidos);
+            sf.HumanoDaVezOffset = 1 + b[0] + 2;
+            sf.HumanoDaVez = BitConverter.ToUInt16(b, sf.HumanoDaVezOffset);
+        }
+
+        // Depois da lista ordenada de equipes: quantidade de divisoes e, para cada uma,
+        // 4 bytes, D (2 bytes), nome (string de 20), quantidade e identificadores
+        private static void LerDivisoes(byte[] b, List<int> efts, SaveFile sf)
+        {
+            int p = ListaOrdenada(b, efts);
+            if (p < 0) return;
+            int o = p + 2 + 2 * efts.Count;
+            if (o + 2 > b.Length) return;
+            int nd = BitConverter.ToUInt16(b, o);
+            o += 2;
+            if (nd <= 0 || nd > 50) return;
+            var div = new Dictionary<int, string>();
+            for (int d = 0; d < nd; d++)
+            {
+                if (o + 4 + 2 + 21 + 2 > b.Length) return;
+                int no = o + 6, nl = Math.Min(20, (int)b[no]);
+                string nome = Encoding.GetEncoding("ISO-8859-1").GetString(b, no + 1, nl);
+                int n = BitConverter.ToUInt16(b, no + 21);
+                o = no + 23;
+                if (n > efts.Count || o + 2 * n > b.Length) return;
+                for (int k = 0; k < n; k++) div[BitConverter.ToUInt16(b, o + 2 * k)] = nome;
+                o += 2 * n;
+            }
+            foreach (var t in sf.Teams)
+                if (div.TryGetValue(t.Id, out var nome)) t.Divisao = nome;
+        }
+
+        /// <summary>
+        /// Poe o treinador na equipe destino como a "chicotada psicologica" do jogo
+        /// (seg03:4f40): as duas equipes trocam de treinador e ficam com moral 1,0.
+        /// O humano "da vez" acompanha a troca.
+        /// </summary>
+        public static void TrocarEquipe(SaveFile sf, SaveTecnico tec, SaveTeam destino)
+        {
+            var origem = sf.TimeDoTecnico(tec) ?? throw new InvalidOperationException($"{tec.Nome} não treina nenhuma equipe.");
+            if (origem == destino) return;
+            if (!destino.PodeTerHumano)
+                throw new InvalidOperationException($"{destino.Nome} não está numa divisão (o jogo quebra com treinador humano no Distrital).");
+            if (destino.TecnicoOffset < 0) throw new InvalidOperationException($"Não achei o treinador de {destino.Nome}.");
+            int outro = destino.TecnicoId;
+            destino.TecnicoId = tec.Id;
+            origem.TecnicoId = outro;
+            if (origem.MoralOffset > 0) origem.Moral = 1.0;
+            if (destino.MoralOffset > 0) destino.Moral = 1.0;
+            if (sf.HumanoDaVez == origem.Id) sf.HumanoDaVez = destino.Id;
+            else if (sf.HumanoDaVez == destino.Id) sf.HumanoDaVez = origem.Id;
         }
 
         public static void Write(string path, SaveFile sf)
         {
             var bytes = (byte[])sf.RawBytes.Clone();
+            if (sf.HumanoDaVezOffset > 0)
+                Array.Copy(BitConverter.GetBytes((ushort)sf.HumanoDaVez), 0, bytes, sf.HumanoDaVezOffset, 2);
+            // So regrava se mudou: o real de 10 bytes tem mais precisao que double
+            if (sf.InflacaoOffset > 0 && Math.Abs(sf.Inflacao - Ext80(bytes, sf.InflacaoOffset)) > 1e-9)
+                PutExt80(bytes, sf.InflacaoOffset, Math.Max(INFLACAO_MIN, Math.Min(INFLACAO_MAX, sf.Inflacao)));
             foreach (var team in sf.Teams)
             {
+                if (team.CoresOffset > 0)
+                {
+                    PutRgb(bytes, team.CoresOffset, team.CorLetra);
+                    PutRgb(bytes, team.CoresOffset + 4, team.CorFundo);
+                }
+                if (team.TecnicoOffset > 0)
+                    Array.Copy(BitConverter.GetBytes((ushort)team.TecnicoId), 0, bytes, team.TecnicoOffset, 2);
+                if (team.MoralOffset > 0 && Math.Abs(team.Moral - Real48(bytes, team.MoralOffset)) > 1e-9)
+                    PutReal48(bytes, team.MoralOffset, Math.Max(0, Math.Min(MORAL_MAX, team.Moral)));
+                if (team.EstadioOffset > 0)
+                    bytes[team.EstadioOffset] = (byte)Math.Max(1, Math.Min(ESTADIO_MAX, team.Estadio));
                 if (team.VerbaOffset > 0 && team.VerbaOffset + 4 <= bytes.Length)
                 {
-                    var v = (uint)Math.Max(0, Math.Min(uint.MaxValue, (ulong)team.Verba));
+                    var v = (uint)Math.Max(0, Math.Min(DINHEIRO_MAX, team.Verba));
                     var vb = BitConverter.GetBytes(v);
                     Array.Copy(vb, 0, bytes, team.VerbaOffset, 4);
                 }
@@ -183,19 +443,101 @@ namespace ElifootLauncher
                         bytes[p.ForcaOffsetInFile] = fb[0];
                         bytes[p.ForcaOffsetInFile + 1] = fb[1];
                     }
-                    if (p.SalarioOffsetInFile > 0 && p.SalarioOffsetInFile + 2 <= bytes.Length)
+                    if (p.SalarioOffsetInFile > 0 && p.SalarioOffsetInFile + 4 <= bytes.Length)
                     {
                         int s = Math.Max(SALARIO_MIN, Math.Min(SALARIO_MAX, p.Salario));
-                        var sb = BitConverter.GetBytes((ushort)s);
-                        bytes[p.SalarioOffsetInFile] = sb[0];
-                        bytes[p.SalarioOffsetInFile + 1] = sb[1];
+                        Array.Copy(BitConverter.GetBytes(s), 0, bytes, p.SalarioOffsetInFile, 4);
                     }
+                    if (p.NotaOffsetInFile > 0)
+                        Array.Copy(BitConverter.GetBytes((short)Math.Max(1, Math.Min(10, p.Nota))), 0, bytes, p.NotaOffsetInFile, 2);
+                    if (p.EstrelaOffsetInFile > 0)
+                        bytes[p.EstrelaOffsetInFile] = (byte)(p.Estrela ? 1 : 0);
+                    if (p.SuspensaoOffsetInFile > 0)
+                        Array.Copy(BitConverter.GetBytes((short)Math.Max(0, Math.Min(SUSPENSAO_MAX, p.Suspensao))), 0, bytes, p.SuspensaoOffsetInFile, 2);
+                    if (p.JogosLesionadoOffsetInFile > 0)
+                        Array.Copy(BitConverter.GetBytes((short)Math.Max(0, Math.Min(JOGOS_LESIONADO_MAX, p.JogosLesionado))), 0, bytes, p.JogosLesionadoOffsetInFile, 2);
+                    if (p.LesaoOffsetInFile > 0)
+                        Array.Copy(BitConverter.GetBytes((short)Math.Max(0, Math.Min(10, p.Lesao))), 0, bytes, p.LesaoOffsetInFile, 2);
+                    if (p.ComportamentoOffsetInFile > 0)
+                        Array.Copy(BitConverter.GetBytes((short)Math.Max(0, Math.Min(5, p.Comportamento))), 0, bytes, p.ComportamentoOffsetInFile, 2);
                 }
             }
             File.WriteAllBytes(path, bytes);
         }
 
         // ---- helpers ----
+
+        // Estadio da ultima equipe: 7 bytes antes da lista "quantidade de
+        // equipes + identificadores em ordem" que vem depois dela
+        private static int UltimoEstadio(byte[] bytes, List<int> starts)
+        {
+            int p = ListaOrdenada(bytes, starts);
+            return p > 7 ? p - 7 : -1;
+        }
+
+        // Depois da ultima equipe: quantidade + identificadores em ordem crescente
+        private static int ListaOrdenada(byte[] bytes, List<int> starts)
+        {
+            if (starts.Count == 0) return -1;
+            var ids = new List<int>();
+            foreach (int s in starts) if (s >= 2) ids.Add(BitConverter.ToUInt16(bytes, s - 2));
+            ids.Sort();
+            var pat = new List<byte>(BitConverter.GetBytes((ushort)starts.Count));
+            foreach (int id in ids) pat.AddRange(BitConverter.GetBytes((ushort)id));
+            return IndexOf(bytes, pat.ToArray(), starts[starts.Count - 1]);
+        }
+
+        private static void PutRgb(byte[] b, int o, int rgb)
+        {
+            b[o] = (byte)(rgb >> 16); b[o + 1] = (byte)(rgb >> 8); b[o + 2] = (byte)rgb; b[o + 3] = 0;
+        }
+
+        // Real de 6 bytes do Turbo Pascal/Delphi 1: expoente (vies 129) e 39 bits
+        // de mantissa com o 1 implicito; bit 47 = sinal
+        public static double Real48(byte[] b, int o)
+        {
+            if (b[o] == 0) return 0;
+            long m = 0;
+            for (int i = 5; i >= 1; i--) m = (m << 8) | b[o + i];
+            double sinal = (m & (1L << 39)) != 0 ? -1 : 1;
+            m &= (1L << 39) - 1;
+            return sinal * (1 + m / (double)(1L << 39)) * Math.Pow(2, b[o] - 129);
+        }
+
+        public static void PutReal48(byte[] b, int o, double v)
+        {
+            if (v == 0) { for (int i = 0; i < 6; i++) b[o + i] = 0; return; }
+            int e = (int)Math.Floor(Math.Log(Math.Abs(v), 2));
+            double mant = Math.Abs(v) / Math.Pow(2, e);
+            if (mant >= 2) { mant /= 2; e++; }
+            long m = (long)Math.Round((mant - 1) * (1L << 39));
+            if (m >= 1L << 39) { m = 0; e++; }
+            if (v < 0) m |= 1L << 39;
+            b[o] = (byte)(e + 129);
+            for (int i = 1; i <= 5; i++) { b[o + i] = (byte)m; m >>= 8; }
+        }
+
+        // Real de 10 bytes (extended do 8087): 64 bits de mantissa com o 1
+        // explicito, 15 bits de expoente (vies 16383) e sinal
+        public static double Ext80(byte[] b, int o)
+        {
+            ulong m = BitConverter.ToUInt64(b, o);
+            int ex = BitConverter.ToUInt16(b, o + 8);
+            if (m == 0) return 0;
+            double v = m / Math.Pow(2, 63) * Math.Pow(2, (ex & 0x7FFF) - 16383);
+            return (ex & 0x8000) != 0 ? -v : v;
+        }
+
+        public static void PutExt80(byte[] b, int o, double v)
+        {
+            if (v == 0) { for (int i = 0; i < 10; i++) b[o + i] = 0; return; }
+            int e = (int)Math.Floor(Math.Log(Math.Abs(v), 2));
+            double mant = Math.Abs(v) / Math.Pow(2, e);
+            if (mant >= 2) { mant /= 2; e++; }
+            ulong m = (ulong)Math.Round(mant * Math.Pow(2, 63));
+            Array.Copy(BitConverter.GetBytes(m), 0, b, o, 8);
+            Array.Copy(BitConverter.GetBytes((ushort)((e + 16383) | (v < 0 ? 0x8000 : 0))), 0, b, o + 8, 2);
+        }
 
         private static List<int> FindAllEftStarts(byte[] bytes)
         {
@@ -322,6 +664,10 @@ namespace ElifootLauncher
             }
             return sb.ToString().Trim();
         }
+
+        // Cada registro comeca pelo pais: 0x03 + 3 letras minusculas
+        private static string PaisDoRegistro(byte[] decoded, int rec) =>
+            rec + 4 <= decoded.Length ? Encoding.ASCII.GetString(decoded, rec + 1, 3).ToUpperInvariant() : "";
 
         private static string PosicaoLabel(byte b) => b switch
         {

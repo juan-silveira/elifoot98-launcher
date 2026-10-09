@@ -16,7 +16,9 @@ namespace ElifootLauncher
 
         public MainWindow()
         {
-            Title = "Elifoot 98 Launcher";
+            // Versao do release (scripts/build-linux.sh e build-mac.sh passam -p:Version)
+            var ver = System.Reflection.Assembly.GetEntryAssembly()?.GetName().Version;
+            Title = ver != null ? $"Elifoot 98 Launcher v{ver.Major}.{ver.Minor}.{ver.Build}" : "Elifoot 98 Launcher";
             Width = 400;
             SizeToContent = SizeToContent.Height;
             CanResize = false;
@@ -27,11 +29,23 @@ namespace ElifootLauncher
             var btnEditor = Botao("Editor de Equipes");
             var btnRefEditor = Botao("Editor de Árbitros");
             var btnSaveEditor = Botao("Editor de Save");
+            var btnScout = Botao("Scout");
             var btnPatch = Botao("Aplicar Patch");
             var btnConfig = Botao("Configurações", secundario: true);
 
             btnJogo.Click += async (_, _) => await SafeRun(() => _game.LaunchElifoot(_config));
-            btnEditor.Click += async (_, _) => await SafeRun(() => _game.LaunchEditor(_config));
+            btnEditor.Click += async (_, _) =>
+            {
+                if (!await SafeRun(_game.Preparar)) return;
+                TeamEditorWindow janela;
+                try { janela = new TeamEditorWindow(_game.GameDir, () => _ = SafeRun(() => _game.LaunchEditor(_config))); }
+                catch (Exception ex)
+                {
+                    await Dialogos.Mensagem(this, $"Não consegui abrir o Editor de Equipes:\n{ex.Message}", "Erro");
+                    return;
+                }
+                await janela.ShowDialog(this);
+            };
             btnRefEditor.Click += async (_, _) =>
             {
                 if (await SafeRun(_game.Preparar))
@@ -41,6 +55,11 @@ namespace ElifootLauncher
             {
                 if (await SafeRun(_game.Preparar))
                     await new SaveEditorWindow(_game.JogosDir).ShowDialog(this);
+            };
+            btnScout.Click += async (_, _) =>
+            {
+                if (await SafeRun(_game.Preparar))
+                    await new ScoutWindow(_game.JogosDir, _game.GameDir).ShowDialog(this);
             };
             btnPatch.Click += async (_, _) => await AplicarPatch();
             btnConfig.Click += async (_, _) =>
@@ -63,7 +82,7 @@ namespace ElifootLauncher
                         HorizontalAlignment = HorizontalAlignment.Center,
                         Margin = new Thickness(0, 0, 0, 8),
                     },
-                    btnJogo, btnEditor, btnRefEditor, btnSaveEditor, btnPatch,
+                    btnJogo, btnEditor, btnRefEditor, btnSaveEditor, btnScout, btnPatch,
                     new Border { Height = 18 },
                     btnConfig,
                 },

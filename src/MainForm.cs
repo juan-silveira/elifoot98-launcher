@@ -11,8 +11,10 @@ namespace ElifootLauncher
 
         public MainForm()
         {
-            Text = "Elifoot 98 Launcher";
-            ClientSize = new Size(400, 390);
+            // Versao do release (o CI passa a tag no build: -p:Version)
+            var ver = System.Reflection.Assembly.GetExecutingAssembly().GetName().Version;
+            Text = ver != null ? $"Elifoot 98 Launcher v{ver.Major}.{ver.Minor}.{ver.Build}" : "Elifoot 98 Launcher";
+            ClientSize = new Size(400, 435);
             FormBorderStyle = FormBorderStyle.FixedSingle;
             MaximizeBox = false;
             StartPosition = FormStartPosition.CenterScreen;
@@ -39,11 +41,22 @@ namespace ElifootLauncher
             var btnEditor = MakeButton("Editor de Equipes", 105);
             var btnRefEditor = MakeButton("Editor de Árbitros", 150);
             var btnSaveEditor = MakeButton("Editor de Save", 195);
-            var btnPatch = MakeButton("Aplicar Patch", 240);
-            var btnConfig = MakeButton("Configurações", 305, secondary: true);
+            var btnScout = MakeButton("Scout", 240);
+            var btnPatch = MakeButton("Aplicar Patch", 285);
+            var btnConfig = MakeButton("Configurações", 350, secondary: true);
 
             btnJogo.Click += (s, e) => SafeRun(() => _launcher.LaunchElifoot(_config));
-            btnEditor.Click += (s, e) => SafeRun(() => _launcher.LaunchEditor(_config));
+            btnEditor.Click += (s, e) =>
+            {
+                TeamEditorForm f;
+                try { f = new TeamEditorForm(_launcher.GameDir, () => SafeRun(() => _launcher.LaunchEditor(_config))); }
+                catch (Exception ex)
+                {
+                    MessageBox.Show(this, $"Não consegui abrir o Editor de Equipes:\n{ex.Message}", "Erro", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    return;
+                }
+                using (f) f.ShowDialog(this);
+            };
             btnRefEditor.Click += (s, e) =>
             {
                 using (var f = new RefereeEditorForm(_launcher.RefereeTxePath))
@@ -52,6 +65,11 @@ namespace ElifootLauncher
             btnSaveEditor.Click += (s, e) =>
             {
                 using (var f = new SaveEditorForm(_launcher.JogosDir))
+                    f.ShowDialog(this);
+            };
+            btnScout.Click += (s, e) =>
+            {
+                using (var f = new ScoutForm(_launcher.JogosDir, _launcher.GameDir))
                     f.ShowDialog(this);
             };
             btnPatch.Click += (s, e) => AplicarPatch();
@@ -64,7 +82,7 @@ namespace ElifootLauncher
                 }
             };
 
-            Controls.AddRange(new Control[] { btnJogo, btnEditor, btnRefEditor, btnSaveEditor, btnPatch, btnConfig });
+            Controls.AddRange(new Control[] { btnJogo, btnEditor, btnRefEditor, btnSaveEditor, btnScout, btnPatch, btnConfig });
         }
 
         private void AplicarPatch()

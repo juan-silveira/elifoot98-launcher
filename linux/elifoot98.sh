@@ -110,6 +110,9 @@ sincronizar() {
     [[ "$(basename "$f")" == "JOGOS" ]] || cp -R "$f" "$APP/game/"
   done
   cp -Rn "$SRC/game/JOGOS/." "$APP/game/JOGOS/" 2>/dev/null || true
+  # Versoes antigas traziam EQUIPAS/ARA<0x80>A_BR.EFT (C cedilha do DOS, nome
+  # que nao e UTF-8); agora e ARACA_BR.EFT. Apaga o antigo pra nao duplicar.
+  rm -f "$APP/game/EQUIPAS/ARA"$'\x80'"A_BR.EFT"
   cp "$SRC/linux/"* "$APP/linux/"
   chmod -R u+w "$APP"
   cp "$SRC/VERSAO" "$APP/.versao"

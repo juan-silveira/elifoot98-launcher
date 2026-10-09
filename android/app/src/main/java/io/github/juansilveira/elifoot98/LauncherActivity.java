@@ -54,13 +54,25 @@ public class LauncherActivity extends Activity {
         col.addView(status);
 
         col.addView(botao("Jogar Elifoot 98", v -> abrir("ELIFOOT.EXE")));
-        col.addView(botao("Editor de Equipes", v -> abrir("EDITEQ.EXE")));
+        col.addView(botao("Editor de Equipes", v -> startActivity(new Intent(this, TeamEditorActivity.class))));
         col.addView(botao("Editor de Árbitros", v -> startActivity(new Intent(this, RefereeEditorActivity.class))));
         col.addView(botao("Editor de Save", v -> startActivity(new Intent(this, SaveEditorActivity.class))));
+        col.addView(botao("Scout", v -> startActivity(new Intent(this, ScoutActivity.class))));
         col.addView(botao("Aplicar Patch", v -> escolherPatch()));
         View espaco = new View(this);
         col.addView(espaco, new LinearLayout.LayoutParams(1, Ui.dp(this, 16)));
         col.addView(botao("Configurações", v -> configuracoes()));
+        // Versao do app (versionName do build.gradle)
+        try {
+            TextView versao = new TextView(this);
+            versao.setText("v" + getPackageManager().getPackageInfo(getPackageName(), 0).versionName);
+            versao.setTextColor(Color.rgb(200, 230, 200));
+            versao.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
+            versao.setGravity(Gravity.CENTER);
+            versao.setPadding(0, Ui.dp(this, 12), 0, 0);
+            col.addView(versao);
+        } catch (Exception ignorado) {
+        }
 
         ScrollView scroll = new ScrollView(this);
         scroll.setBackgroundColor(Color.rgb(0, 114, 0));
@@ -97,12 +109,37 @@ public class LauncherActivity extends Activity {
     }
 
     private void configuracoes() {
+        boolean liberado = TeamCodec.bosmanLiberado(jogo.jogo);
         new AlertDialog.Builder(this)
             .setTitle("Configurações")
             .setMessage("No Android o jogo abre em tela cheia.\n\n"
-                + "\"Ativar todos os recursos\" registra o jogo (Registro para autor).")
+                + "\"Ativar todos os recursos\" registra o jogo (Registro para autor).\n\n"
+                + "Estrangeiros: " + (liberado ? "Liberado (sem limite)" : "Original (até 5 por equipe; Lei Bosman e língua portuguesa não contam)") + ".")
             .setPositiveButton("Ativar todos os recursos", (d, w) -> ativar())
+            .setNeutralButton("Estrangeiros…", (d, w) -> estrangeiros(liberado))
             .setNegativeButton("Fechar", null)
+            .show();
+    }
+
+    // Original: BOSMAN.TXE do jogo (18 paises). Liberado: os 217 paises do
+    // COUNTRY.TXE, entao ninguem conta como estrangeiro (como fez o Turbo Score)
+    private void estrangeiros(boolean liberado) {
+        String[] opcoes = {
+            "Original — até 5 estrangeiros por equipe (Lei Bosman e língua portuguesa não contam)",
+            "Liberado — sem limite de estrangeiros (todos os 217 países na lista Bosman)",
+        };
+        new AlertDialog.Builder(this)
+            .setTitle("Estrangeiros")
+            .setSingleChoiceItems(opcoes, liberado ? 1 : 0, (d, w) -> {
+                d.dismiss();
+                try {
+                    TeamCodec.definirBosman(jogo.jogo, w == 1);
+                    Ui.mensagem(this, "Pronto", w == 1 ? "Estrangeiros liberados (vale no jogo e no editor)." : "Regra original de estrangeiros restaurada.");
+                } catch (Exception e) {
+                    Ui.mensagem(this, "Erro", "Não consegui gravar o BOSMAN.TXE:\n" + e.getMessage());
+                }
+            })
+            .setNegativeButton("Cancelar", null)
             .show();
     }
 

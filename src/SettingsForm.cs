@@ -30,7 +30,7 @@ namespace ElifootLauncher
             Config = cfg;
 
             Text = "Configurações";
-            ClientSize = new Size(400, 290);
+            ClientSize = new Size(400, 360);
             FormBorderStyle = FormBorderStyle.FixedDialog;
             MaximizeBox = false;
             MinimizeBox = false;
@@ -98,18 +98,38 @@ namespace ElifootLauncher
                 }
             };
 
+            // Estrangeiros: Original (BOSMAN.TXE do jogo) ou Liberado (os 217 paises
+            // do COUNTRY.TXE no BOSMAN.TXE, como fez o Turbo Score)
+            var lblEstr = new Label
+            {
+                Text = "Jogadores estrangeiros (vale no jogo e no Editor de Equipes):",
+                Location = new Point(20, 240),
+                AutoSize = true,
+            };
+            var estrangeiros = new ComboBox
+            {
+                Location = new Point(20, 262),
+                Width = 360,
+                DropDownStyle = ComboBoxStyle.DropDownList,
+            };
+            estrangeiros.Items.Add("Original — até 5 por equipe (Bosman e língua portuguesa não contam)");
+            estrangeiros.Items.Add("Liberado — sem limite de estrangeiros");
+            bool liberadoAntes = false;
+            try { liberadoAntes = TeamCodec.BosmanLiberado(_launcher.GameDir); } catch { estrangeiros.Enabled = false; }
+            estrangeiros.SelectedIndex = liberadoAntes ? 1 : 0;
+
             var btnOk = new Button
             {
                 Text = "Salvar",
                 DialogResult = DialogResult.OK,
-                Location = new Point(220, 240),
+                Location = new Point(220, 310),
                 Size = new Size(80, 30),
             };
             var btnCancel = new Button
             {
                 Text = "Cancelar",
                 DialogResult = DialogResult.Cancel,
-                Location = new Point(310, 240),
+                Location = new Point(310, 310),
                 Size = new Size(80, 30),
             };
             AcceptButton = btnOk;
@@ -117,6 +137,15 @@ namespace ElifootLauncher
 
             btnOk.Click += (s, e) =>
             {
+                bool liberado = estrangeiros.SelectedIndex == 1;
+                if (estrangeiros.Enabled && liberado != liberadoAntes)
+                {
+                    try { TeamCodec.DefinirBosman(_launcher.GameDir, liberado); }
+                    catch (Exception ex)
+                    {
+                        MessageBox.Show(this, $"Não consegui gravar o BOSMAN.TXE:\n{ex.Message}", "Erro", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    }
+                }
                 var (w, h) = Resolutions[_resolutionBox.SelectedIndex];
                 Config.ResolutionWidth = w;
                 Config.ResolutionHeight = h;
@@ -124,7 +153,7 @@ namespace ElifootLauncher
                 Config.Save();
             };
 
-            Controls.AddRange(new Control[] { lblRes, _resolutionBox, _fullscreenBox, lblNota, btnExperiment, btnOk, btnCancel });
+            Controls.AddRange(new Control[] { lblRes, _resolutionBox, _fullscreenBox, lblNota, btnExperiment, lblEstr, estrangeiros, btnOk, btnCancel });
         }
 
         private static int FindResolutionIndex(int w, int h)
