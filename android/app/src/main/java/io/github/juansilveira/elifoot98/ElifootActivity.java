@@ -30,6 +30,9 @@ import java.io.IOException;
 public class ElifootActivity extends SDLActivity {
     public static final String EXTRA_EXE = "exe";
     private static final String TAG = "Elifoot98";
+    // Resolucao do Windows emulado: a janela do time tem 636x484 (nao cabe em
+    // 640x480). 800x600 e 4:3, sem distorcao (720x540 o Boxedwine desenha errado).
+    private static final int LARGURA = 800, ALTURA = 600;
 
     private final Handler handler = new Handler(Looper.getMainLooper());
     private Jogo jogo;
@@ -66,7 +69,7 @@ public class ElifootActivity extends SDLActivity {
             "-zip", new File(jogo.dir, "wine11.zip").getAbsolutePath(),
             "-zip", new File(jogo.dir, "w16.zip").getAbsolutePath(),
             "-mount", jogo.jogo.getAbsolutePath(), files,
-            "-resolution", "640x480", "-fullscreenAspect",
+            "-resolution", LARGURA + "x" + ALTURA, "-fullscreenAspect",
             "-w", files,
             // iniciar.exe (linux/iniciar.c): faz a "Acerca" aparecer e, na pasta
             // do jogo, mantem teclado.txt (campo com foco), janelas.txt (abas) e
@@ -167,7 +170,7 @@ public class ElifootActivity extends SDLActivity {
 
     // Abre/fecha o teclado sozinho quando um campo de texto do jogo ganha ou perde
     // o foco. O iniciar.exe grava "1 esq topo dir base" (coordenadas do jogo,
-    // 640x480) ou "0" no teclado.txt.
+    // LARGURAxALTURA) ou "0" no teclado.txt.
     private float campoBase = -1;  // base do campo com foco, em pixels da tela (-1: nenhum)
 
     private final Runnable vigiarFoco = new Runnable() {
@@ -263,12 +266,12 @@ public class ElifootActivity extends SDLActivity {
         return b;
     }
 
-    // y do jogo (640x480, -fullscreenAspect) -> y na tela
+    // y do jogo (LARGURAxALTURA, -fullscreenAspect) -> y na tela
     private float paraTela(float yJogo) {
         if (mSurface == null) return -1;
         float w = mSurface.getWidth(), h = mSurface.getHeight();
-        float escala = Math.min(w / 640f, h / 480f);
-        return (h - 480 * escala) / 2f + yJogo * escala;
+        float escala = Math.min(w / LARGURA, h / ALTURA);
+        return (h - ALTURA * escala) / 2f + yJogo * escala;
     }
 
     private void alternarTeclado() {

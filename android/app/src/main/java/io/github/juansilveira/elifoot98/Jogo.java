@@ -68,8 +68,23 @@ public final class Jogo {
         File cod = new File(windows, "eli.cod");
         if (!cod.exists())
             try (InputStream in = ctx.getAssets().open("eli.cod")) { copiar(in, cod); }
+        instalarFontes(ctx);
         system.setLastModified(DATA_FIXA);
         windows.setLastModified(DATA_FIXA);
+    }
+
+    /** Elifoot Sans/Serif (medidas da Arial/Times New Roman, que o jogo usa) em
+     *  C:\windows\Fonts; o iniciar.exe diz ao Wine pra usa-las no lugar delas. */
+    private void instalarFontes(Context ctx) throws IOException {
+        File fonts = new File(windows, "Fonts");
+        fonts.mkdirs();
+        String[] nomes = ctx.getAssets().list("fontes");
+        if (nomes == null) return;
+        for (String nome : nomes) {
+            File f = new File(fonts, nome);
+            if (!f.exists())
+                try (InputStream in = ctx.getAssets().open("fontes/" + nome)) { copiar(in, f); }
+        }
     }
 
     /** "Ativar todos os recursos": grava secondCode (Registro para autor 2) no elif98.ini. */

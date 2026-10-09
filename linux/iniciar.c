@@ -253,6 +253,26 @@ static void ler_comando(void)
     if (w && IsWindow(w)) pra_frente(w);
 }
 
+/* O jogo desenha quase tudo em Arial (e um pouco em Times New Roman). O Wine
+ * do Boxedwine nao tem essas fontes nem o fontconfig do Linux pra achar uma
+ * parecida, e cai numa substituta maior: o texto das listas fica cortado. O app
+ * poe as Liberation (mesmas medidas, licenca livre) em C:\windows\Fonts e aqui
+ * o Wine aprende a troca (Elifoot Sans/Serif: android/fontes). */
+static void trocar_fontes(void)
+{
+    static const char *trocas[][2] = {
+        { "Arial", "Elifoot Sans" },
+        { "Times New Roman", "Elifoot Serif" },
+    };
+    HKEY k;
+    int i;
+    if (RegCreateKeyExA(HKEY_CURRENT_USER, "Software\\Wine\\Fonts\\Replacements", 0, NULL, 0,
+                        KEY_SET_VALUE, NULL, &k, NULL) != ERROR_SUCCESS) return;
+    for (i = 0; i < 2; i++)
+        RegSetValueExA(k, trocas[i][0], 0, REG_SZ, (const BYTE *)trocas[i][1], lstrlenA(trocas[i][1]) + 1);
+    RegCloseKey(k);
+}
+
 /* Primeira janela visivel (com tamanho) do programa aberto: lParam -> HWND */
 static BOOL CALLBACK achar_visivel(HWND w, LPARAM achada)
 {
@@ -300,7 +320,10 @@ int WINAPI WinMain(HINSTANCE inst, HINSTANCE prev, LPSTR cmd, int show)
     }
     /* O Boxedwine nao enxerga arquivos criados fora dele com o jogo aberto:
      * o comando.txt nasce aqui e o app so reescreve o conteudo */
-    if (pasta[0]) gravar_texto("comando.txt", "");
+    if (pasta[0]) {
+        gravar_texto("comando.txt", "");
+        trocar_fontes();
+    }
     if (!CreateProcessA(NULL, cmd, NULL, NULL, FALSE, 0, NULL, NULL, &si, &pi))
         return 1;
     processo_aberto = pi.dwProcessId;

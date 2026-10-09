@@ -75,4 +75,6 @@ i686-w64-mingw32-gcc -O2 -s -mwindows -o "$T/iniciar.exe" "$ROOT/linux/iniciar.c
 rm -rf "$T"
 # eli.cod feito pra data fixa das pastas (o mesmo do Linux/macOS)
 cp "$ROOT/linux/eli.cod" "$A/eli.cod"
+# Fontes com as medidas da Arial/Times New Roman (android/fontes/gerar.py)
+rm -rf "$A/fontes" && mkdir -p "$A/fontes" && cp "$AND"/fontes/*.ttf "$A/fontes/"
 ls -lh "$A"
