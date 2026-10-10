@@ -17,6 +17,22 @@ Windows (`setup .zip`), Linux (`.deb` ou `.AppImage`), macOS (`.zip`) e Android 
 - **Editor de Árbitros**, **Aplicar Patch** e opção de **estrangeiros** Original (com limites) ou Liberado.
 - **Android** — o jogo roda em retrato ou paisagem, com botões na tela, zoom com pinça e táticas indisponíveis em cinza.
 
+## Mudanças no jogo
+
+O launcher traz o `ELIFOOT.EXE` 98.003 com alguns patches, todos documentados:
+
+- **Equipes por divisão** (em Configurações): de 8, o original, até 20.
+  - A temporada passa a ter 2 × (N − 1) jornadas.
+  - A Classificação e a tela da jornada mostram 2 divisões por página.
+  - Com 16 ou mais equipes, sobem e descem 4 por divisão.
+  - A inflação por jornada se ajusta, e cada temporada anda o mesmo que no original.
+  - Um jogo gravado só continua com o número de equipes em que foi começado. O launcher mostra no jogo só os saves desse número, e o Editor de Save e o Scout indicam o número de cada save.
+  - Detalhes em [docs/patch-divisoes.md](docs/patch-divisoes.md).
+- **Até 30 jogadores por equipe**: o jogo tinha 24 nas compras e leilões, e 20 no editor.
+- **Tática 5-0-5** com a tecla **T** no menu Seleccionar.
+
+O que se sabe de como o jogo funciona por dentro está em [docs/elifoot98-interno.md](docs/elifoot98-interno.md).
+
 ## Telas
 
 ### Linux / Windows / macOS
@@ -53,6 +69,7 @@ Em desenvolvimento inicial. Roadmap:
 - [x] Instalador Inno Setup
 - [x] Testes em VM Windows 10 e 11, Linux e Android
 - [x] Editor de Equipes, Scout e Editor de Save nativos
+- [x] Equipes por divisão (8 a 20) e até 30 jogadores por equipe
 - [ ] Testes em Mac
 
 ## Por que este projeto
