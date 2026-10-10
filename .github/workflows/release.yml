@@ -159,6 +159,11 @@ jobs:
             - **Configurações** — resolução da janela e modo fullscreen
               - **Equipes por divisão**: de 8 (original) a 20. Com mais equipes, a temporada tem mais jornadas (2 × (N − 1)), a Classificação e a tela da jornada mostram 2 divisões por página, e com 16 ou mais sobem e descem 4 equipes por divisão. Um jogo gravado só continua com o mesmo número em que foi começado: o launcher deixa na lista do jogo só os saves desse número (os outros ficam em `JOGOS/<N> equipes`)
               - Em todas as opções: até **30 jogadores** por equipe (o jogo tinha 24 nas compras e leilões, 20 no editor)
+
+            ## No jogo
+
+            - **Cartões amarelos** (o original só tinha o vermelho): uns 4 por jogo; o 2º no mesmo jogo vira vermelho 1 vez em 4; 3 acumulados = 1 jogo de suspensão. Aparecem na jornada, nos detalhes da partida, no plantel (**A**), na aba Jogador e no Historial. O Scout mostra os da carreira e o Editor de Save edita os acumulados.
+            - Equipes por divisão de 8 a 20, até 30 jogadores por equipe, tática 5-0-5 (tecla T) e os 258 países do Turbo Elifoot.
             - **Ativar todos os recursos** (em Configurações) — registra o jogo sozinho (Registro para autor 2), sem precisar abrir o menu Registo
 
             ## Instalação

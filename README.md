@@ -12,7 +12,7 @@ Windows (`setup .zip`), Linux (`.deb` ou `.AppImage`), macOS (`.zip`) e Android 
 ## Ferramentas
 
 - **Editor de Equipes** — busca e filtro por país, nota/lesão/comportamento/estrela de cada jogador (o jogo tira do nome), validação com as regras do jogo antes de gravar e cores livres. O editor original continua disponível.
-- **Scout** — todos os jogadores do seu save, com filtros, ordenação por várias colunas, Score (0 a 1000), Impacto e histórico de jogos, gols, lesões e expulsões ([como o score é calculado](docs/score.md)).
+- **Scout** — todos os jogadores do seu save, com filtros, ordenação por várias colunas, Score (0 a 1000), Impacto e histórico de jogos, gols, lesões, amarelos e expulsões ([como o score é calculado](docs/score.md)).
 - **Editor de Save** — inflação, dinheiro, moral, estádio, cores, troca de equipe do treinador e atributos dos jogadores, sempre dentro dos limites do jogo.
 - **Editor de Árbitros**, **Aplicar Patch** e opção de **estrangeiros** Original (com limites) ou Liberado.
 - **Android** — o jogo roda em retrato ou paisagem, com botões na tela, zoom com pinça e táticas indisponíveis em cinza.
@@ -30,6 +30,10 @@ O launcher traz o `ELIFOOT.EXE` 98.003 com alguns patches, todos documentados:
   - Detalhes em [docs/patch-divisoes.md](docs/patch-divisoes.md).
 - **Até 30 jogadores por equipe**: o jogo tinha 24 nas compras e leilões, e 20 no editor.
 - **Tática 5-0-5** com a tecla **T** no menu Seleccionar.
+- **Cartões amarelos**, que o jogo não tinha (uns 4 por jogo, e o vermelho fica mais raro).
+  - O 2º amarelo no mesmo jogo vira vermelho 1 vez em 4; 3 amarelos acumulados dão 1 jogo de suspensão.
+  - Aparecem na tela da jornada, nos detalhes da partida (caixinha "Cartões amarelos"), com **A** no plantel, "N amarelos acumulados" na aba Jogador e a linha "Cartões amarelos" no Historial.
+  - O Scout mostra os amarelos da carreira e o Editor de Save edita os acumulados.
 
 O que se sabe de como o jogo funciona por dentro está em [docs/elifoot98-interno.md](docs/elifoot98-interno.md).
 
@@ -70,6 +74,7 @@ Em desenvolvimento inicial. Roadmap:
 - [x] Testes em VM Windows 10 e 11, Linux e Android
 - [x] Editor de Equipes, Scout e Editor de Save nativos
 - [x] Equipes por divisão (8 a 20) e até 30 jogadores por equipe
+- [x] Cartões amarelos
 - [ ] Testes em Mac
 
 ## Por que este projeto
