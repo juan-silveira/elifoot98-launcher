@@ -736,6 +736,7 @@ namespace ElifootLauncher
             var nota = Campo("Nota", "1 a 10", j.Nota);
             var lesao = Campo("Lesão", "0 = nunca, 10 = muito", j.Lesao);
             var suspenso = Campo("Suspenso (S)", "jogos, 0 a 4", j.Suspensao);
+            var amarelos = Campo("Amarelos (A)", "acumulados, 0 a 2", j.AmarelosAcumulados);
             var lesionado = Campo("Lesionado (L)", "jogos, 0 a 20", j.JogosLesionado);
             var comp = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList };
             comp.Items.AddRange(SaveCodec.ComportamentoLabels);
@@ -758,12 +759,13 @@ namespace ElifootLauncher
             // OK so fecha se tudo estiver dentro dos limites
             ok.Click += (_, _) =>
             {
-                long fo = 0, sal = 0, n = 0, l = 0, su = 0, le = 0;
+                long fo = 0, sal = 0, n = 0, l = 0, su = 0, am = 0, le = 0;
                 var erro = LerInteiro(forca, "Força", SaveCodec.FORCA_MIN, SaveCodec.FORCA_MAX, out fo)
                     ?? LerInteiro(salario, "Salário", SaveCodec.SALARIO_MIN, SaveCodec.SALARIO_MAX, out sal)
                     ?? LerInteiro(nota, "Nota", 1, 10, out n)
                     ?? LerInteiro(lesao, "Lesão", 0, 10, out l)
                     ?? LerInteiro(suspenso, "Suspenso", 0, SaveCodec.SUSPENSAO_MAX, out su)
+                    ?? LerInteiro(amarelos, "Amarelos", 0, SaveCodec.AMARELOS_ACUMULADOS_MAX, out am)
                     ?? LerInteiro(lesionado, "Lesionado", 0, SaveCodec.JOGOS_LESIONADO_MAX, out le);
                 if (erro != null)
                 {
@@ -780,6 +782,7 @@ namespace ElifootLauncher
                 j.Nota = (int)n;
                 j.Lesao = (int)l;
                 j.Suspensao = (int)su;
+                j.AmarelosAcumulados = (int)am;
                 j.JogosLesionado = (int)le;
                 j.Comportamento = comp.SelectedIndex;
                 f.DialogResult = DialogResult.OK;

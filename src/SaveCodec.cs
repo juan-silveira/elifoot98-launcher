@@ -33,6 +33,8 @@ namespace ElifootLauncher
         // e das expulsoes (t46 acumulados; t47 e a marca do jogo do ultimo amarelo)
         public int AmarelosCarreira { get; set; }
         public int AmarelosAcumulados { get; set; }
+        // So o byte t46 (acumulados); t47 (marca do jogo) nunca e escrito
+        public int AmarelosAcumuladosOffsetInFile { get; set; } = -1;
         public int NotaOffsetInFile { get; set; } = -1;
         public int LesaoOffsetInFile { get; set; } = -1;
         public int ComportamentoOffsetInFile { get; set; } = -1;
@@ -149,6 +151,8 @@ namespace ElifootLauncher
         public const long DINHEIRO_MAX = 999_999_999;
         // Suspensao sorteada de 1 a 4 jogos, lesao de 1 a 20 (seg03:48be, seg03:4940)
         public const int SUSPENSAO_MAX = 4, JOGOS_LESIONADO_MAX = 20;
+        // Amarelos acumulados: o 3o amarelo vira 1 jogo de suspensao, entao 0 a 2
+        public const int AMARELOS_ACUMULADOS_MAX = 2;
         public const double INFLACAO_MIN = 0.5, INFLACAO_MAX = 10.0;
         public const double MORAL_MAX = 2.0;
         public const int FORCA_MIN = 1;
@@ -335,6 +339,7 @@ namespace ElifootLauncher
                         AmarelosCarreira = BitConverter.ToUInt16(bytes, bodyStart + recOff + recSize - 8),
                         Expulsoes = BitConverter.ToUInt16(bytes, bodyStart + recOff + recSize - 6),
                         AmarelosAcumulados = bytes[bodyStart + recOff + recSize - 4],
+                        AmarelosAcumuladosOffsetInFile = bodyStart + recOff + recSize - 4,
                     };
                     team.Players.Add(p);
                 }
@@ -503,6 +508,10 @@ namespace ElifootLauncher
                         Array.Copy(BitConverter.GetBytes((short)Math.Max(0, Math.Min(SUSPENSAO_MAX, p.Suspensao))), 0, bytes, p.SuspensaoOffsetInFile, 2);
                     if (p.JogosLesionadoOffsetInFile > 0)
                         Array.Copy(BitConverter.GetBytes((short)Math.Max(0, Math.Min(JOGOS_LESIONADO_MAX, p.JogosLesionado))), 0, bytes, p.JogosLesionadoOffsetInFile, 2);
+                    // So grava se mudou: um valor fora de 0..2 ja no save fica como esta
+                    if (p.AmarelosAcumuladosOffsetInFile > 0 && p.AmarelosAcumuladosOffsetInFile < bytes.Length
+                        && p.AmarelosAcumulados != bytes[p.AmarelosAcumuladosOffsetInFile])
+                        bytes[p.AmarelosAcumuladosOffsetInFile] = (byte)Math.Max(0, Math.Min(AMARELOS_ACUMULADOS_MAX, p.AmarelosAcumulados));
                     if (p.LesaoOffsetInFile > 0)
                         Array.Copy(BitConverter.GetBytes((short)Math.Max(0, Math.Min(10, p.Lesao))), 0, bytes, p.LesaoOffsetInFile, 2);
                     if (p.ComportamentoOffsetInFile > 0)

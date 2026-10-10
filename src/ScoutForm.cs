@@ -23,10 +23,10 @@ namespace ElifootLauncher
             FontePequena = new Font("Segoe UI", 8F), FonteTitulo = new Font("Segoe UI", 16F, FontStyle.Bold),
             FonteCartao = new Font("Segoe UI", 8.5F, FontStyle.Bold), FonteLista = new Font("Segoe UI", 10F);
         // A estrela logo depois do nome; equipe depois dos numeros
-        // Jogos, Gols, Lesoes e Expuls. sao o historial do jogador no save
+        // Jogos, Gols, Lesoes, Amar. e Expuls. sao o historial do jogador no save (Amar. = amarelos na carreira)
         // Score e Impacto: src/Score.cs (o botao "?" explica cada coluna)
-        private static readonly string[] Titulos = { "Pos", "Nome", "✱", "Score", "País", "Força", "Nota", "Lesão", "Comport.", "Impacto", "Jogos", "Gols", "Lesões", "Expuls.", "Equipe", "Div.", "Salário", "Situação" };
-        private static readonly int[] Larguras = { 46, 200, 30, 72, 80, 70, 62, 66, 106, 80, 66, 58, 72, 76, 170, 56, 96, 84 };
+        private static readonly string[] Titulos = { "Pos", "Nome", "✱", "Score", "País", "Força", "Nota", "Lesão", "Comport.", "Impacto", "Jogos", "Gols", "Lesões", "Amar.", "Expuls.", "Equipe", "Div.", "Salário", "Situação" };
+        private static readonly int[] Larguras = { 46, 200, 30, 72, 80, 70, 62, 66, 106, 80, 66, 58, 72, 66, 76, 170, 56, 96, 84 };
 
         private sealed class Linha
         {
@@ -67,7 +67,7 @@ namespace ElifootLauncher
             _regras = new RegrasEquipe(gameDir, paises);
 
             Text = "Scout";
-            ClientSize = new Size(1720, 900);
+            ClientSize = new Size(1786, 900);
             MinimumSize = new Size(960, 560);
             Tela.CaberNaTela(this);
             StartPosition = FormStartPosition.CenterParent;
@@ -115,8 +115,8 @@ namespace ElifootLauncher
             (a == HorizontalAlignment.Center ? TextFormatFlags.HorizontalCenter : a == HorizontalAlignment.Right ? TextFormatFlags.Right : TextFormatFlags.Left);
 
         private static HorizontalAlignment Alinhamento(int i) =>
-            i == 1 || i == 4 || i == 8 || i == 14 || i == 17 ? HorizontalAlignment.Left
-            : i == 0 || i == 2 || i == 15 ? HorizontalAlignment.Center : HorizontalAlignment.Right;
+            i == 1 || i == 4 || i == 8 || i == 15 || i == 18 ? HorizontalAlignment.Left
+            : i == 0 || i == 2 || i == 16 ? HorizontalAlignment.Center : HorizontalAlignment.Right;
 
         // ---- montagem ----
 
@@ -295,7 +295,7 @@ namespace ElifootLauncher
             string sit = sl.Length > 0 ? sl : l.Situacao == "Estrangeiro" ? "Estrang." : l.Situacao;
             return new[] { j.Posicao, j.Nome, j.Estrela ? "✱" : "", l.Score.ToString(), j.Pais, j.Forca.ToString(), j.Nota.ToString(), j.Lesao.ToString(),
                 SaveCodec.ComportamentoLabels[Math.Max(0, Math.Min(5, j.Comportamento))], Score.TextoImpacto(l.Impacto),
-                j.Jogos.ToString(), j.Gols.ToString(), j.Lesoes.ToString(), j.Expulsoes.ToString(), l.Equipe.NomeExibido,
+                j.Jogos.ToString(), j.Gols.ToString(), j.Lesoes.ToString(), j.AmarelosCarreira.ToString(), j.Expulsoes.ToString(), l.Equipe.NomeExibido,
                 l.OrdemDivisao <= 4 ? l.OrdemDivisao + "ª" : l.OrdemDivisao == 5 ? "Dist." : "—", Milhar(j.Salario), sit };
         }
 
@@ -320,11 +320,11 @@ namespace ElifootLauncher
                 return;
             }
             var cor = Color.White;
-            if (e.ColumnIndex == 14 && l.Humana) cor = Amarelo;
+            if (e.ColumnIndex == 15 && l.Humana) cor = Amarelo;
             else if (e.ColumnIndex == 5 && l.J.Forca > SaveCodec.FORCA_WARN_ABOVE) cor = Amarelo;
             else if (e.ColumnIndex == 2 || e.ColumnIndex == 3) cor = Ouro;
             else if (e.ColumnIndex == 9) cor = l.Impacto > 0.004 ? Ok : l.Impacto < -0.004 ? Alerta : Color.White;
-            else if (e.ColumnIndex == 17) cor = e.SubItem.Text == "" || e.SubItem.Text == "Bosman" || e.SubItem.Text == "PLOP" ? Ok : Alerta;
+            else if (e.ColumnIndex == 18) cor = e.SubItem.Text == "" || e.SubItem.Text == "Bosman" || e.SubItem.Text == "PLOP" ? Ok : Alerta;
             TextRenderer.DrawText(e.Graphics, e.SubItem.Text, e.ColumnIndex == 1 || e.ColumnIndex == 3 || e.ColumnIndex == 5 ? FonteNegrito : _lista.Font,
                 Rectangle.Inflate(e.Bounds, -6, 0), cor, Formato(Alinhamento(e.ColumnIndex)));
         }
@@ -456,7 +456,7 @@ namespace ElifootLauncher
         }
 
         // Numeros comecam do maior; textos e lesao/comportamento, do menor
-        private static bool SentidoPadrao(int coluna) => coluna == 2 || coluna == 3 || coluna == 5 || coluna == 6 || coluna == 9 || coluna == 10 || coluna == 11 || coluna == 16;
+        private static bool SentidoPadrao(int coluna) => coluna == 2 || coluna == 3 || coluna == 5 || coluna == 6 || coluna == 9 || coluna == 10 || coluna == 11 || coluna == 17;
 
         private sealed class Criterio
         {
@@ -485,11 +485,12 @@ namespace ElifootLauncher
             10 => x => x.J.Jogos,
             11 => x => x.J.Gols,
             12 => x => x.J.Lesoes,
-            13 => x => x.J.Expulsoes,
-            14 => x => x.Equipe.NomeExibido,
-            15 => x => x.OrdemDivisao,
-            16 => x => x.J.Salario,
-            17 => x => x.Situacao,
+            13 => x => x.J.AmarelosCarreira,
+            14 => x => x.J.Expulsoes,
+            15 => x => x.Equipe.NomeExibido,
+            16 => x => x.OrdemDivisao,
+            17 => x => x.J.Salario,
+            18 => x => x.Situacao,
             _ => x => x.J.Forca,
         };
 

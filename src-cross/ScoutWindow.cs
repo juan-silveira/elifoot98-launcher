@@ -20,10 +20,10 @@ namespace ElifootLauncher
     public class ScoutWindow : Window
     {
         // A estrela logo depois do nome; equipe depois dos numeros
-        // Jogos, Gols, Lesoes e Expuls. sao o historial do jogador no save
+        // Jogos, Gols, Lesoes, Amar. e Expuls. sao o historial do jogador no save (Amar. = amarelos na carreira)
         // Score e Impacto: src/Score.cs (o botao "?" explica cada coluna)
-        private const string Colunas = "40,*,26,70,74,66,60,64,100,78,66,56,70,74,150,60,92,70";
-        private static readonly string[] Titulos = { "Pos", "Nome", "✱", "Score", "País", "Força", "Nota", "Lesão", "Comport.", "Impacto", "Jogos", "Gols", "Lesões", "Expuls.", "Equipe", "Div.", "Salário", "Situação" };
+        private const string Colunas = "40,*,26,70,74,66,60,64,100,78,66,56,70,62,74,150,60,92,70";
+        private static readonly string[] Titulos = { "Pos", "Nome", "✱", "Score", "País", "Força", "Nota", "Lesão", "Comport.", "Impacto", "Jogos", "Gols", "Lesões", "Amar.", "Expuls.", "Equipe", "Div.", "Salário", "Situação" };
 
         private sealed class Linha
         {
@@ -72,7 +72,7 @@ namespace ElifootLauncher
             _regras = new RegrasEquipe(gameDir, paises);
 
             Title = "Scout";
-            Width = 1720;
+            Width = 1786;
             Height = 900;
             MinWidth = 820;
             MinHeight = 560;
@@ -256,8 +256,8 @@ namespace ElifootLauncher
         };
 
         private static HorizontalAlignment Alinhamento(int i) =>
-            i == 1 || i == 4 || i == 8 || i == 14 || i == 17 ? HorizontalAlignment.Left
-            : i == 0 || i == 2 || i == 15 ? HorizontalAlignment.Center : HorizontalAlignment.Right;
+            i == 1 || i == 4 || i == 8 || i == 15 || i == 18 ? HorizontalAlignment.Left
+            : i == 0 || i == 2 || i == 16 ? HorizontalAlignment.Center : HorizontalAlignment.Right;
 
         // Ligado: cor da posicao; desligado: verde escuro (o tema pintaria de azul)
         private void PintarPosicoes()
@@ -309,7 +309,7 @@ namespace ElifootLauncher
             string sit = sl.Length > 0 ? sl : l.Situacao == "Estrangeiro" ? "Estrang." : l.Situacao;
             var textos = new[] { "", j.Nome, j.Estrela ? "✱" : "", l.Score.ToString(), j.Pais, j.Forca.ToString(), j.Nota.ToString(), j.Lesao.ToString(),
                 SaveCodec.ComportamentoLabels[Math.Max(0, Math.Min(5, j.Comportamento))], Score.TextoImpacto(l.Impacto),
-                j.Jogos.ToString(), j.Gols.ToString(), j.Lesoes.ToString(), j.Expulsoes.ToString(), l.Equipe.NomeExibido,
+                j.Jogos.ToString(), j.Gols.ToString(), j.Lesoes.ToString(), j.AmarelosCarreira.ToString(), j.Expulsoes.ToString(), l.Equipe.NomeExibido,
                 l.OrdemDivisao <= 4 ? l.OrdemDivisao + "ª" : l.OrdemDivisao == 5 ? "Dist." : "—", Milhar(j.Salario), sit };
             var g = new Grid { ColumnDefinitions = new ColumnDefinitions(Colunas) };
             for (int i = 0; i < textos.Length; i++)
@@ -336,12 +336,12 @@ namespace ElifootLauncher
                 {
                     var tb = Texto(textos[i], 14, Branco, i == 1 || i == 3 || i == 5);
                     tb.TextTrimming = TextTrimming.CharacterEllipsis;
-                    if (i == 14 && l.Humana) tb.Foreground = Amarelo;
+                    if (i == 15 && l.Humana) tb.Foreground = Amarelo;
                     if (i == 3) tb.Foreground = Ouro;
                     if (i == 9) tb.Foreground = l.Impacto > 0.004 ? Ok : l.Impacto < -0.004 ? Alerta : Branco;
                     if (i == 5 && j.Forca > SaveCodec.FORCA_WARN_ABOVE) tb.Foreground = Amarelo;
                     if (i == 2) tb.Foreground = Ouro;
-                    if (i == 17) tb.Foreground = sl.Length > 0 || l.Situacao == "Estrangeiro" ? Alerta : Ok;
+                    if (i == 18) tb.Foreground = sl.Length > 0 || l.Situacao == "Estrangeiro" ? Alerta : Ok;
                     c = tb;
                 }
                 c.VerticalAlignment = VerticalAlignment.Center;
@@ -481,7 +481,7 @@ namespace ElifootLauncher
         }
 
         // Numeros comecam do maior; textos e lesao/comportamento, do menor
-        private static bool SentidoPadrao(int coluna) => coluna == 2 || coluna == 3 || coluna == 5 || coluna == 6 || coluna == 9 || coluna == 10 || coluna == 11 || coluna == 16;
+        private static bool SentidoPadrao(int coluna) => coluna == 2 || coluna == 3 || coluna == 5 || coluna == 6 || coluna == 9 || coluna == 10 || coluna == 11 || coluna == 17;
 
         private sealed class Criterio
         {
@@ -510,11 +510,12 @@ namespace ElifootLauncher
             10 => x => x.J.Jogos,
             11 => x => x.J.Gols,
             12 => x => x.J.Lesoes,
-            13 => x => x.J.Expulsoes,
-            14 => x => x.Equipe.NomeExibido,
-            15 => x => x.OrdemDivisao,
-            16 => x => x.J.Salario,
-            17 => x => x.Situacao,
+            13 => x => x.J.AmarelosCarreira,
+            14 => x => x.J.Expulsoes,
+            15 => x => x.Equipe.NomeExibido,
+            16 => x => x.OrdemDivisao,
+            17 => x => x.J.Salario,
+            18 => x => x.Situacao,
             _ => x => x.J.Forca,
         };
 

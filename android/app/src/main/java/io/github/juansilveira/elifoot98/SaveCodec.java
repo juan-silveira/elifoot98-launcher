@@ -24,6 +24,8 @@ public final class SaveCodec {
     public static final long DINHEIRO_MAX = 999_999_999L;
     // Suspensao sorteada de 1 a 4 jogos, lesao de 1 a 20 (seg03:48be, seg03:4940)
     public static final int SUSPENSAO_MAX = 4, JOGOS_LESIONADO_MAX = 20;
+    // Amarelos acumulados: o 3o amarelo vira 1 jogo de suspensao, entao 0 a 2
+    public static final int AMARELOS_ACUMULADOS_MAX = 2;
     public static final double INFLACAO_MIN = 0.5, INFLACAO_MAX = 10.0, MORAL_MAX = 2.0;
     private static final byte[] EFT_MAGIC = {'E', 'F', 'a', 0};
 
@@ -39,6 +41,8 @@ public final class SaveCodec {
         // e das expulsoes (t46 acumulados; t47 e a marca do jogo do ultimo amarelo)
         public int amarelosCarreira, amarelosAcumulados;
         int forcaOff, salarioOff, notaOff = -1, lesaoOff = -1, compOff = -1, estrelaOff = -1, suspensaoOff = -1, jogosLesionadoOff = -1;
+        // So o byte t46 (acumulados); t47 (marca do jogo) nunca e escrito
+        int amarelosAcumuladosOff = -1;
     }
 
     // Regra do jogo (seg03:7516): estrela = Nota >= 8 e posicao Meio ou Avancado
@@ -220,6 +224,7 @@ public final class SaveCodec {
                 j.lesoes = u16(b, base - 10);
                 j.amarelosCarreira = u16(b, base - 8);
                 j.expulsoes = u16(b, base - 6);
+                j.amarelosAcumuladosOff = base - 4;
                 j.amarelosAcumulados = b[base - 4] & 0xff;
                 t.jogadores.add(j);
             }
@@ -356,6 +361,9 @@ public final class SaveCodec {
                 put16(b, j.lesaoOff, Math.max(0, Math.min(10, j.lesao)));
                 put16(b, j.suspensaoOff, Math.max(0, Math.min(SUSPENSAO_MAX, j.suspensao)));
                 put16(b, j.jogosLesionadoOff, Math.max(0, Math.min(JOGOS_LESIONADO_MAX, j.jogosLesionado)));
+                // So grava se mudou: um valor fora de 0..2 ja no save fica como esta
+                if (j.amarelosAcumuladosOff > 0 && j.amarelosAcumuladosOff < b.length && j.amarelosAcumulados != (b[j.amarelosAcumuladosOff] & 0xff))
+                    b[j.amarelosAcumuladosOff] = (byte) Math.max(0, Math.min(AMARELOS_ACUMULADOS_MAX, j.amarelosAcumulados));
                 put16(b, j.compOff, Math.max(0, Math.min(5, j.comportamento)));
             }
         }

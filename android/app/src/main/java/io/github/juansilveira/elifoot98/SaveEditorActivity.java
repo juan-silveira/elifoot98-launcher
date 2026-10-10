@@ -768,6 +768,7 @@ public class SaveEditorActivity extends Activity {
         EditText nota = campoFicha(g, "Nota", "1 a 10", j.nota);
         EditText lesao = campoFicha(g, "Lesão", "0 = nunca, 10 = muito", j.lesao);
         EditText suspenso = campoFicha(g, "Suspenso (S)", "jogos, 0 a 4", j.suspensao);
+        EditText amarelos = campoFicha(g, "Amarelos (A)", "acumulados, 0 a 2", j.amarelosAcumulados);
         EditText lesionado = campoFicha(g, "Lesionado (L)", "jogos, 0 a 20", j.jogosLesionado);
         // Estrela ao vivo: se a nota mudar, segue a regra do jogo; senao mantem a do save
         Runnable mostrarEstrela = () -> {
@@ -805,6 +806,7 @@ public class SaveEditorActivity extends Activity {
                 int n = ler(nota, "Nota", 1, 10);
                 int l = ler(lesao, "Lesão", 0, 10);
                 int su = ler(suspenso, "Suspenso", 0, SaveCodec.SUSPENSAO_MAX);
+                int am = ler(amarelos, "Amarelos", 0, SaveCodec.AMARELOS_ACUMULADOS_MAX);
                 int le = ler(lesionado, "Lesionado", 0, SaveCodec.JOGOS_LESIONADO_MAX);
                 if (n != j.nota) j.estrela = SaveCodec.temEstrela(j.posicao, n);
                 j.forca = f;
@@ -812,6 +814,7 @@ public class SaveEditorActivity extends Activity {
                 j.nota = n;
                 j.lesao = l;
                 j.suspensao = su;
+                j.amarelosAcumulados = am;
                 j.jogosLesionado = le;
                 j.comportamento = comp.getSelectedItemPosition();
                 adapterJogadores.notifyDataSetChanged();

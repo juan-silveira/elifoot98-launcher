@@ -40,8 +40,8 @@ public final class Score {
             "Impacto: pontos por temporada (14 jogos) que o time ganha ou perde com ele, comparado a um jogador da mesma posição sem estrela, " +
             "Lesão 0 e Fair Play (medido em simulações). O jogo sorteia por minuto se o time terá uma lesão ou expulsão; Lesão e Comportamento " +
             "só escolhem quem sofre. Por isso um atacante violento ou um defesa frágil podem até ajudar: atraem os problemas que iriam para o goleiro ou para as estrelas.\n\n" +
-            "Jogos, Gols, Lesões, Expuls.: o histórico do jogador no save (gols desta temporada).\n\n" +
-            "Sit.: S = suspenso por N jogos, L = lesionado por N jogos; Estrang. = conta como estrangeiro (Bosman e PLOP não contam).";
+            "Jogos, Gols, Lesões, Amar., Expuls.: o histórico do jogador no save (gols desta temporada; Amar. = cartões amarelos na carreira).\n\n" +
+            "Sit.: S = suspenso por N jogos, A = N amarelos acumulados (o 3º suspende por 1 jogo), L = lesionado por N jogos; Estrang. = conta como estrangeiro (Bosman e PLOP não contam).";
 
     // Impacto no time: pontos por temporada contra um jogador de referencia da mesma posicao
     public static double impacto(String posicao, int nota, int lesao, int comportamento) {

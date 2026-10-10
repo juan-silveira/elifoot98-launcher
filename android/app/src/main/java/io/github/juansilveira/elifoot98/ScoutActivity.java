@@ -54,14 +54,15 @@ public class ScoutActivity extends Activity {
     private static final Locale BR = new Locale("pt", "BR");
     // Equipe depois dos numeros; a estrela logo depois do nome
     // Score = rendimento (0 a 1000) e Impacto = pontos por temporada no time (docs/score.md)
-    private static final String[] TITULOS = {"Pos", "Nome", "✱", "Score", "Força", "Nota", "Lesão", "Comport.", "Impacto", "Jogos", "Gols", "Lesões", "Expuls.", "Equipe", "Sit."};
-    // Deitado com filtros abertos o historial (jogos, gols, lesoes, expulsoes) fica escondido (-1);
+    // Jogos, Gols, Lesoes, Amar. e Expuls. sao o historial do jogador no save (Amar. = amarelos na carreira)
+    private static final String[] TITULOS = {"Pos", "Nome", "✱", "Score", "Força", "Nota", "Lesão", "Comport.", "Impacto", "Jogos", "Gols", "Lesões", "Amar.", "Expuls.", "Equipe", "Sit."};
+    // Deitado com filtros abertos o historial (jogos, gols, lesoes, amarelos, expulsoes) fica escondido (-1);
     // com os filtros recolhidos a tabela ganha a largura e mostra tudo
-    private static final int[] LARGURAS = {28, 0, 14, 60, 56, 48, 56, 84, -1, -1, -1, -1, -1, 130, 64};
-    private static final int[] LARGURAS_SEM_FILTROS = {28, 0, 14, 60, 56, 48, 56, 84, 72, 56, 48, 60, 64, 130, 64};
+    private static final int[] LARGURAS = {28, 0, 14, 60, 56, 48, 56, 84, -1, -1, -1, -1, -1, -1, 130, 64};
+    private static final int[] LARGURAS_SEM_FILTROS = {28, 0, 14, 60, 56, 48, 56, 84, 72, 56, 48, 60, 56, 64, 130, 64};
     // Em pe: sem a coluna de comportamento (-1 = escondida) e equipe mais estreita
     // Em pe: colunas na largura cheia e a tabela rola para os lados (nada truncado)
-    private static final int[] LARGURAS_EM_PE = {28, 0, 16, 60, 56, 48, 56, 100, 72, 56, 48, 60, 64, 150, 70};
+    private static final int[] LARGURAS_EM_PE = {28, 0, 16, 60, 56, 48, 56, 100, 72, 56, 48, 60, 56, 64, 150, 70};
     private int[] larguras = LARGURAS;
     private static final int NOME_MIN = 150;
     private int nomePx, visivelPx;
@@ -441,11 +442,11 @@ public class ScoutActivity extends Activity {
     }
 
     private static int gravidade(int i) {
-        return i == 1 || i == 7 || i == 13 || i == 14 ? Gravity.START | Gravity.CENTER_VERTICAL
+        return i == 1 || i == 7 || i == 14 || i == 15 ? Gravity.START | Gravity.CENTER_VERTICAL
             : i == 0 || i == 2 ? Gravity.CENTER : Gravity.END | Gravity.CENTER_VERTICAL;
     }
 
-    private int margem(int i) { return i == 0 ? 0 : i == 13 ? dp(14) : dp(5); }
+    private int margem(int i) { return i == 0 ? 0 : i == 14 ? dp(14) : dp(5); }
 
     private LinearLayout.LayoutParams params(int i) {
         if (larguras[i] < 0) return new LinearLayout.LayoutParams(0, 0);   // coluna escondida
@@ -484,7 +485,7 @@ public class ScoutActivity extends Activity {
             linha.setBackgroundColor(i % 2 == 0 ? VERDE_LINHA : VERDE_CARTAO);
             String[] textos = {j.posicao, j.nome, j.estrela ? "✱" : "", Integer.toString(l.score), Integer.toString(j.forca), Integer.toString(j.nota),
                 Integer.toString(j.lesao), SaveCodec.COMPORTAMENTOS[Math.max(0, Math.min(5, j.comportamento))], Score.textoImpacto(l.impacto),
-                Integer.toString(j.jogos), Integer.toString(j.gols), Integer.toString(j.lesoes), Integer.toString(j.expulsoes), l.equipe.nomeCurto(), sit};
+                Integer.toString(j.jogos), Integer.toString(j.gols), Integer.toString(j.lesoes), Integer.toString(j.amarelosCarreira), Integer.toString(j.expulsoes), l.equipe.nomeCurto(), sit};
             for (int c = 0; c < textos.length; c++) {
                 View celula;
                 if (c == 1) {
@@ -502,7 +503,7 @@ public class ScoutActivity extends Activity {
                     n.addView(t, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1));
                     celula = n;
                 } else {
-                    TextView t = texto(textos[c], c == 13 ? 13 : 14, BRANCO, c == 0 || c == 3 || c == 4);
+                    TextView t = texto(textos[c], c == 14 ? 13 : 14, BRANCO, c == 0 || c == 3 || c == 4);
                     t.setSingleLine(true);
                     t.setEllipsize(TextUtils.TruncateAt.END);
                     t.setGravity(gravidade(c));
@@ -510,12 +511,12 @@ public class ScoutActivity extends Activity {
                         int p = Math.max(0, l.pos);
                         t.setBackground(SeletorCor.fundo(CORES_POS[p], 0, 4));
                     }
-                    if (c == 13 && l.humana) t.setTextColor(AMARELO);
+                    if (c == 14 && l.humana) t.setTextColor(AMARELO);
                     if (c == 3) t.setTextColor(OURO);
                     if (c == 8) t.setTextColor(l.impacto > 0.004 ? OK : l.impacto < -0.004 ? ALERTA : BRANCO);
                     if (c == 4 && j.forca > SaveCodec.FORCA_AVISO_ACIMA) t.setTextColor(AMARELO);
                     if (c == 2) t.setTextColor(OURO);
-                    if (c == 14) t.setTextColor(!sl.isEmpty() || l.situacao.equals("Estrangeiro") ? ALERTA : OK);
+                    if (c == 15) t.setTextColor(!sl.isEmpty() || l.situacao.equals("Estrangeiro") ? ALERTA : OK);
                     celula = t;
                 }
                 linha.addView(celula, params(c));
@@ -714,9 +715,10 @@ public class ScoutActivity extends Activity {
             case 9: return Comparator.comparingInt(x -> x.j.jogos);
             case 10: return Comparator.comparingInt(x -> x.j.gols);
             case 11: return Comparator.comparingInt(x -> x.j.lesoes);
-            case 12: return Comparator.comparingInt(x -> x.j.expulsoes);
-            case 13: return (a, b) -> col.compare(a.equipe.nomeCurto(), b.equipe.nomeCurto());
-            case 14: return (a, b) -> a.situacao.compareTo(b.situacao);
+            case 12: return Comparator.comparingInt(x -> x.j.amarelosCarreira);
+            case 13: return Comparator.comparingInt(x -> x.j.expulsoes);
+            case 14: return (a, b) -> col.compare(a.equipe.nomeCurto(), b.equipe.nomeCurto());
+            case 15: return (a, b) -> a.situacao.compareTo(b.situacao);
             default: return Comparator.comparingInt(x -> x.j.forca);
         }
     }
