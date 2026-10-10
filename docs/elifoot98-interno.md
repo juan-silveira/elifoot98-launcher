@@ -952,8 +952,17 @@ passam a ler só os 2 bytes de baixo.
   suspensão, "N amarelo(s) acumulado(s)". O texto "Suspenso por 1 jogo" do
   original (`seg04:2266`) deu lugar a `" jogo"`; os textos dos amarelos ficam no
   fim do `seg04`.
-- O Historial ainda não tem a linha dos amarelos na carreira (só o Editor de Save
-  e o Scout mostram o número).
+- O **Historial** ganha a linha "Cartões amarelos" (amarelos na carreira, `+0x21`)
+  acima de "Cartões vermelhos", nas 3 janelas que o mostram: venda
+  (`sellPlayerDlg`, `seg02:32BF`), aba Jogador (`prepareGameDlg`, `seg04:246F`) e
+  plantel de outra equipa (`PlantelDlg`, `seg10:204C`). Em cada uma, os 4 blocos
+  que punham golos, golos, vermelhos e lesões (IntToStr + SetText, 41 ou 53
+  bytes cada) viram um laço por uma tabela de 5 linhas (`historial.asm`). No
+  DFM, o texto fixo "Cartões vermelhos" muda de nome e o campo dele no
+  formulário (que o código nunca usava) passa a ser o número novo; as 5 linhas
+  ficam a 16 pontos. O DFM cresce dentro do enchimento que o recurso já tinha
+  (o tamanho na tabela de recursos já o inclui). O `si` não é preservado pelas
+  rotinas chamadas (`IntToStr` o muda).
 
 **Medido** (Linux, tela virtual; jogo novo com 20 equipes por divisão e todos os
 países, 3 jornadas, uns 145 jogos cada):
