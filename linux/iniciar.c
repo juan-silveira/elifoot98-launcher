@@ -60,7 +60,9 @@ static void pra_frente(HWND w)
 }
 
 /* Janela "de verdade" do jogo: visivel, com tamanho e titulo (fora a
- * TApplication do Delphi, de tamanho zero, e listas de combo/menus) */
+ * TApplication do Delphi, de tamanho zero, listas de combo/menus e a dica
+ * amarela do Delphi, THintWindow: trazida pra frente, ela tira o foco do campo
+ * e o iniciar.exe trava no SetWindowPos) */
 static BOOL janela_do_jogo(HWND w)
 {
     DWORD pid;
@@ -71,7 +73,7 @@ static BOOL janela_do_jogo(HWND w)
     GetWindowRect(w, &r);
     if (r.right - r.left <= 0 || r.bottom - r.top <= 0) return FALSE;
     GetClassNameA(w, classe, sizeof(classe));
-    return lstrcmpiA(classe, "ComboLBox") != 0 && lstrcmpiA(classe, "#32768") != 0;
+    return lstrcmpiA(classe, "ComboLBox") != 0 && lstrcmpiA(classe, "#32768") != 0 && strstr(classe, "Hint") == NULL;
 }
 
 static BOOL CALLBACK listar(HWND w, LPARAM nao_usado)
@@ -136,6 +138,14 @@ static void atualizar_teclado(void)
     }
 }
 
+static BOOL do_jogo_habilitada(HWND w)
+{
+    int i;
+    if (!w || !IsWindowEnabled(w)) return FALSE;
+    for (i = 0; i < n_atuais; i++) if (atuais[i] == w) return TRUE;
+    return FALSE;
+}
+
 /* Lista as janelas do jogo, traz pra frente as novas (ou a modal escondida que
  * bloqueia a principal) e grava janelas.txt quando algo muda */
 static void atualizar_janelas(HWND principal)
@@ -152,8 +162,13 @@ static void atualizar_janelas(HWND principal)
         if (!nova && !ja_vista(atuais[i])) nova = atuais[i];
         if (!habilitada && atuais[i] != principal && IsWindowEnabled(atuais[i])) habilitada = atuais[i];
     }
-    if (nova && nova != principal && GetForegroundWindow() != nova) pra_frente(nova);
-    else if (!IsWindowEnabled(principal) && habilitada && GetForegroundWindow() != habilitada) pra_frente(habilitada);
+    frente = GetForegroundWindow();
+    if (nova && nova != principal && frente != nova) pra_frente(nova);
+    /* a principal bloqueada por uma modal escondida: traz uma que aceita toque, mas so
+     * se a da frente nao aceitar (a janela de progresso "A iniciar o jogo..." fica
+     * habilitada ao lado do dialogo Jogadores: trocar sempre roubava o foco dele) */
+    else if (!IsWindowEnabled(principal) && habilitada && frente != habilitada && !do_jogo_habilitada(frente))
+        pra_frente(habilitada);
     memcpy(vistas, atuais, sizeof(HWND) * n_atuais);
     n_vistas = n_atuais;
 
