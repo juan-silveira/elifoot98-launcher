@@ -73,8 +73,9 @@ namespace ElifootLauncher
                 }
             };
 
-            // Estrangeiros: Original (BOSMAN.TXE do jogo) ou Liberado (os 217 paises
-            // do COUNTRY.TXE no BOSMAN.TXE, como fez o Turbo Score)
+            // Estrangeiros: Original (BOSMAN.TXE que vem com o launcher: a UE atual e o
+            // Reino Unido) ou Liberado (todos os paises do COUNTRY.TXE no BOSMAN.TXE,
+            // como fez o Turbo Score)
             var estrangeiros = new ComboBox
             {
                 HorizontalAlignment = HorizontalAlignment.Stretch,

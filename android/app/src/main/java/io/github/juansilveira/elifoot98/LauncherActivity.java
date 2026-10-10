@@ -175,12 +175,13 @@ public class LauncherActivity extends Activity {
             .show();
     }
 
-    // Original: BOSMAN.TXE do jogo (18 paises). Liberado: os 217 paises do
-    // COUNTRY.TXE, entao ninguem conta como estrangeiro (como fez o Turbo Score)
+    // Original: BOSMAN.TXE que vem com o launcher (a UE atual e o Reino Unido, como no
+    // patch do Turbo Elifoot). Liberado: todos os paises do COUNTRY.TXE, entao ninguem
+    // conta como estrangeiro (como fez o Turbo Score)
     private void estrangeiros(boolean liberado) {
         String[] opcoes = {
             "Original — até 5 estrangeiros por equipe (Lei Bosman e língua portuguesa não contam)",
-            "Liberado — sem limite de estrangeiros (todos os 217 países na lista Bosman)",
+            "Liberado — sem limite de estrangeiros (todos os países do jogo na lista Bosman)",
         };
         new AlertDialog.Builder(this)
             .setTitle("Estrangeiros")

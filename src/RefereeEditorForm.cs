@@ -11,7 +11,7 @@ namespace ElifootLauncher
 {
     // Editor de Arbitros (REFEREE.TXE) no visual verde dos outros editores.
     // Esquerda: a lista com bandeira. Direita: o arbitro escolhido, com o pais
-    // escolhido entre os 217 do COUNTRY.TXE. "Original" volta a lista que veio
+    // escolhido entre os paises do COUNTRY.TXE. "Original" volta a lista que veio
     // com o jogo (so grava ao Salvar).
     public class RefereeEditorForm : Form
     {

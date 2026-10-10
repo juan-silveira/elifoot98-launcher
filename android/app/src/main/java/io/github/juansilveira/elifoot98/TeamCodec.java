@@ -239,7 +239,7 @@ final class TeamCodec {
 
     // Lista original do BOSMAN.TXE (regravada fica igual byte a byte)
     private static final String[] BOSMAN_ORIGINAL =
-        {"POR", "ESP", "FRA", "ITA", "ALE", "AUT", "GRE", "ING", "ESC", "WAL", "ILN", "IRL", "DIN", "BEL", "HOL", "LUX", "FIN", "SUE"};
+        {"ALE", "AUT", "BEL", "BUL", "RCH", "CHP", "CRO", "DIN", "EVQ", "EVN", "ESP", "EST", "FIN", "FRA", "GRE", "HUN", "IRL", "ITA", "LET", "LIT", "LUX", "MLT", "HOL", "POL", "POR", "ROM", "SUE", "GBR", "ING", "ESC", "WAL", "ILN"};
 
     private static File bosman(File jogo) { return caminho(jogo, "CTRGROUP", "BOSMAN.TXE"); }
 

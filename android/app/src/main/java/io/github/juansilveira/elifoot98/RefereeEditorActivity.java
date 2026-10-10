@@ -44,7 +44,7 @@ public class RefereeEditorActivity extends Activity {
     private TextView status;
     private Button salvar;
     private boolean alterado;
-    // Os 217 paises do jogo (COUNTRY.TXE): o pais do arbitro e escolhido da lista
+    // Os paises do jogo (COUNTRY.TXE): o pais do arbitro e escolhido da lista
     private List<TeamCodec.Pais> paises = new ArrayList<>();
     private final Map<String, String> nomePais = new HashMap<>();
     private final Map<String, Bitmap> bandeiras = new HashMap<>();

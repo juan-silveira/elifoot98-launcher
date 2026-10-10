@@ -748,11 +748,21 @@ estão em `CTRGROUP/BOSMAN.TXE` ou **os dois** em `CTRGROUP/PLOP.TXE`, o jogador
 **não conta como estrangeiro** ("ao abrigo da Lei Bosman"); senão é estrangeiro.
 Os arquivos são listas de strings na cifra dos `.TXE` (a mesma do REFEREE.TXE):
 
-- BOSMAN: POR ESP FRA ITA ALE AUT GRE ING ESC WAL ILN IRL DIN BEL HOL LUX FIN SUE
+- BOSMAN (original do jogo): POR ESP FRA ITA ALE AUT GRE ING ESC WAL ILN IRL DIN BEL HOL LUX FIN SUE
 - PLOP (língua portuguesa): POR BRA ANG MOC CAV STP GBI GNE TIM
 
-`COUNTRY.TXE` tem 217 países ("AFG Afeganistão" …); a bandeira de cada um está
-em `FLAGS/<código>.BMP`.
+O `COUNTRY.TXE` original tem 217 países ("AFG Afeganistão" …), e a bandeira de
+cada um está em `FLAGS/<código>.BMP`, em BMP de 16 cores, 39 × 29.
+
+O launcher usa os arquivos do patch do Turbo Elifoot (`turbo_patch_934_27`):
+- **COUNTRY.TXE**: 258 países, com 41 novos (Kosovo, Gibraltar, Hong Kong…) e
+  sem SMO (Samoa Ocidental). Nenhuma equipe, jogador ou árbitro original usa
+  SMO.
+- **BOSMAN.TXE**: a UE atual mais GBR, ING, ESC, WAL e ILN (32 códigos).
+- **Bandeiras**: BMP de 24 bits, 39 × 29.
+
+**Validado** no jogo (Android): a seleção de países mostra os nomes novos e
+as bandeiras de 24 bits.
 
 ## Autoverificação do executável (`seg12:39D9` → `seg12:3825`)
 
