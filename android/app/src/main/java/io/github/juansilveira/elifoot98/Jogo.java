@@ -56,7 +56,22 @@ public final class Jogo {
             try (InputStream in = am.open("elifoot.zip")) { extrairJogo(in); }
             escrever(marca, versao);
         }
+        equipasSemRepetidas();
         prepararWindows(ctx);
+    }
+
+    /**
+     * Dois arquivos de equipe com o mesmo nome a menos de maiusculas (ex.: PALMEIRA.EFT e
+     * PALMEIRA.eft) fazem o jogo parar de ler a pasta EQUIPAS ali: as equipes seguintes
+     * somem da selecao de paises. Fica so o mais recente (igual ao linux/elifoot98.sh).
+     */
+    private void equipasSemRepetidas() {
+        File[] fs = new File(jogo, "EQUIPAS").listFiles();
+        if (fs == null) return;
+        java.util.Arrays.sort(fs, (a, b) -> Long.compare(b.lastModified(), a.lastModified()));
+        java.util.Set<String> vistos = new java.util.HashSet<>();
+        for (File f : fs)
+            if (!vistos.add(f.getName().toUpperCase(java.util.Locale.ROOT))) f.delete();
     }
 
     /** Antes de cada execucao: elif98.ini e eli.cod no lugar e datas das pastas fixas. */

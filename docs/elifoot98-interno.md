@@ -752,6 +752,13 @@ ficam em claro.
   equipe; muda com o ambiente (102.407.344 no Linux, 2.080.248.852 no Android) e
   cai 192 bytes a cada jogador adicionado (medido).
 
+**Validado — nomes repetidos fora do Windows**: com `PALMEIRA.EFT` e
+`PALMEIRA.eft` na mesma pasta EQUIPAS (o Linux e o Android diferenciam
+maiúsculas), o jogo no Wine para de ler a pasta nesse ponto. A seleção de países
+mostrou "Equipas existentes 181" em vez de 282 (Brasil 31 em vez de 45, sem
+Bulgária nem Egito). Apagado o repetido, voltaram as 282. O `elifoot98.sh` e o
+app Android apagam os repetidos antes de abrir o jogo, mantendo o mais recente.
+
 ### Nível inicial (`seg06:0067`–`023b`)
 
 Ao começar um jogo novo, o jogo percorre os níveis **de 20 até 1**; em cada

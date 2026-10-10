@@ -124,7 +124,19 @@ sincronizar() {
 # grava arquivos, entao elas sao fixadas antes de cada execucao e o eli.cod
 # e um feito para essa data (o registro, secondCode no elif98.ini, e gravado
 # pelo "Ativar todos os recursos" do launcher).
+# Dois arquivos de equipe com o mesmo nome a menos de maiusculas (ex.:
+# PALMEIRA.EFT e PALMEIRA.eft) fazem o jogo parar de ler a pasta EQUIPAS ali:
+# as equipes seguintes somem da selecao de paises. Fica so o mais recente.
+equipas_sem_repetidas() {
+  local d="$APP/game/EQUIPAS" f
+  [[ -d "$d" ]] || return 0
+  ls -t "$d" | awk '{ u = toupper($0); if (visto[u]++) print }' | while IFS= read -r f; do
+    rm -f "$d/$f"
+  done
+}
+
 preparar_arquivos() {
+  equipas_sem_repetidas
   mkdir -p "$WIN/SYSTEM"
   cmp -s "$APP/linux/eli.cod" "$WIN/eli.cod" 2>/dev/null || cp "$APP/linux/eli.cod" "$WIN/eli.cod"
   [[ -f "$WIN/elif98.ini" ]] || printf '[System]\r\n' > "$WIN/elif98.ini"
