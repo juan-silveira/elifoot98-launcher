@@ -376,30 +376,51 @@ namespace ElifootLauncher
         }
 
         // Depois da lista ordenada de equipes: quantidade de divisoes e, para cada uma,
-        // 4 bytes, D (2 bytes), nome (string de 20), quantidade e identificadores
+        // 4 bytes, D (2 bytes), nome (string de 20), quantidade e identificadores. Em
+        // alguns saves a lista nao bate (o jogo embaralha os ids depois de algumas
+        // temporadas, ou ela so tem as equipes das divisoes): ai a tabela e procurada
+        // depois da ultima equipe
         private static void LerDivisoes(byte[] b, List<int> efts, SaveFile sf)
         {
+            var conhecidos = new HashSet<int>();
+            foreach (int st in efts) if (st >= 2) conhecidos.Add(BitConverter.ToUInt16(b, st - 2));
+            Dictionary<int, string> div = null;
             int p = ListaOrdenada(b, efts);
-            if (p < 0) return;
-            int o = p + 2 + 2 * efts.Count;
-            if (o + 2 > b.Length) return;
+            if (p >= 0) div = TabelaDivisoes(b, p + 2 + 2 * BitConverter.ToUInt16(b, p), conhecidos);
+            for (int o = efts.Count == 0 ? b.Length : efts[efts.Count - 1]; div == null && o + 2 < b.Length; o++)
+                div = TabelaDivisoes(b, o, conhecidos);
+            if (div == null) return;
+            foreach (var t in sf.Teams)
+                if (div.TryGetValue(t.Id, out var nome)) t.Divisao = nome;
+        }
+
+        // A tabela so vale se todos os ids forem de equipes do save, sem repetir, e
+        // cobrirem quase todas (null se nao for a tabela)
+        private static Dictionary<int, string> TabelaDivisoes(byte[] b, int o, HashSet<int> conhecidos)
+        {
+            if (o + 2 > b.Length) return null;
             int nd = BitConverter.ToUInt16(b, o);
             o += 2;
-            if (nd <= 0 || nd > 50) return;
+            if (nd <= 0 || nd > 50) return null;
             var div = new Dictionary<int, string>();
             for (int d = 0; d < nd; d++)
             {
-                if (o + 4 + 2 + 21 + 2 > b.Length) return;
-                int no = o + 6, nl = Math.Min(20, (int)b[no]);
+                if (o + 4 + 2 + 21 + 2 > b.Length) return null;
+                int no = o + 6, nl = b[no];
+                if (nl == 0 || nl > 20) return null;
                 string nome = Encoding.GetEncoding("ISO-8859-1").GetString(b, no + 1, nl);
                 int n = BitConverter.ToUInt16(b, no + 21);
                 o = no + 23;
-                if (n > efts.Count || o + 2 * n > b.Length) return;
-                for (int k = 0; k < n; k++) div[BitConverter.ToUInt16(b, o + 2 * k)] = nome;
+                if (n > conhecidos.Count || o + 2 * n > b.Length) return null;
+                for (int k = 0; k < n; k++)
+                {
+                    int id = BitConverter.ToUInt16(b, o + 2 * k);
+                    if (!conhecidos.Contains(id) || div.ContainsKey(id)) return null;
+                    div[id] = nome;
+                }
                 o += 2 * n;
             }
-            foreach (var t in sf.Teams)
-                if (div.TryGetValue(t.Id, out var nome)) t.Divisao = nome;
+            return div.Count >= conhecidos.Count - 4 ? div : null;
         }
 
         /// <summary>

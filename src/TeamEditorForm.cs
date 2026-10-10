@@ -775,9 +775,9 @@ namespace ElifootLauncher
             if (_atual == null || _atual.Jogadores.Count >= TeamCodec.MAX_JOGADORES) return;
             var j = new EftPlayer { Pais = _atual.Pais, Posicao = 1 };
             if (!FichaJogador(j, "Novo jogador")) return;
-            _atual.Jogadores.Add(j);
+            int i = TeamCodec.InserirNaPosicao(_atual.Jogadores, j);
             Alterou();
-            MostrarJogadores(_atual.Jogadores.Count - 1);
+            MostrarJogadores(i);
             _listaEquipes.Invalidate();
         }
 
@@ -787,9 +787,19 @@ namespace ElifootLauncher
             if (_atual == null || j == null) return;
             var c = new EftPlayer { Nome = j.Nome, Pais = j.Pais, Posicao = j.Posicao };
             if (!FichaJogador(c, j.Nome)) return;
+            bool mudouPosicao = j.Posicao != c.Posicao;
             j.Nome = c.Nome;
             j.Pais = c.Pais;
             j.Posicao = c.Posicao;
+            if (mudouPosicao)  // vai pro grupo da posicao nova
+            {
+                _atual.Jogadores.Remove(j);
+                int i = TeamCodec.InserirNaPosicao(_atual.Jogadores, j);
+                Alterou();
+                MostrarJogadores(i);
+                _listaEquipes.Invalidate();
+                return;
+            }
             Alterou();
             MostrarJogadores();
             _listaEquipes.Invalidate();
@@ -835,7 +845,7 @@ namespace ElifootLauncher
             var origemNova = TeamCodec.Read(_atual.Arquivo);
             origemNova.Jogadores.RemoveAt(indice);
             var destinoNovo = TeamCodec.Read(destino.Arquivo);
-            destinoNovo.Jogadores.Add(new EftPlayer { Nome = j.Nome, Pais = j.Pais, Posicao = j.Posicao });
+            TeamCodec.InserirNaPosicao(destinoNovo.Jogadores, new EftPlayer { Nome = j.Nome, Pais = j.Pais, Posicao = j.Posicao });
             var erros = _regras.Validar(origemNova).Select(e => $"{_atual.NomeAbreviado}: {e}")
                 .Concat(_regras.Validar(destinoNovo).Select(e => $"{destino.NomeAbreviado}: {e}")).ToList();
             if (erros.Count > 0)

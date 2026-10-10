@@ -50,6 +50,16 @@ namespace ElifootLauncher
 
         // Regras de seg12:275e (mensagens iguais as do Editor de Equipas)
         public const int MIN_JOGADORES = 14, MAX_JOGADORES = 20, MIN_CAMPO = 10, MAX_ESTRANGEIROS = 5;
+
+        // No arquivo os jogadores vem agrupados G, D, M, A: o novo entra no fim do grupo
+        // da posicao dele (nao no fim da lista). Devolve o indice.
+        public static int InserirNaPosicao(List<EftPlayer> lista, EftPlayer j)
+        {
+            int i = 0;
+            for (int k = 0; k < lista.Count; k++) if (lista[k].Posicao <= j.Posicao) i = k + 1;
+            lista.Insert(i, j);
+            return i;
+        }
         public const int NIVEL_MIN = 1, NIVEL_MAX = 20;
         // Maiores tamanhos das 282 equipes originais
         public const int MAX_NOME_COMPLETO = 40, MAX_NOME = 20;

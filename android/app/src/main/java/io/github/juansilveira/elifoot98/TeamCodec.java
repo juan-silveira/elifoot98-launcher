@@ -21,6 +21,15 @@ final class TeamCodec {
 
     // Regras de seg12:275e (mensagens iguais as do Editor de Equipas)
     static final int MIN_JOGADORES = 14, MAX_JOGADORES = 20, MIN_CAMPO = 10, MAX_ESTRANGEIROS = 5;
+
+    /** No arquivo os jogadores vem agrupados G, D, M, A: o novo entra no fim do grupo
+     *  da posicao dele (nao no fim da lista). Devolve o indice. */
+    static int inserirNaPosicao(List<Jogador> lista, Jogador j) {
+        int i = 0;
+        for (int k = 0; k < lista.size(); k++) if (lista.get(k).posicao <= j.posicao) i = k + 1;
+        lista.add(i, j);
+        return i;
+    }
     static final int NIVEL_MIN = 1, NIVEL_MAX = 20;
     // Maiores tamanhos das 282 equipes originais
     static final int MAX_NOME_COMPLETO = 40, MAX_NOME = 20;

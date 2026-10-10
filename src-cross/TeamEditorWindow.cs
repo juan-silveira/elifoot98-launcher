@@ -734,9 +734,9 @@ namespace ElifootLauncher
             if (_atual == null || _atual.Jogadores.Count >= TeamCodec.MAX_JOGADORES) return;
             var j = new EftPlayer { Pais = _atual.Pais, Posicao = 1 };
             if (!await FichaJogador(j, "Novo jogador")) return;
-            _atual.Jogadores.Add(j);
+            int i = TeamCodec.InserirNaPosicao(_atual.Jogadores, j);
             Alterou();
-            MostrarJogadores(_atual.Jogadores.Count - 1);
+            MostrarJogadores(i);
         }
 
         private async Task EditarJogador()
@@ -744,11 +744,18 @@ namespace ElifootLauncher
             if (_atual == null || _jogadores.SelectedItem is not LinhaJogador l) return;
             var copia = new EftPlayer { Nome = l.Jogador.Nome, Pais = l.Jogador.Pais, Posicao = l.Jogador.Posicao };
             if (!await FichaJogador(copia, l.Jogador.Nome)) return;
+            bool mudouPosicao = l.Jogador.Posicao != copia.Posicao;
             l.Jogador.Nome = copia.Nome;
             l.Jogador.Pais = copia.Pais;
             l.Jogador.Posicao = copia.Posicao;
+            int indice = l.Indice;
+            if (mudouPosicao)  // vai pro grupo da posicao nova
+            {
+                _atual.Jogadores.RemoveAt(l.Indice);
+                indice = TeamCodec.InserirNaPosicao(_atual.Jogadores, l.Jogador);
+            }
             Alterou();
-            MostrarJogadores(l.Indice);
+            MostrarJogadores(indice);
         }
 
         private async Task RemoverJogador()
@@ -802,7 +809,7 @@ namespace ElifootLauncher
             var origemNova = TeamCodec.Read(_atual.Arquivo);
             origemNova.Jogadores.RemoveAt(l.Indice);
             var destinoNovo = TeamCodec.Read(destino.Arquivo);
-            destinoNovo.Jogadores.Add(new EftPlayer { Nome = l.Jogador.Nome, Pais = l.Jogador.Pais, Posicao = l.Jogador.Posicao });
+            TeamCodec.InserirNaPosicao(destinoNovo.Jogadores, new EftPlayer { Nome = l.Jogador.Nome, Pais = l.Jogador.Pais, Posicao = l.Jogador.Posicao });
             var erros = _regras.Validar(origemNova).Select(e => $"{_atual.NomeAbreviado}: {e}")
                 .Concat(_regras.Validar(destinoNovo).Select(e => $"{destino.NomeAbreviado}: {e}")).ToList();
             if (erros.Count > 0)

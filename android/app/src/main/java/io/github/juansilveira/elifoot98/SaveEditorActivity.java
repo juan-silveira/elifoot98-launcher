@@ -260,6 +260,7 @@ public class SaveEditorActivity extends Activity {
         }
         raiz.addView(corpo, new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1));
         setContentView(raiz);
+        Ui.areaSegura(this, 0xFF062606);
 
         spSave.setOnItemSelectedListener(new Selecao(this::carregarSave));
         spTime.setOnItemSelectedListener(new Selecao(this::carregarTime));
@@ -661,7 +662,11 @@ public class SaveEditorActivity extends Activity {
         SaveCodec.Time origem = atual.timeDoTecnico(tec);
         List<SaveCodec.Time> destinos = new ArrayList<>();
         for (SaveCodec.Time t : times) if (t != origem && t.tecnicoId >= 0 && t.podeTerHumano()) destinos.add(t);
-        if (origem == null || destinos.isEmpty()) return;
+        if (origem == null) return;
+        if (destinos.isEmpty()) {
+            Ui.mensagem(this, "Trocar de equipe", "Não achei as divisões neste save: sem elas não dá pra saber quais equipes podem ter treinador humano.");
+            return;
+        }
         List<String> nomes = new ArrayList<>();
         for (SaveCodec.Time t : destinos) nomes.add(t.nome + "  (" + t.divisao + ")");
 

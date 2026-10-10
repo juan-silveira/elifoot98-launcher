@@ -499,7 +499,8 @@ namespace ElifootLauncher
             if (erro != null) { await Dialogos.Mensagem(this, erro, "Valor fora do limite"); return; }
             var origem = _current.TimeDoTecnico(tec);
             var destinos = _teams.Where(t => t != origem && t.TecnicoId >= 0 && t.PodeTerHumano).ToList();
-            if (origem == null || destinos.Count == 0) return;
+            if (origem == null) return;
+            if (destinos.Count == 0) { await Dialogos.Mensagem(this, "Não achei as divisões neste save: sem elas não dá pra saber quais equipes podem ter treinador humano.", "Trocar de equipe"); return; }
 
             var w = Dialogo($"Trocar de equipe — {tec.Nome}");
             var combo = new ComboBox

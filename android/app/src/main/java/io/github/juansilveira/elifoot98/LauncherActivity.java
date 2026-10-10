@@ -79,6 +79,7 @@ public class LauncherActivity extends Activity {
         scroll.setFillViewport(true);
         scroll.addView(col);
         setContentView(scroll);
+        Ui.areaSegura(this, Color.rgb(0, 114, 0));
 
         preparar();
     }
@@ -110,14 +111,67 @@ public class LauncherActivity extends Activity {
 
     private void configuracoes() {
         boolean liberado = TeamCodec.bosmanLiberado(jogo.jogo);
-        new AlertDialog.Builder(this)
+        LinearLayout l = new LinearLayout(this);
+        l.setOrientation(LinearLayout.VERTICAL);
+        int pad = Ui.dp(this, 20);
+        l.setPadding(pad, Ui.dp(this, 8), pad, 0);
+        TextView t = new TextView(this);
+        t.setText("No Android o jogo abre em tela cheia.\n\n"
+            + "\"Ativar todos os recursos\" registra o jogo (Registro para autor).\n\n"
+            + "Estrangeiros: " + (liberado ? "Liberado (sem limite)" : "Original (até 5 por equipe; Lei Bosman e língua portuguesa não contam)") + ".\n\n"
+            + "\"Restaurar times originais\" desfaz equipes editadas e patches aplicados.");
+        t.setTextSize(TypedValue.COMPLEX_UNIT_SP, 15);
+        l.addView(t);
+        AlertDialog[] d = new AlertDialog[1];
+        l.addView(botaoDialogo("Ativar todos os recursos", () -> { d[0].dismiss(); ativar(); }));
+        l.addView(botaoDialogo("Estrangeiros…", () -> { d[0].dismiss(); estrangeiros(liberado); }));
+        l.addView(botaoDialogo("Restaurar times originais…", () -> { d[0].dismiss(); restaurar(); }));
+        ScrollView sv = new ScrollView(this);
+        sv.addView(l);
+        d[0] = new AlertDialog.Builder(this)
             .setTitle("Configurações")
-            .setMessage("No Android o jogo abre em tela cheia.\n\n"
-                + "\"Ativar todos os recursos\" registra o jogo (Registro para autor).\n\n"
-                + "Estrangeiros: " + (liberado ? "Liberado (sem limite)" : "Original (até 5 por equipe; Lei Bosman e língua portuguesa não contam)") + ".")
-            .setPositiveButton("Ativar todos os recursos", (d, w) -> ativar())
-            .setNeutralButton("Estrangeiros…", (d, w) -> estrangeiros(liberado))
+            .setView(sv)
             .setNegativeButton("Fechar", null)
+            .show();
+    }
+
+    private Button botaoDialogo(String texto, Runnable acao) {
+        Button b = Ui.botao(this, texto, v -> acao.run());
+        b.setLayoutParams(new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, Ui.dp(this, 48)));
+        ((LinearLayout.LayoutParams) b.getLayoutParams()).topMargin = Ui.dp(this, 10);
+        return b;
+    }
+
+    // Volta EQUIPAS, arbitros, estrangeiros e o que os patches trocaram ao original do
+    // app; os saves (JOGOS) ficam
+    private void restaurar() {
+        new AlertDialog.Builder(this)
+            .setTitle("Restaurar times originais")
+            .setMessage("Todas as equipes voltam a ser as originais do jogo: equipes editadas ou criadas, "
+                + "patches aplicados, árbitros e a regra de estrangeiros são desfeitos.\n\n"
+                + "Os jogos salvos (saves) não são apagados.\n\nRestaurar?")
+            .setPositiveButton("Restaurar", (dd, w) -> {
+                habilitar(false);
+                progresso.setVisibility(View.VISIBLE);
+                status.setText("Restaurando os arquivos originais...");
+                new Thread(() -> {
+                    String erro = null;
+                    try {
+                        jogo.restaurarOriginal(this);
+                    } catch (Exception e) {
+                        erro = e.getMessage();
+                    }
+                    String fim = erro;
+                    runOnUiThread(() -> {
+                        progresso.setVisibility(View.GONE);
+                        status.setText("");
+                        habilitar(true);
+                        if (fim == null) Ui.mensagem(this, "Pronto", "Times originais restaurados.");
+                        else Ui.mensagem(this, "Erro", "Não consegui restaurar:\n" + fim);
+                    });
+                }).start();
+            })
+            .setNegativeButton("Cancelar", null)
             .show();
     }
 

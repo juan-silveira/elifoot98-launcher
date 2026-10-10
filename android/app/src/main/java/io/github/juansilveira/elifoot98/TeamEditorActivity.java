@@ -153,6 +153,7 @@ public class TeamEditorActivity extends Activity {
         }
         raiz.addView(corpo, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1));
         setContentView(raiz);
+        Ui.areaSegura(this, VERDE_TOPO);
     }
 
     @Override
@@ -1048,8 +1049,7 @@ public class TeamEditorActivity extends Activity {
         j.pais = atual.pais;
         j.posicao = 1;
         fichaJogador(j, "Novo jogador", () -> {
-            atual.jogadores.add(j);
-            jogadorSelecionado = atual.jogadores.size() - 1;
+            jogadorSelecionado = TeamCodec.inserirNaPosicao(atual.jogadores, j);
             alterou();
             mostrarJogadores();
             listaJogadores.smoothScrollToPosition(jogadorSelecionado);
@@ -1062,9 +1062,14 @@ public class TeamEditorActivity extends Activity {
         TeamCodec.Jogador original = atual.jogadores.get(jogadorSelecionado);
         TeamCodec.Jogador c = original.copia();
         fichaJogador(c, original.nome, () -> {
+            boolean mudouPosicao = original.posicao != c.posicao;
             original.nome = c.nome;
             original.pais = c.pais;
             original.posicao = c.posicao;
+            if (mudouPosicao) {  // vai pro grupo da posicao nova
+                atual.jogadores.remove(original);
+                jogadorSelecionado = TeamCodec.inserirNaPosicao(atual.jogadores, original);
+            }
             alterou();
             mostrarJogadores();
             adapterEquipes.notifyDataSetChanged();
@@ -1120,7 +1125,7 @@ public class TeamEditorActivity extends Activity {
                     TeamCodec.Equipe origemNova = TeamCodec.ler(atual.arquivo);
                     origemNova.jogadores.remove(indice);
                     TeamCodec.Equipe destinoNovo = TeamCodec.ler(destino.arquivo);
-                    destinoNovo.jogadores.add(j.copia());
+                    TeamCodec.inserirNaPosicao(destinoNovo.jogadores, j.copia());
                     List<String> erros = new ArrayList<>();
                     for (String e : regras.validar(origemNova)) erros.add(atual.nomeAbreviado + ": " + e);
                     for (String e : regras.validar(destinoNovo)) erros.add(destino.nomeAbreviado + ": " + e);

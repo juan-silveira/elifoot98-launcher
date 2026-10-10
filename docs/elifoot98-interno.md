@@ -646,6 +646,17 @@ nome (string de 20: "1ª Divisão" … "4ª Divisão", "Distrital"), a quantidad
 equipes e os ids. Conferido em três saves: 8 equipes em cada divisão e 13 no
 Distrital (D = −4).
 
+A lista de antes nem sempre é "todas as equipes em ordem crescente". Em 26
+saves conferidos:
+- em alguns ela tem os ids fora de ordem;
+- em outros ela só tem as 32 equipes das 4 divisões;
+- alguns saves têm um registro a mais que começa como equipe (`EFa\0`), mas não
+  tem treinador e não está em nenhuma divisão.
+
+Por isso os editores acham a tabela de divisões pela própria estrutura:
+quantidade de divisões, nomes de até 20 letras e ids de equipes do save sem
+repetir. Juntas, as divisões cobrem todas as equipes.
+
 ### Chicotada psicológica (`seg03:4f40`)
 
 - A equipe que troca de treinador recebe o escolhido por `seg03:5343`; se ele

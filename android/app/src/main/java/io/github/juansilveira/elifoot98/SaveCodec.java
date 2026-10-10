@@ -223,28 +223,45 @@ public final class SaveCodec {
     // Depois da lista ordenada de equipes: quantidade de divisoes e, para cada uma,
     // 4 bytes, D (2 bytes), nome (string de 20), quantidade e identificadores
     private static void lerDivisoes(byte[] b, List<Integer> efts, Save sf) {
+        java.util.Set<Integer> conhecidos = new java.util.HashSet<>();
+        for (int st : efts) if (st >= 2) conhecidos.add(u16(b, st - 2));
+        java.util.Map<Integer, String> div = null;
         int p = listaOrdenada(b, efts);
-        if (p < 0) return;
-        int o = p + 2 + 2 * efts.size();
-        if (o + 2 > b.length) return;
-        int nd = u16(b, o);
-        o += 2;
-        if (nd <= 0 || nd > 50) return;
-        java.util.Map<Integer, String> div = new java.util.HashMap<>();
-        for (int d = 0; d < nd; d++) {
-            if (o + 4 + 2 + 21 + 2 > b.length) return;
-            int no = o + 6, nl = Math.min(20, b[no] & 0xff);
-            String nome = new String(b, no + 1, nl, java.nio.charset.StandardCharsets.ISO_8859_1);
-            int n = u16(b, no + 21);
-            o = no + 23;
-            if (n > efts.size() || o + 2 * n > b.length) return;
-            for (int k = 0; k < n; k++) div.put(u16(b, o + 2 * k), nome);
-            o += 2 * n;
-        }
+        if (p >= 0) div = tabelaDivisoes(b, p + 2 + 2 * u16(b, p), conhecidos);
+        // sem a lista das equipes (ou ela nao bate): procura a tabela depois da ultima equipe
+        for (int o = efts.isEmpty() ? b.length : efts.get(efts.size() - 1); div == null && o + 2 < b.length; o++)
+            div = tabelaDivisoes(b, o, conhecidos);
+        if (div == null) return;
         for (Time t : sf.times) {
             String nome = div.get(t.id);
             if (nome != null) t.divisao = nome;
         }
+    }
+
+    // Tabela de divisoes em o: quantidade e, de cada uma, 6 bytes, nome (Pascal, ate
+    // 20 letras), quantidade de equipes e os ids. Vale so se todos os ids forem de
+    // equipes do save, sem repetir, e cobrirem quase todas (null se nao for a tabela).
+    private static java.util.Map<Integer, String> tabelaDivisoes(byte[] b, int o, java.util.Set<Integer> conhecidos) {
+        if (o + 2 > b.length) return null;
+        int nd = u16(b, o);
+        o += 2;
+        if (nd <= 0 || nd > 50) return null;
+        java.util.Map<Integer, String> div = new java.util.HashMap<>();
+        for (int d = 0; d < nd; d++) {
+            if (o + 4 + 2 + 21 + 2 > b.length) return null;
+            int no = o + 6, nl = b[no] & 0xff;
+            if (nl == 0 || nl > 20) return null;
+            String nome = new String(b, no + 1, nl, java.nio.charset.StandardCharsets.ISO_8859_1);
+            int n = u16(b, no + 21);
+            o = no + 23;
+            if (n > conhecidos.size() || o + 2 * n > b.length) return null;
+            for (int k = 0; k < n; k++) {
+                int id = u16(b, o + 2 * k);
+                if (!conhecidos.contains(id) || div.put(id, nome) != null) return null;
+            }
+            o += 2 * n;
+        }
+        return div.size() >= conhecidos.size() - 4 ? div : null;
     }
 
     // Lista de treinadores: contador em 1 + tamanho do cabecalho + 132; cada um tem

@@ -97,6 +97,24 @@ public final class Jogo {
         return contra;
     }
 
+    /**
+     * Volta o jogo ao original do app: apaga tudo da pasta do jogo menos os saves
+     * (JOGOS) e extrai de novo. Desfaz equipes editadas, patches, arbitros e a regra
+     * de estrangeiros.
+     */
+    public void restaurarOriginal(Context ctx) throws IOException {
+        File[] itens = jogo.listFiles();
+        if (itens != null)
+            for (File f : itens) if (!f.getName().equalsIgnoreCase("JOGOS")) apagar(f);
+        try (InputStream in = ctx.getAssets().open("elifoot.zip")) { extrairJogo(in); }
+    }
+
+    private static void apagar(File f) throws IOException {
+        File[] filhos = f.isDirectory() ? f.listFiles() : null;
+        if (filhos != null) for (File c : filhos) apagar(c);
+        if (!f.delete() && f.exists()) throw new IOException("Não consegui apagar " + f.getName());
+    }
+
     // Equivalente ao WritePrivateProfileString (o jogo usa CRLF)
     static void gravarIni(File f, String secao, String chave, String valor) throws IOException {
         List<String> linhas = new ArrayList<>();

@@ -225,6 +225,7 @@ public class ScoutActivity extends Activity {
         corpo.addView(tabela, pt);
         raiz.addView(corpo, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1));
         setContentView(raiz);
+        Ui.areaSegura(this, VERDE_TOPO);
 
         listarSaves();
     }

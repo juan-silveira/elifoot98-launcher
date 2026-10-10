@@ -50,6 +50,7 @@ public class RefereeEditorActivity extends Activity {
         lista.setOnItemClickListener((p, v, pos, id) -> editar(pos));
         col.addView(lista, new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1));
         setContentView(col);
+        Ui.areaSegura(this, android.graphics.Color.WHITE);  // tema claro, com a barra de titulo
         carregar();
     }
 

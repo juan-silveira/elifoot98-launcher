@@ -16,6 +16,30 @@ import android.widget.TextView;
 final class Ui {
     private Ui() {}
 
+    /**
+     * Android 15+ desenha o app por baixo da barra de status e da de navegacao: o
+     * conteudo ganha margem do tamanho delas (e do teclado, que o adjustResize nao
+     * empurra mais), e a faixa da barra fica com a cor dada.
+     */
+    static void areaSegura(android.app.Activity a, int cor) {
+        View raiz = a.findViewById(android.R.id.content);
+        raiz.setBackgroundColor(cor);
+        raiz.setOnApplyWindowInsetsListener((v, in) -> {
+            int esq, topo, dir, base;
+            if (android.os.Build.VERSION.SDK_INT >= 30) {
+                android.graphics.Insets b = in.getInsets(android.view.WindowInsets.Type.systemBars()
+                    | android.view.WindowInsets.Type.displayCutout() | android.view.WindowInsets.Type.ime());
+                esq = b.left; topo = b.top; dir = b.right; base = b.bottom;
+            } else {
+                esq = in.getSystemWindowInsetLeft(); topo = in.getSystemWindowInsetTop();
+                dir = in.getSystemWindowInsetRight(); base = in.getSystemWindowInsetBottom();
+            }
+            v.setPadding(esq, topo, dir, base);
+            return in;
+        });
+        raiz.requestApplyInsets();
+    }
+
     static int dp(Context c, int v) {
         return (int) TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, v, c.getResources().getDisplayMetrics());
     }
