@@ -26,7 +26,7 @@
         <activity
             android:name=".RefereeEditorActivity"
             android:label="Editor de Árbitros"
-            android:theme="@android:style/Theme.Material.Light"
+            android:theme="@android:style/Theme.Material.NoActionBar"
             android:exported="false" />
 
         <activity

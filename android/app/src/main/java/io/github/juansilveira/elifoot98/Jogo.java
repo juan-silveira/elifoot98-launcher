@@ -109,6 +109,20 @@ public final class Jogo {
         try (InputStream in = ctx.getAssets().open("elifoot.zip")) { extrairJogo(in); }
     }
 
+    /** Um arquivo do jogo como veio no app (do elifoot.zip), ou null. */
+    public static byte[] arquivoOriginal(Context ctx, String nome) throws IOException {
+        try (ZipInputStream z = new ZipInputStream(ctx.getAssets().open("elifoot.zip"), StandardCharsets.ISO_8859_1)) {
+            for (ZipEntry e; (e = z.getNextEntry()) != null; ) {
+                if (!e.getName().equalsIgnoreCase(nome)) continue;
+                java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream();
+                byte[] buf = new byte[1 << 16];
+                for (int n; (n = z.read(buf)) > 0; ) out.write(buf, 0, n);
+                return out.toByteArray();
+            }
+        }
+        return null;
+    }
+
     private static void apagar(File f) throws IOException {
         File[] filhos = f.isDirectory() ? f.listFiles() : null;
         if (filhos != null) for (File c : filhos) apagar(c);
