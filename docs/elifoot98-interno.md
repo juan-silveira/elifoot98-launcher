@@ -476,7 +476,14 @@ mandante se a soma dele for maior ou igual.
 
 **Código.** Cada lance é guardado com o time, o minuto, o jogador, a posição dele
 e o tipo (`seg03:c1bf`): **1** gol, **2** gol de pênalti, **4** expulsão,
-**5** lesão, **6** gol anulado.
+**5** lesão, **6** gol anulado. O tipo **3** não é usado.
+
+Na tela da jornada, cada lance é desenhado por `seg03:c25e`. Uma tabela de
+saltos em `cs:c252` escolhe o desenho pelo tipo:
+- tipo 3 vai para o fim da rotina e não desenha nada;
+- a expulsão (`c3da`) pinta um retângulo com o pincel `clRed` (`c415`, depois
+  `FillRect` em `seg19:1cb7`);
+- a lesão (`c4ab`) desenha um quadrado branco com uma cruz vermelha a traço.
 
 ### Pênalti depois de expulsão (`seg03:a76e`)
 
@@ -788,6 +795,21 @@ Validado também no editor (Xvfb): recusou com 13 jogadores, gravou com 14;
 | pelo menos 10 jogadores de campo | Não tem jogadores de campo suficientes |
 | **no máximo 5 estrangeiros** | Tem demasiados jogadores estrangeiros |
 | treinador com nome | Não está definido o treinador |
+
+**Campos do jogador que não aparecem no save** (código): `+0x36` e `+0x12`
+são gravados no save, mas os jogadores são sempre gravados com eles zerados
+(11.729 jogadores conferidos). São estados passageiros que o jogo usa:
+- `seg03:5992` soma os salários da equipe só dos jogadores com `+0x36 = 0`;
+- `seg03:5a6a` decide se um jogador pode ser vendido, devolvendo um código:
+  - 1: a equipe tem 11 jogadores ou menos;
+  - 2: `+0x36 > 0`;
+  - 3: `+0x16 ≠ 0`;
+  - 4: `+0x12 ≠ 0`;
+  - 5: é o único goleiro.
+
+As **expulsões** (`+0x23`, t44–t47) são guardadas em 4 bytes. O jogo só as lê
+inteiras para mostrar o número na tela (`seg02:331e`, `seg04:24ee`,
+`seg10:20ab`). Os 2 bytes de cima (t46–t47) são sempre 0.
 
 **Limites de jogadores no código** (o jogo original):
 - 20 no editor de equipes: botão Adicionar (`seg01:13b3`) e "Tem demasiados
