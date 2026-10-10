@@ -114,6 +114,11 @@ R = 2(N − 1) jornadas.
   - depois da separação, a lista do jogo mostrou só os saves de 20;
   - o Scout do Android mostrou cada save com o seu número de equipes.
 
+- **8, 10, 12, 16 e 18 equipes:** cada EXE abriu, começou um jogo novo com
+  todos os países e jogou a 1ª jornada:
+  - com 12, a Classificação mostra as 4 divisões inteiras numa tela;
+  - com 16 e 18, a Classificação aparece em 2 páginas.
+
 **Não testado:**
-- os EXEs de 8, 10, 12, 16 e 18 gerados por este script, no jogo;
+- uma temporada inteira com 8, 10, 12, 16 ou 18 equipes;
 - o Android num aparelho real (só no emulador).
