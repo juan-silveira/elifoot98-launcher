@@ -31,6 +31,7 @@ LUG_DS = 0x17C8   # tabela de lugares no DS (4 bits por jornada)
 from montar import montar
 from cartoes import cartoes
 from historial import historial
+from lances import lances
 
 
 def real10(x):
@@ -165,6 +166,7 @@ def main(n, entrada, saida):
     if N == 8:                # o jogo original, so com o limite de jogadores e os amarelos
         cartoes(ne, b)
         historial(ne, b)
+        lances(ne, b)
         gravar(b, saida)
         print('ok: 8 equipas/divisao (original), ate %d jogadores' % MAXJOG)
         return
@@ -256,6 +258,7 @@ def main(n, entrada, saida):
         import paginas
         cartoes(ne, b)
         historial(ne, b)
+        lances(ne, b)
         print('paginas:', {k: '%04X' % v for k, v in paginas.paginar(ne, b, N).items()})
         gravar(b, saida)
         return
@@ -279,6 +282,7 @@ def main(n, entrada, saida):
 
     cartoes(ne, b)
     historial(ne, b)
+    lances(ne, b)
     gravar(b, saida)
     print('ok: %d equipas/divisao, %d jornadas; rotinas seg03 %s, ajudante seg11:%04X'
           % (N, R, {k: '%04X' % v for k, v in rot.items()}, aj_off))

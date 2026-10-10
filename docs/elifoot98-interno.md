@@ -963,6 +963,15 @@ passam a ler só os 2 bytes de baixo.
   ficam a 16 pontos. O DFM cresce dentro do enchimento que o recurso já tinha
   (o tamanho na tabela de recursos já o inclui). O `si` não é preservado pelas
   rotinas chamadas (`IntToStr` o muda).
+- Na janela de **detalhes da partida** (`TsubstitutionDlg`), a lista de lances
+  (`seg02:24A1`, saltos por tipo em `cs:2495`) ignorava o tipo 3. Agora, com a
+  caixinha nova **"Cartões amarelos"** marcada, mostra "nome amarelo minuto'".
+  Os ramos dos tipos 4 e 5 (vermelhos e lesões, que só mudavam a frase e a
+  caixinha: `[0x2B30]`/`[0x2B31]`) viraram um só, o que abriu o espaço
+  (`lances.asm`). A caixinha usa o campo `+0x194` do antigo `GroupBox1` (o quadro
+  do Árbitro, renomeado) e o `checkViewInjuriesMouseUp` no clique, que só refaz a
+  lista; o estado dela é lido na hora (`TCheckBox.GetChecked`, `seg18:6856`) e
+  volta desmarcado a cada vez que a janela abre.
 
 **Medido** (Linux, tela virtual; jogo novo com 20 equipes por divisão e todos os
 países, 3 jornadas, uns 145 jogos cada):
