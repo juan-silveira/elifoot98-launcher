@@ -415,6 +415,45 @@ Consequências diretas:
   ×0,71.
 - Força alta tem retorno decrescente (logaritmo).
 
+### Subida e descida no fim da temporada (`seg05:0987`–`0A81`, 98.003)
+
+**Código.** O jogo pega as 5 listas de divisão (1ª a 4ª e Distrital) e chama a
+rotina local `seg05:02A6`. Ela troca uma equipe da divisão de cima por uma da de
+baixo: a que desce vai para o fim da lista de baixo, e a que sobe para o fim da
+de cima.
+
+- **1ª a 4ª divisão**: descem as **2 últimas** e sobem as **2 primeiras** da
+  divisão de baixo. São duas trocas por par de divisões. Na 1ª a posição é
+  `6` (as de índice 6 e 7, com 8 equipes). Nas outras é `4`, porque a lista já
+  perdeu as 2 que subiram e ganhou as 2 que desceram.
+- **Distrital → 4ª divisão**: é **sorteio puro**. O jogo sorteia duas posições
+  diferentes do Distrital com `Random(quantidade do Distrital)`, repetindo até
+  saírem diferentes (`seg05:0A0B`–`0A43`). Essas duas equipes trocam de lugar
+  com as 2 últimas da 4ª. Força, nível, Taça e resultados não contam: qualquer
+  equipe do Distrital tem a mesma chance de subir.
+
+### Taça: participantes e sorteio (`seg05:0000`, `seg05:0ED5`–`11B6`, 98.003)
+
+- **Participam todas as equipes do jogo, inclusive as do Distrital.**
+  **Validado**: com as 45 equipes do Brasil, a 1ª fase teve 13 jogos (45 − 32),
+  e as outras 19 passaram direto para a fase seguinte.
+- **Tamanho de cada fase** (**código**): com N equipes ainda vivas, o jogo acha
+  a menor potência de 2, P, tal que N ≤ 2 × P (`seg05:0F6A`–`0FA0`). Só são
+  jogadas **N − P partidas**, e o resto passa direto para a fase seguinte. Assim
+  a fase seguinte já começa com P equipes.
+- **Nome da fase**, pelo valor de P: 1 = "FINAL", 2–3 = "Meias-finais",
+  4–7 = "Quartos de final", 8–15 = "Oitavos de final" e, acima disso,
+  "P avos de final". **Validado**: "Taça - 32 avos de final" com 45 equipes.
+- **Sorteio** (**código**): antes de cada fase, a lista de equipes da fase
+  (`DS:0x26F2`) é **embaralhada** com a mesma rotina das escalações
+  (`seg14:0f68`), e os confrontos saem dessa ordem (`seg03:0875`). **Não há
+  cabeças de chave**: no teste, Palmeiras × Botafogo, ambos da 1ª divisão,
+  saíram na 1ª fase.
+- **Quando joga** (**código**): na jornada j há fase da Taça se ainda restam mais
+  equipes do que `2^((14 − j) div 2)` (`seg05:0EEF`–`0F34`). O 14 é o número de
+  jornadas do campeonato. As fases se espalham pela temporada até a final, perto
+  da última jornada.
+
 ### Empate na Taça (`seg03:9a15` → `seg11:0d46`)
 
 **Código.** Jogo da Taça empatado no fim dos 90 minutos vai para a prorrogação
@@ -787,5 +826,10 @@ na tela verde e não mostra a "Acerca"; com a soma recalculada, abre normalmente
 - A rotina que ordena a lista da janela do time (a ordem alfabética foi
   observada na tela, mas o código não foi lido) e o critério de desempate de
   nomes acentuados.
+- Quem joga em casa na Taça: parece ser a 1ª equipe de cada par sorteado
+  (então também sorteado), mas a rotina que monta os jogos (`seg03:0875`) não
+  foi lida.
+- Quais equipes ficam na lista de "vivas" da Taça (`DS:0x26F6`) que entra na
+  conta do calendário: a leitura da rotina que a preenche não terminou.
 - O Score e o Impacto do Scout não são do jogo: saem de simulações com as regras
   deste documento (`docs/score.md`, `tools/sim/sim.c`), não de partidas reais.
