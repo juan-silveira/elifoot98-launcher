@@ -39,6 +39,25 @@ namespace ElifootLauncher
             return Parse(bytes);
         }
 
+        // Lista original do jogo (game/REFEREE.TXE embutido no launcher)
+        public static File Original()
+        {
+            using (var s = typeof(RefereeCodec).Assembly.GetManifestResourceStream("REFEREE.TXE"))
+            {
+                if (s == null) throw new InvalidOperationException("REFEREE.TXE original não está no launcher.");
+                return Read(s);
+            }
+        }
+
+        public static File Read(Stream s)
+        {
+            using (var ms = new MemoryStream())
+            {
+                s.CopyTo(ms);
+                return Parse(ms.ToArray());
+            }
+        }
+
         public static File Parse(byte[] bytes)
         {
             var file = new File();

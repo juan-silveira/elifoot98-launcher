@@ -23,6 +23,10 @@
     <EmbeddedResource Include="elifoot.ico">
       <LogicalName>ElifootLauncher.elifoot.ico</LogicalName>
     </EmbeddedResource>
+    <!-- Lista original de arbitros (botao Original do Editor de Arbitros) -->
+    <EmbeddedResource Include="../game/REFEREE.TXE">
+      <LogicalName>REFEREE.TXE</LogicalName>
+    </EmbeddedResource>
   </ItemGroup>
   <ItemGroup>
     <Reference Include="System.IO.Compression" />

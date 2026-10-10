@@ -20,6 +20,7 @@
     <Compile Include="../src/LauncherConfig.cs" Link="Shared/LauncherConfig.cs" />
     <Compile Include="../src/Registro.cs" Link="Shared/Registro.cs" />
     <EmbeddedResource Include="../linux/elifoot98.png" LogicalName="elifoot98.png" />
+    <EmbeddedResource Include="../game/REFEREE.TXE" LogicalName="REFEREE.TXE" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Avalonia" Version="12.1.3" />
