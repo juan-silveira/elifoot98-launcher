@@ -137,7 +137,7 @@ jobs:
             - **`elifoot98_*_amd64.deb`** — Linux (Debian/Ubuntu/Mint): instale e abra "Elifoot 98" no menu.
             - **`Elifoot98-*-x86_64.AppImage`** — Linux (qualquer distro): marque como executável e rode.
             - **`Elifoot98-*-macOS.zip`** — macOS 10.15+ (Intel ou Apple Silicon com Rosetta 2): extraia e arraste o `Elifoot98.app` para Aplicativos. O app não é assinado pela Apple: na 1ª vez, clique com o botão direito → **Abrir** (ou rode `xattr -cr /Applications/Elifoot98.app`).
-            - **`Elifoot98-*-Android.apk`** — Android 8+: instale o APK (permita "fontes desconhecidas"). Launcher com os mesmos menus; o jogo funciona em retrato e paisagem, com botões (teclado, Esc, Enter, táticas, A, M, titular/reserva), abas das janelas abertas e zoom com pinça.
+            - **`Elifoot98-*-Android.apk`** — Android 8+: instale o APK (permita "fontes desconhecidas"). Launcher com os mesmos menus; o jogo funciona em retrato e paisagem, com botões (teclado, Esc, Enter, táticas, T = 5-0-5, M, titular/reserva), abas das janelas abertas e zoom com pinça.
             - No Linux e no macOS o launcher tem as mesmas funções do Windows e usa o Wine do sistema (ou baixa um portátil na 1ª vez: ~95 MB no Linux, ~180 MB no macOS).
             - O otvdm usado no Linux/macOS é a build de desenvolvimento 2703 (GPL-2.0, código em https://github.com/otya128/winevdm, commit a31d1c27).
 

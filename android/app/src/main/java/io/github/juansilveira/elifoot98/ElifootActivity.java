@@ -25,7 +25,7 @@ import java.io.IOException;
  * O jogo (ou o Editor de Equipes) rodando no Boxedwine, em tela cheia. Roda num
  * processo proprio (":jogo"), encerrado ao sair, pra poder reabrir depois.
  * Faixa esquerda: botoes (como no elifoot98web) teclado, Esc, Enter, taticas,
- * A, M, * e -. Faixa direita: abas com as janelas abertas do jogo (no Boxedwine
+ * T (5-0-5), M, * e -. Faixa direita: abas com as janelas abertas do jogo (no Boxedwine
  * elas podem ficar escondidas atras da principal; tocar na aba traz pra frente).
  */
 public class ElifootActivity extends SDLActivity {
@@ -121,7 +121,7 @@ public class ElifootActivity extends SDLActivity {
             return false;
         });
         esquerda.addView(tat);
-        esquerda.addView(botao("A", v -> tecla(KeyEvent.KEYCODE_A)));          // Automatico
+        esquerda.addView(botao("T", v -> tecla(KeyEvent.KEYCODE_T)));          // 5-0-5 (o Automatico fica na lista do Tat)
         esquerda.addView(botao("M", v -> tecla(KeyEvent.KEYCODE_M)));          // Melhores
         esquerda.addView(botao("✱", v -> comando("*")));   // jogador selecionado: titular
         esquerda.addView(botao("—", v -> comando("-")));   // jogador selecionado: reserva
