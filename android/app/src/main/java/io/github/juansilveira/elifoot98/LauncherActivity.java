@@ -53,7 +53,7 @@ public class LauncherActivity extends Activity {
         status.setGravity(Gravity.CENTER);
         col.addView(status);
 
-        col.addView(botao("Jogar Elifoot 98", v -> abrir("ELIFOOT.EXE")));
+        col.addView(botao("Jogar Elifoot 98", v -> abrir(exeDoJogo())));
         col.addView(botao("Editor de Equipes", v -> startActivity(new Intent(this, TeamEditorActivity.class))));
         col.addView(botao("Editor de Árbitros", v -> startActivity(new Intent(this, RefereeEditorActivity.class))));
         col.addView(botao("Editor de Save", v -> startActivity(new Intent(this, SaveEditorActivity.class))));
@@ -109,6 +109,45 @@ public class LauncherActivity extends Activity {
         startActivity(new Intent(this, ElifootActivity.class).putExtra(ElifootActivity.EXTRA_EXE, exe));
     }
 
+    // Equipes por divisao: o pacote traz um EXE para cada opcao (ELIF08.EXE a ELIF20.EXE,
+    // gerados por tools/divisoes/patch_divisoes.py). Um jogo gravado so continua com o
+    // mesmo numero de equipes.
+    private static final int[] OPCOES_EQUIPES = {8, 10, 12, 14, 16, 18, 20};
+
+    private int equipesPorDivisao() {
+        return getSharedPreferences("config", MODE_PRIVATE).getInt("equipes", 8);
+    }
+
+    private String exeDoJogo() {
+        String exe = String.format(java.util.Locale.ROOT, "ELIF%02d.EXE", equipesPorDivisao());
+        return new java.io.File(jogo.jogo, exe).exists() ? exe : "ELIFOOT.EXE";
+    }
+
+    // Minimo de equipes no jogo novo (4N + as que sobem do Distrital)
+    private static int minimoDeEquipes(int n) {
+        return 4 * n + (n >= 16 ? 4 : 2);
+    }
+
+    private void equipes() {
+        String[] opcoes = new String[OPCOES_EQUIPES.length];
+        int atual = 0;
+        for (int i = 0; i < opcoes.length; i++) {
+            int n = OPCOES_EQUIPES[i];
+            opcoes[i] = n == 8 ? "8 (original)" : n + " — " + 2 * (n - 1) + " jornadas, mínimo de " + minimoDeEquipes(n) + " equipes";
+            if (n == equipesPorDivisao()) atual = i;
+        }
+        new AlertDialog.Builder(this)
+            .setTitle("Equipes por divisão")
+            .setSingleChoiceItems(opcoes, atual, (d, w) -> {
+                d.dismiss();
+                getSharedPreferences("config", MODE_PRIVATE).edit().putInt("equipes", OPCOES_EQUIPES[w]).apply();
+                Ui.mensagem(this, "Pronto", OPCOES_EQUIPES[w] + " equipes por divisão a partir do próximo jogo novo.\n\n"
+                    + "Um jogo gravado só continua com o mesmo número de equipes em que foi começado.");
+            })
+            .setNegativeButton("Cancelar", null)
+            .show();
+    }
+
     private void configuracoes() {
         boolean liberado = TeamCodec.bosmanLiberado(jogo.jogo);
         LinearLayout l = new LinearLayout(this);
@@ -118,12 +157,14 @@ public class LauncherActivity extends Activity {
         TextView t = new TextView(this);
         t.setText("No Android o jogo abre em tela cheia.\n\n"
             + "\"Ativar todos os recursos\" registra o jogo (Registro para autor).\n\n"
+            + "Equipes por divisão: " + equipesPorDivisao() + ".\n\n"
             + "Estrangeiros: " + (liberado ? "Liberado (sem limite)" : "Original (até 5 por equipe; Lei Bosman e língua portuguesa não contam)") + ".\n\n"
             + "\"Restaurar times originais\" desfaz equipes editadas e patches aplicados.");
         t.setTextSize(TypedValue.COMPLEX_UNIT_SP, 15);
         l.addView(t);
         AlertDialog[] d = new AlertDialog[1];
         l.addView(botaoDialogo("Ativar todos os recursos", () -> { d[0].dismiss(); ativar(); }));
+        l.addView(botaoDialogo("Equipes por divisão…", () -> { d[0].dismiss(); equipes(); }));
         l.addView(botaoDialogo("Estrangeiros…", () -> { d[0].dismiss(); estrangeiros(liberado); }));
         l.addView(botaoDialogo("Restaurar times originais…", () -> { d[0].dismiss(); restaurar(); }));
         ScrollView sv = new ScrollView(this);

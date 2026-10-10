@@ -89,6 +89,12 @@ namespace ElifootLauncher
             try { liberadoAntes = TeamCodec.BosmanLiberado(game.GameDir); } catch { estrangeiros.IsEnabled = false; }
             estrangeiros.SelectedIndex = liberadoAntes ? 1 : 0;
 
+            // Equipes por divisao: cada opcao abre o seu EXE (ELIF08.EXE a ELIF20.EXE)
+            var equipes = new ComboBox { HorizontalAlignment = HorizontalAlignment.Stretch };
+            foreach (var n in LauncherConfig.OpcoesEquipes)
+                equipes.Items.Add(n == 8 ? "8 (original)" : $"{n} — {2 * (n - 1)} jornadas, mínimo de {LauncherConfig.MinimoDeEquipes(n)} equipes");
+            equipes.SelectedIndex = Math.Max(0, Array.IndexOf(LauncherConfig.OpcoesEquipes, cfg.EquipesPorDivisao));
+
             var btnOk = new Button { Content = "Salvar", MinWidth = 80, HorizontalContentAlignment = HorizontalAlignment.Center, IsDefault = true };
             var btnCancel = new Button { Content = "Cancelar", MinWidth = 80, HorizontalContentAlignment = HorizontalAlignment.Center, IsCancel = true };
             btnOk.Click += async (_, _) =>
@@ -107,6 +113,7 @@ namespace ElifootLauncher
                 cfg.ResolutionWidth = w;
                 cfg.ResolutionHeight = h;
                 cfg.Fullscreen = fullscreen.IsChecked == true;
+                cfg.EquipesPorDivisao = LauncherConfig.OpcoesEquipes[equipes.SelectedIndex];
                 cfg.Save();
                 Close(true);
             };
@@ -124,6 +131,14 @@ namespace ElifootLauncher
                     new TextBlock
                     {
                         Text = nota,
+                        TextWrapping = TextWrapping.Wrap,
+                        Foreground = new SolidColorBrush(Color.FromRgb(100, 100, 100)),
+                    },
+                    new TextBlock { Text = "Equipes por divisão:", Margin = new Thickness(0, 6, 0, 0) },
+                    equipes,
+                    new TextBlock
+                    {
+                        Text = "Um jogo gravado só continua com o mesmo número de equipes por divisão em que foi começado.",
                         TextWrapping = TextWrapping.Wrap,
                         Foreground = new SolidColorBrush(Color.FromRgb(100, 100, 100)),
                     },

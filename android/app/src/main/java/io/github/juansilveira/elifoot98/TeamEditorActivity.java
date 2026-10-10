@@ -896,7 +896,7 @@ public class TeamEditorActivity extends Activity {
         int gr = 0;
         for (TeamCodec.Jogador j : atual.jogadores) if (j.posicao == 0) gr++;
         int campo = atual.jogadores.size() - gr, est = regras.estrangeiros(atual);
-        String contagem = atual.jogadores.size() + " jogadores (14 a 20) · " + gr + " GR · " + campo + " de campo (mín. 10) · "
+        String contagem = atual.jogadores.size() + " jogadores (" + TeamCodec.MIN_JOGADORES + " a " + TeamCodec.MAX_JOGADORES + ") · " + gr + " GR · " + campo + " de campo (mín. 10) · "
             + (liberado ? "estrangeiros sem limite" : est + " de " + TeamCodec.MAX_ESTRANGEIROS + " estrangeiros");
         ultimaContagem = contagem;
         problemas.addView(texto(contagem, 13, BRANCO, false));

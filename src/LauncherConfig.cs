@@ -14,6 +14,15 @@ namespace ElifootLauncher
         public int ResolutionHeight { get; set; } = 480;
         public bool Fullscreen { get; set; } = false;
 
+        // Equipes por divisao: o pacote traz um EXE para cada opcao (ELIF08.EXE a
+        // ELIF20.EXE, gerados por tools/divisoes/patch_divisoes.py). Um jogo gravado
+        // so continua com o mesmo numero de equipes.
+        public static readonly int[] OpcoesEquipes = { 8, 10, 12, 14, 16, 18, 20 };
+        public int EquipesPorDivisao { get; set; } = 8;
+        public string ExeDoJogo => $"ELIF{EquipesPorDivisao:00}.EXE";
+        // Minimo de equipes no jogo novo (4N + as que sobem do Distrital)
+        public static int MinimoDeEquipes(int n) => 4 * n + (n >= 16 ? 4 : 2);
+
         private static string ConfigPath
         {
             get
@@ -48,6 +57,9 @@ namespace ElifootLauncher
                         case "height":
                             if (int.TryParse(val, out var h)) cfg.ResolutionHeight = h;
                             break;
+                        case "equipes":
+                            if (int.TryParse(val, out var n) && Array.IndexOf(OpcoesEquipes, n) >= 0) cfg.EquipesPorDivisao = n;
+                            break;
                         case "fullscreen":
                             cfg.Fullscreen = val == "1" || string.Equals(val, "true", StringComparison.OrdinalIgnoreCase);
                             break;
@@ -66,6 +78,7 @@ namespace ElifootLauncher
                 "width=" + ResolutionWidth,
                 "height=" + ResolutionHeight,
                 "fullscreen=" + (Fullscreen ? "1" : "0"),
+                "equipes=" + EquipesPorDivisao,
             };
             File.WriteAllLines(ConfigPath, lines);
         }

@@ -598,7 +598,7 @@ namespace ElifootLauncher
             var t = _atual;
             if (t == null) { _contagem.Text = ""; return; }
             int gr = t.Jogadores.Count(j => j.Posicao == 0), campo = t.Jogadores.Count - gr, est = _regras.Estrangeiros(t);
-            _contagem.Text = $"Jogadores {t.Jogadores.Count} (14 a 20)\nGuarda-redes {gr} (mín. 1) · Campo {campo} (mín. 10)\n" +
+            _contagem.Text = $"Jogadores {t.Jogadores.Count} ({TeamCodec.MIN_JOGADORES} a {TeamCodec.MAX_JOGADORES})\nGuarda-redes {gr} (mín. 1) · Campo {campo} (mín. 10)\n" +
                 (_liberado ? "Estrangeiros: sem limite (Liberado)" : $"Estrangeiros {est} de {TeamCodec.MAX_ESTRANGEIROS}");
             var erros = _regras.Validar(t);
             if (erros.Count == 0)

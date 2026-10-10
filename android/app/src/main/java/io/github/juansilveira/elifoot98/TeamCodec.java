@@ -20,7 +20,7 @@ final class TeamCodec {
     private TeamCodec() {}
 
     // Regras de seg12:275e (mensagens iguais as do Editor de Equipas)
-    static final int MIN_JOGADORES = 14, MAX_JOGADORES = 20, MIN_CAMPO = 10, MAX_ESTRANGEIROS = 5;
+    static final int MIN_JOGADORES = 14, MAX_JOGADORES = 30, MIN_CAMPO = 10, MAX_ESTRANGEIROS = 5;
 
     /** No arquivo os jogadores vem agrupados G, D, M, A: o novo entra no fim do grupo
      *  da posicao dele (nao no fim da lista). Devolve o indice. */

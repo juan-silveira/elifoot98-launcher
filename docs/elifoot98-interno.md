@@ -629,6 +629,8 @@ que a **balança** do diálogo "Tendência do Árbitro" mostra para cada time
   na fase de alta, com variação aleatória: por isso não sobe "1 por ano".
 - **Validado**: num save a inflação estava em 2,0019 e, uma rodada depois (2026),
   em 2,0096 (+0,0077, dentro do esperado).
+- O 0,01 é um real de 10 bytes em `seg05:0c2f`, usado só nessas duas contas. O
+  patch de equipes por divisão troca por `0,01 × 14 / R` (`docs/patch-divisoes.md`).
 
 ### O que a inflação multiplica
 
@@ -779,6 +781,16 @@ Validado também no editor (Xvfb): recusou com 13 jogadores, gravou com 14;
 | pelo menos 10 jogadores de campo | Não tem jogadores de campo suficientes |
 | **no máximo 5 estrangeiros** | Tem demasiados jogadores estrangeiros |
 | treinador com nome | Não está definido o treinador |
+
+**Limites de jogadores no código** (o jogo original):
+- 20 no editor de equipes: botão Adicionar (`seg01:13b3`) e "Tem demasiados
+  jogadores" (`seg12:27fa`).
+- 24 durante o jogo, nas compras e leilões (`seg03:635a`): o número de jogadores
+  da equipe (byte `+0x88`) mais as compras pendentes (`+0xc7`) tem de ficar
+  abaixo de 24.
+- Com 21 ou mais (`seg03:3b51`), o computador fica mais disposto a vender.
+- Os jogadores ficam numa `TList` (`seg03:37d0`); `+0x83`…`+0x86` contam por
+  posição e `+0x87` os estrangeiros.
 
 ### Estrangeiro, Lei Bosman e PLOP (`seg12:0a2f`)
 

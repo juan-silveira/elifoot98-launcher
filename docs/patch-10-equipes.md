@@ -1,5 +1,8 @@
 # Patch de 10 equipes por divisão (experimental)
 
+> Substituído por `tools/divisoes/patch_divisoes.py` (8 a 20 equipes), ver
+> `docs/patch-divisoes.md`. Fica aqui como registro do primeiro teste.
+
 `tools/patch_10equipas.py` muda o `ELIFOOT.EXE` (98.003 com o patch do 5-0-5)
 para ter **10 equipes em cada divisão** e **18 jornadas** por temporada (turno e
 returno), em vez de 8 equipes e 14 jornadas. O Distrital continua com as equipes

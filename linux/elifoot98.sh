@@ -8,6 +8,7 @@
 #   ELIFOOT_RES=1024x768         tamanho da janela do jogo (padrao 800x600, so Linux)
 #   ELIFOOT_FULLSCREEN=1         sem janela (jogo ocupa a tela; padrao no macOS)
 #   ELIFOOT_WINE=/caminho/wine   forca um Wine especifico
+#   ELIFOOT_EXE=ELIF20.EXE       EXE do jogo (equipes por divisao; padrao ELIFOOT.EXE)
 # Compativel com o bash 3.2 do macOS e com as ferramentas BSD.
 set -euo pipefail
 
@@ -34,7 +35,7 @@ RES="${ELIFOOT_RES:-800x600}"
 # O driver do macOS nao tem desktop virtual: la o jogo abre maximizado
 FULLSCREEN="${ELIFOOT_FULLSCREEN:-$MAC}"
 MODO="${1:-jogo}"
-EXE="ELIFOOT.EXE"
+EXE="${ELIFOOT_EXE:-ELIFOOT.EXE}"
 [[ "$MODO" == "editor" ]] && EXE="EDITEQ.EXE"
 
 export WINEPREFIX="$APP/prefix" WINEDEBUG=-all WINEDLLOVERRIDES="mscoree,mshtml="
@@ -157,6 +158,7 @@ INICIAR=""
 [[ -f "$APP/linux/iniciar.exe" ]] && INICIAR='E:\linux\iniciar.exe'
 
 cd "$APP/game"
+[[ -f "$EXE" ]] || EXE="ELIFOOT.EXE"
 if [[ "$FULLSCREEN" == "1" ]]; then
   [[ -n "$INICIAR" ]] && exec "$WINE" "$INICIAR" "$OTVDM" "E:\\game\\$EXE"
   exec "$WINE" "$OTVDM" "E:\\game\\$EXE"
