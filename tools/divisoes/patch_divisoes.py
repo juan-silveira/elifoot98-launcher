@@ -29,6 +29,7 @@ R = 2 * (N - 1)   # jornadas
 MAXJOG = 30       # jogadores por equipa (era 24 no jogo, 20 no editor)
 LUG_DS = 0x17C8   # tabela de lugares no DS (4 bits por jornada)
 from montar import montar
+from cartoes import cartoes
 
 
 def real10(x):
@@ -160,7 +161,8 @@ def main(n, entrada, saida):
     b = bytearray(open(entrada, 'rb').read())
     ne = NE(b)
     limite_jogadores(ne)
-    if N == 8:                # o jogo original, so com o limite de jogadores
+    if N == 8:                # o jogo original, so com o limite de jogadores e os amarelos
+        cartoes(ne, b)
         gravar(b, saida)
         print('ok: 8 equipas/divisao (original), ate %d jogadores' % MAXJOG)
         return
@@ -250,6 +252,7 @@ def main(n, entrada, saida):
     if N > 14:
         # Classificacao em 2 paginas (1a+2a / 3a+4a) com setas: paginas.py
         import paginas
+        cartoes(ne, b)
         print('paginas:', {k: '%04X' % v for k, v in paginas.paginar(ne, b, N).items()})
         gravar(b, saida)
         return
@@ -271,6 +274,7 @@ def main(n, entrada, saida):
     dfm(b'\x10ListBoxDivision2', b'Top', 217, 217 + extra)
     dfm(b'\x10ListBoxDivision4', b'Top', 217, 217 + extra)
 
+    cartoes(ne, b)
     gravar(b, saida)
     print('ok: %d equipas/divisao, %d jornadas; rotinas seg03 %s, ajudante seg11:%04X'
           % (N, R, {k: '%04X' % v for k, v in rot.items()}, aj_off))

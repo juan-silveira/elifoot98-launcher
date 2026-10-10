@@ -540,7 +540,7 @@ public class SaveEditorActivity extends Activity {
             SaveCodec.Jogador j = ordenados.get(i);
             String comp = j.comportamento >= 0 && j.comportamento < SaveCodec.COMPORTAMENTOS.length
                 ? SaveCodec.COMPORTAMENTOS[j.comportamento] : "?";
-            String sit = (j.suspensao > 0 ? "S" + j.suspensao : "") + (j.jogosLesionado > 0 ? " L" + j.jogosLesionado : "");
+            String sit = (j.suspensao > 0 ? "S" + j.suspensao : j.amarelosAcumulados > 0 ? "A" + j.amarelosAcumulados : "") + (j.jogosLesionado > 0 ? " L" + j.jogosLesionado : "");
             LinearLayout l = linhaTabela(new String[] {
                 j.posicao, j.nome, j.estrela ? "✱" : "", Integer.toString(j.forca),
                 String.format(BR, "%,d", j.salario), Integer.toString(j.nota), Integer.toString(j.lesao), comp, sit.trim(),

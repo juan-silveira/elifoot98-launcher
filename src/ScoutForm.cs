@@ -291,7 +291,7 @@ namespace ElifootLauncher
         private string[] Celulas(Linha l)
         {
             var j = l.J;
-            string sl = ((j.Suspensao > 0 ? "S" + j.Suspensao : "") + (j.JogosLesionado > 0 ? " L" + j.JogosLesionado : "")).Trim();
+            string sl = ((j.Suspensao > 0 ? "S" + j.Suspensao : j.AmarelosAcumulados > 0 ? "A" + j.AmarelosAcumulados : "") + (j.JogosLesionado > 0 ? " L" + j.JogosLesionado : "")).Trim();
             string sit = sl.Length > 0 ? sl : l.Situacao == "Estrangeiro" ? "Estrang." : l.Situacao;
             return new[] { j.Posicao, j.Nome, j.Estrela ? "✱" : "", l.Score.ToString(), j.Pais, j.Forca.ToString(), j.Nota.ToString(), j.Lesao.ToString(),
                 SaveCodec.ComportamentoLabels[Math.Max(0, Math.Min(5, j.Comportamento))], Score.TextoImpacto(l.Impacto),

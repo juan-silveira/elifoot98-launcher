@@ -37,3 +37,4 @@ eli-cod/
 
 # Pacote Linux
 dist/
+__pycache__/

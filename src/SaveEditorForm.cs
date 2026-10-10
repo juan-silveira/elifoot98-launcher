@@ -478,7 +478,7 @@ namespace ElifootLauncher
                 {
                     string comp = j.Comportamento >= 0 && j.Comportamento < SaveCodec.ComportamentoLabels.Length
                         ? SaveCodec.ComportamentoLabels[j.Comportamento] : "?";
-                    string sit = ((j.Suspensao > 0 ? "S" + j.Suspensao : "") + (j.JogosLesionado > 0 ? " L" + j.JogosLesionado : "")).Trim();
+                    string sit = ((j.Suspensao > 0 ? "S" + j.Suspensao : j.AmarelosAcumulados > 0 ? "A" + j.AmarelosAcumulados : "") + (j.JogosLesionado > 0 ? " L" + j.JogosLesionado : "")).Trim();
                     var it = new ListViewItem(new[] { j.Posicao, j.Nome, j.Estrela ? "✱" : "", j.Forca.ToString(), Milhar(j.Salario),
                         j.Nota.ToString(), j.Lesao.ToString(), comp, sit }) { Tag = j };
                     _players.Items.Add(it);

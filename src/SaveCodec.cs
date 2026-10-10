@@ -29,6 +29,10 @@ namespace ElifootLauncher
         public int Gols { get; set; }
         public int Lesoes { get; set; }
         public int Expulsoes { get; set; }
+        // Cartoes amarelos (patch do launcher): os 2 bytes de cima das lesoes (t42-t43)
+        // e das expulsoes (t46 acumulados; t47 e a marca do jogo do ultimo amarelo)
+        public int AmarelosCarreira { get; set; }
+        public int AmarelosAcumulados { get; set; }
         public int NotaOffsetInFile { get; set; } = -1;
         public int LesaoOffsetInFile { get; set; } = -1;
         public int ComportamentoOffsetInFile { get; set; } = -1;
@@ -327,8 +331,10 @@ namespace ElifootLauncher
                         JogosLesionadoOffsetInFile = lesJogosOff,
                         Jogos = BitConverter.ToInt32(bytes, bodyStart + recOff + recSize - 18),
                         Gols = BitConverter.ToInt32(bytes, bodyStart + recOff + recSize - 14),
-                        Lesoes = BitConverter.ToInt32(bytes, bodyStart + recOff + recSize - 10),
-                        Expulsoes = BitConverter.ToInt32(bytes, bodyStart + recOff + recSize - 6),
+                        Lesoes = BitConverter.ToUInt16(bytes, bodyStart + recOff + recSize - 10),
+                        AmarelosCarreira = BitConverter.ToUInt16(bytes, bodyStart + recOff + recSize - 8),
+                        Expulsoes = BitConverter.ToUInt16(bytes, bodyStart + recOff + recSize - 6),
+                        AmarelosAcumulados = bytes[bodyStart + recOff + recSize - 4],
                     };
                     team.Players.Add(p);
                 }

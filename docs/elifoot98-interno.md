@@ -510,6 +510,23 @@ gol é anulado: o placar e os gols do autor voltam 1 e o lance vira tipo 6.
 - Depois de cada jogo do time, a suspensão de cada jogador cai 1 (mínimo 0),
   assim como os jogos de lesão (`seg03:56e4`).
 
+**Quando acontece** (`seg03:aa11`, **código**): a cada minuto, cada jogo sorteia
+**um só** número `r = Random(1000)` para os dois times:
+- se `r < 10` e `r` > influência do árbitro sobre o mandante (`+0x4c` do jogo),
+  é expulso um jogador do **mandante**;
+- senão, se `r < 10` e `r` > influência sobre o visitante (`+0x4e`), um do
+  **visitante**.
+
+Como é o mesmo número, o visitante só é punido quando `r` não passa da
+influência sobre o mandante. O mandante leva vermelho muito mais vezes.
+
+O jogador é escolhido por `seg03:100b(elenco, 1, 3)`, pelo comportamento. Se o
+comportamento for 0 (Fair Play), ninguém é expulso. Depois da expulsão,
+`aa11`:
+- cria o lance tipo 4 (`seg03:c1bf`) e redesenha o jogo (`seg03:9ecd`);
+- cuida da substituição (`seg03:67f7`, ou a janela do humano);
+- recalcula a força dos setores (`seg03:397d`).
+
 ### Lesão (`seg03:4940`)
 
 - O lesionado sai de campo.
@@ -895,6 +912,58 @@ jogadores. Os detalhes estão em `docs/patch-divisoes.md`.
   na tabela de divisões (`src/SavesPorEquipes.cs`).
 - **Validado**: um save de 20 equipes, aberto de novo no EXE de 20, continua a
   temporada normalmente.
+
+## 10. Cartões amarelos (patch do launcher)
+
+O jogo original não tem cartão amarelo. O patch (`tools/divisoes/cartoes.asm`
+e `cartoes.py`) entra em todos os EXEs do launcher, de `ELIF08` a `ELIF20`.
+
+**Onde ficam no save:** nos 2 bytes de cima de dois contadores de 4 bytes que
+nunca passam de 65.535:
+- **expulsões** (`+0x23`, t44–t47): t46 (`+0x25`) guarda os **amarelos
+  acumulados** e t47 (`+0x26`) a **marca do jogo** do último amarelo;
+- **lesões** (`+0x1f`, t40–t43): t42–t43 (`+0x21`) guardam os **amarelos na
+  carreira**.
+
+As telas que mostram esses dois números (`seg02`, `seg04`, `seg07`, `seg10`)
+passam a ler só os 2 bytes de baixo.
+
+**Regra** (no lugar do sorteio de expulsão de `seg03:aa11` e de `48be`):
+- **Um sorteio por time**, `Random(1000)` a cada minuto: abaixo de `VERM` é
+  vermelho direto, de `VERM` até `LIMITE − 1` é amarelo. Nos dois casos o
+  número tem de passar da influência do árbitro sobre aquele time.
+- O jogador é escolhido como na expulsão original, pelo comportamento, e Fair
+  Play nunca leva.
+- **2º amarelo no mesmo jogo:** o árbitro só expulsa 1 vez em 4 (os 2 bits de
+  baixo do mesmo sorteio do minuto valem 0); nas outras 3 não sai cartão
+  nenhum. Quando expulsa, é o vermelho com tudo o que a expulsão já fazia
+  (suspensão de 1 a 4 jogos, substituição do goleiro, pênalti) e conta mais um
+  amarelo na carreira, mas não nos acumulados.
+- **3 amarelos acumulados:** 1 jogo de suspensão, e o contador volta a 0. A
+  suspensão é posta em 2, porque cai 1 no fim do próprio jogo.
+- A marca do jogo é `(ano × 80 + 2 × jornada + Taça) mod 255 + 1`.
+- O amarelo vira o lance **tipo 3**, desenhado na tela da jornada como o
+  vermelho, mas em amarelo. O jogador continua em campo, sem substituição.
+- Na lista do plantel, a coluna do **S** mostra **A** quando o jogador não está
+  suspenso e tem amarelos acumulados (o texto é `" A"` + TAB, no mesmo formato
+  de `" S"` + TAB).
+- Na aba **Jogador**, o texto debaixo do Historial (`+0x2F4`, `seg04:2614`), que
+  antes só aparecia com suspensão, mostra "Suspenso por N jogo(s)" ou, sem
+  suspensão, "N amarelo(s) acumulado(s)". O texto "Suspenso por 1 jogo" do
+  original (`seg04:2266`) deu lugar a `" jogo"`; os textos dos amarelos ficam no
+  fim do `seg04`.
+- O Historial ainda não tem a linha dos amarelos na carreira (só o Editor de Save
+  e o Scout mostram o número).
+
+**Medido** (Linux, tela virtual; jogo novo com 20 equipes por divisão e todos os
+países, 3 jornadas, uns 145 jogos cada):
+
+| `VERM` / `LIMITE` | Amarelos por jogo | Vermelhos por jogo |
+|---|---|---|
+| 10 / 34 (1ª versão, 2º amarelo sempre expulsa) | 2,43 | 0,53 |
+| **5 / 50, 2º amarelo expulsa 1 em 4 (atual)** | **3,77** | **0,26** |
+
+Num jogo de futebol real são uns 4 amarelos e 0,2 vermelho por jogo.
 
 ## Autoverificação do executável (`seg12:39D9` → `seg12:3825`)
 

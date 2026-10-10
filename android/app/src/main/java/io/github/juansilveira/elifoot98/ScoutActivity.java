@@ -476,7 +476,7 @@ public class ScoutActivity extends Activity {
         public View getView(int i, View v, ViewGroup pai) {
             Linha l = visiveis.get(i);
             SaveCodec.Jogador j = l.j;
-            String sl = ((j.suspensao > 0 ? "S" + j.suspensao : "") + (j.jogosLesionado > 0 ? " L" + j.jogosLesionado : "")).trim();
+            String sl = ((j.suspensao > 0 ? "S" + j.suspensao : j.amarelosAcumulados > 0 ? "A" + j.amarelosAcumulados : "") + (j.jogosLesionado > 0 ? " L" + j.jogosLesionado : "")).trim();
             String sit = !sl.isEmpty() ? sl : l.situacao.equals("Estrangeiro") ? "Estrang." : l.situacao;
             LinearLayout linha = new LinearLayout(ScoutActivity.this);
             linha.setGravity(Gravity.CENTER_VERTICAL);

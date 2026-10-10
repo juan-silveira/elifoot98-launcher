@@ -35,6 +35,9 @@ public final class SaveCodec {
         public int nota, lesao, suspensao, jogosLesionado;
         // Historial do jogador (so leitura): t32 jogos, t36 golos na epoca, t40 lesoes, t44 vermelhos
         public int jogos, gols, lesoes, expulsoes;
+        // Cartoes amarelos (patch do launcher): os 2 bytes de cima das lesoes (t42-t43)
+        // e das expulsoes (t46 acumulados; t47 e a marca do jogo do ultimo amarelo)
+        public int amarelosCarreira, amarelosAcumulados;
         int forcaOff, salarioOff, notaOff = -1, lesaoOff = -1, compOff = -1, estrelaOff = -1, suspensaoOff = -1, jogosLesionadoOff = -1;
     }
 
@@ -214,8 +217,10 @@ public final class SaveCodec {
                 j.salario = (int) u32(b, j.salarioOff);
                 j.jogos = (int) u32(b, base - 18);
                 j.gols = (int) u32(b, base - 14);
-                j.lesoes = (int) u32(b, base - 10);
-                j.expulsoes = (int) u32(b, base - 6);
+                j.lesoes = u16(b, base - 10);
+                j.amarelosCarreira = u16(b, base - 8);
+                j.expulsoes = u16(b, base - 6);
+                j.amarelosAcumulados = b[base - 4] & 0xff;
                 t.jogadores.add(j);
             }
             sf.times.add(t);
