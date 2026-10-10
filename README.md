@@ -1,6 +1,6 @@
 # Elifoot 98 Launcher
 
-Wrapper para rodar o **Elifoot 98** (1998, João Duarte Almeida) em Windows 10/11 modernos, incluindo o editor de equipes e o registrador CRACK.EXE.
+Wrapper para rodar o **Elifoot 98** (1998, André Elias e Ricardo Correia) em Windows 10/11 modernos, incluindo o editor de equipes e o registrador CRACK.EXE.
 
 Traz UI para configurar resolução e modo janela/fullscreen, e embute [otvdm](https://github.com/otya128/winevdm) (para os executáveis 16-bit) e uma versão portable do DOSBox (para o `CRACK.EXE` DOS-only).
 
@@ -113,11 +113,11 @@ Além do launcher em si:
 
 Este launcher é distribuído sob **GPL-3.0** (compatível com DOSBox, que é GPL-2.0-or-later).
 
-O jogo Elifoot 98 é obra de **André Elias e João Duarte Almeida**, distribuído originalmente como shareware. Este projeto tem propósito de preservação e não tem fins lucrativos.
+O jogo Elifoot 98 é obra de **André Elias e Ricardo Correia**, distribuído originalmente como shareware. Este projeto tem propósito de preservação e não tem fins lucrativos.
 
 ## Créditos
 
-- Elifoot 98 — André Elias e João Duarte Almeida (1998)
+- Elifoot 98 — André Elias e Ricardo Correia (1998)
 - Inspiração: [elifoot98web](https://github.com/elifoot98web/elifoot98web) — versão browser
 - otvdm — otya128
 - DOSBox — DOSBox Team
