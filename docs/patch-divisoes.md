@@ -14,7 +14,15 @@ sempre os mesmos bytes, e os EXEs têm o mesmo tamanho do original (836.356
 bytes). A soma de verificação dos 4 últimos bytes é recalculada.
 
 Um save só continua com o EXE em que foi começado: o calendário e o tamanho das
-divisões ficam gravados nele.
+divisões ficam gravados nele. Com outro EXE o jogo dá "List index out of
+bounds.".
+
+Por isso o launcher deixa na pasta `JOGOS` só os saves do número escolhido,
+antes de abrir o jogo. Os outros vão para `JOGOS/<N> equipes` e voltam quando
+esse número é escolhido de novo (`src/SavesPorEquipes.cs` e
+`SavesPorEquipes.java`). O jogo só lista os saves da própria pasta `JOGOS`. O
+Editor de Save e o Scout listam os saves de todas essas pastas, com o número
+ao lado ("JUAN — 20 equipes").
 
 ## Em todos os EXEs: até 30 jogadores por equipe
 
@@ -100,8 +108,12 @@ R = 2(N − 1) jornadas.
   (`docs/patch-10-equipes.md`). Ele faz o mesmo de outro jeito: a tabela de
   adversários fica no DS.
 - O `elifoot98.sh` abre o EXE de `ELIFOOT_EXE`.
+- **Saves:**
+  - um save de 20 equipes, aberto de novo no `ELIF20.EXE`, continuou a
+    temporada;
+  - depois da separação, a lista do jogo mostrou só os saves de 20;
+  - o Scout do Android mostrou cada save com o seu número de equipes.
 
 **Não testado:**
 - os EXEs de 8, 10, 12, 16 e 18 gerados por este script, no jogo;
-- carregar um save de volta;
-- o Android no aparelho.
+- o Android num aparelho real (só no emulador).

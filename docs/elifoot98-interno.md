@@ -815,6 +815,58 @@ O launcher usa os arquivos do patch do Turbo Elifoot (`turbo_patch_934_27`):
 **Validado** no jogo (Android): a seleção de países mostra os nomes novos e
 as bandeiras de 24 bits.
 
+## 8. Telas da jornada e da Classificação
+
+### Tela da jornada (`TjourneyDlg`, `seg10`)
+
+**Código.** Os jogos ficam numa lista (`DS:0x270a`) que também tem uma linha de
+cabeçalho para cada divisão, e cada página mostra **20 linhas**, cabeçalhos
+incluídos. Os lugares que usam o 20:
+- o número de páginas: `(linhas − 1) div 20` (`seg10:0b17`);
+- a página e a linha de cada jogo (`seg03:9f22`, `9f43`);
+- a moldura (`seg10:05ad`);
+- o clique do mouse (`seg10:09c4`).
+
+Com 8 equipes são 4 × (1 + 4) = 20 linhas: as 4 divisões cabem numa página, e a
+Taça vem nas páginas seguintes. A altura da moldura azul é calculada pelo total
+de linhas da lista (`seg10:0593`). A página atual fica em `DS:0x2b38`, e as
+setas `<` e `>` são TButtons.
+
+### Classificação (`TclassificationDlg`, `seg06`)
+
+**Código.** São 4 TListBox de desenho próprio, uma por divisão. Os campos do
+formulário são:
+- as listas: `+0x17c`, `0x180`, `0x184`, `0x188`;
+- os títulos: `+0x18c` a `0x198`;
+- o relógio: `+0x19c`.
+
+Os 4 `DrawItem` (`seg06:03eb`, `04a3`, `055b`, `0613`) são idênticos, a não ser
+pelo número da divisão (`push 0` a `push 3`). O mesmo vale para os 4 `Click`,
+que abrem a equipe (`seg06:07f4`, `088b`, `0922`, `09b9`).
+
+O relógio (`Timer1Timer`, `seg06:0a50`) fecha a janela depois de 10 tiques. Ele
+só fica ligado quando quem abre a janela pede (`+0x1a6`): depois de cada
+jornada. Aberta pelo menu Campeonato, a janela não fecha sozinha.
+
+Clicar no fundo da janela fecha a Classificação (`OnClick = GoOn`). O clique
+num controle desabilitado também cai no fundo.
+
+## 9. Equipes por divisão (patch do launcher)
+
+O launcher traz um EXE para cada número de equipes por divisão, de 8 a 20,
+gerados por `tools/divisoes/patch_divisoes.py`. Todos têm o limite de 30
+jogadores. Os detalhes estão em `docs/patch-divisoes.md`.
+
+- **Validado**: carregar no EXE de 20 equipes um save começado com 8 dá "List
+  index out of bounds.". O save só abre no EXE com o mesmo número de equipes.
+- **Validado**: a lista "Jogos gravados" do jogo mostra só os `*.e98` da própria
+  pasta `JOGOS`, não os de subpastas. Por isso, antes de abrir o jogo, o launcher
+  deixa em `JOGOS` só os saves do número escolhido e guarda os outros em
+  `JOGOS/<N> equipes`. O número de cada save é o de equipes da 1ª divisão, lido
+  na tabela de divisões (`src/SavesPorEquipes.cs`).
+- **Validado**: um save de 20 equipes, aberto de novo no EXE de 20, continua a
+  temporada normalmente.
+
 ## Autoverificação do executável (`seg12:39D9` → `seg12:3825`)
 
 **Validado.** Ao abrir, o jogo lê o próprio `ELIFOOT.EXE` e compara os **4

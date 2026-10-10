@@ -380,31 +380,35 @@ namespace ElifootLauncher
 
         // ---- dados ----
 
+        // Saves de JOGOS e das pastas "<N> equipes" (SavesPorEquipes), com o numero de
+        // equipes por divisao de cada um no nome
+        private List<SavesPorEquipes.Save> _saves = new List<SavesPorEquipes.Save>();
+
         private void RefreshSaveList(bool preserveSelection)
         {
-            string? prev = preserveSelection ? _saveSel.SelectedItem as string : null;
+            string? prev = preserveSelection && _saveSel.SelectedIndex >= 0 && _saveSel.SelectedIndex < _saves.Count ? _saves[_saveSel.SelectedIndex].Caminho : null;
             if (!Directory.Exists(_jogosDir))
             {
                 MessageBox.Show(this, $"Pasta JOGOS não encontrada:\n{_jogosDir}", "Sem saves", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
-            var files = Directory.GetFiles(_jogosDir, "*.e98", SearchOption.TopDirectoryOnly).Select(Path.GetFileName).OrderBy(n => n).ToList();
+            _saves = SavesPorEquipes.Listar(_jogosDir);
             _saveSel.Items.Clear();
-            foreach (var f in files) _saveSel.Items.Add(f);
-            if (files.Count == 0)
+            foreach (var f in _saves) _saveSel.Items.Add(f.Rotulo);
+            if (_saves.Count == 0)
             {
                 MessageBox.Show(this, "Nenhum jogo gravado em JOGOS ainda.", "Sem saves", MessageBoxButtons.OK, MessageBoxIcon.Information);
                 return;
             }
-            int found = prev != null ? files.IndexOf(prev) : -1;
+            int found = prev != null ? _saves.FindIndex(f => f.Caminho == prev) : -1;
             _saveSel.SelectedIndex = -1;
             _saveSel.SelectedIndex = found >= 0 ? found : 0;
         }
 
         private void LoadSelected()
         {
-            if (_saveSel.SelectedItem is not string name) return;
-            _currentPath = Path.Combine(_jogosDir, name);
+            if (_saveSel.SelectedIndex < 0 || _saveSel.SelectedIndex >= _saves.Count) return;
+            _currentPath = _saves[_saveSel.SelectedIndex].Caminho;
             try
             {
                 _current = SaveCodec.Read(_currentPath);

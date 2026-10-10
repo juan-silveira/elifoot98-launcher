@@ -30,7 +30,7 @@ namespace ElifootLauncher
             Config = cfg;
 
             Text = "Configurações";
-            ClientSize = new Size(400, 360);
+            ClientSize = new Size(400, 440);
             FormBorderStyle = FormBorderStyle.FixedDialog;
             MaximizeBox = false;
             MinimizeBox = false;
@@ -119,18 +119,42 @@ namespace ElifootLauncher
             try { liberadoAntes = TeamCodec.BosmanLiberado(_launcher.GameDir); } catch { estrangeiros.Enabled = false; }
             estrangeiros.SelectedIndex = liberadoAntes ? 1 : 0;
 
+            // Equipes por divisao: cada opcao abre o seu EXE (ELIF08.EXE a ELIF20.EXE)
+            var lblEquipes = new Label
+            {
+                Text = "Equipes por divisão:",
+                Location = new Point(20, 300),
+                AutoSize = true,
+            };
+            var equipes = new ComboBox
+            {
+                Location = new Point(20, 322),
+                Width = 360,
+                DropDownStyle = ComboBoxStyle.DropDownList,
+            };
+            foreach (var n in LauncherConfig.OpcoesEquipes)
+                equipes.Items.Add(n == 8 ? "8 (original)" : $"{n} — {2 * (n - 1)} jornadas, mínimo de {LauncherConfig.MinimoDeEquipes(n)} equipes");
+            equipes.SelectedIndex = Math.Max(0, Array.IndexOf(LauncherConfig.OpcoesEquipes, cfg.EquipesPorDivisao));
+            var lblEquipesNota = new Label
+            {
+                Text = "Um jogo gravado só continua com o mesmo número de equipes por divisão em que foi começado.",
+                Location = new Point(20, 350),
+                Size = new Size(360, 32),
+                ForeColor = Color.FromArgb(100, 100, 100),
+            };
+
             var btnOk = new Button
             {
                 Text = "Salvar",
                 DialogResult = DialogResult.OK,
-                Location = new Point(220, 310),
+                Location = new Point(220, 395),
                 Size = new Size(80, 30),
             };
             var btnCancel = new Button
             {
                 Text = "Cancelar",
                 DialogResult = DialogResult.Cancel,
-                Location = new Point(310, 310),
+                Location = new Point(310, 395),
                 Size = new Size(80, 30),
             };
             AcceptButton = btnOk;
@@ -151,10 +175,11 @@ namespace ElifootLauncher
                 Config.ResolutionWidth = w;
                 Config.ResolutionHeight = h;
                 Config.Fullscreen = _fullscreenBox.Checked;
+                Config.EquipesPorDivisao = LauncherConfig.OpcoesEquipes[equipes.SelectedIndex];
                 Config.Save();
             };
 
-            Controls.AddRange(new Control[] { lblRes, _resolutionBox, _fullscreenBox, lblNota, btnExperiment, lblEstr, estrangeiros, btnOk, btnCancel });
+            Controls.AddRange(new Control[] { lblRes, _resolutionBox, _fullscreenBox, lblNota, btnExperiment, lblEstr, estrangeiros, lblEquipes, equipes, lblEquipesNota, btnOk, btnCancel });
         }
 
         private static int FindResolutionIndex(int w, int h)

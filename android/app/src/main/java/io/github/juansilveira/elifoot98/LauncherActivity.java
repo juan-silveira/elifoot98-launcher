@@ -106,6 +106,8 @@ public class LauncherActivity extends Activity {
     }
 
     private void abrir(String exe) {
+        // A pasta JOGOS fica so com os saves do numero de equipes escolhido
+        SavesPorEquipes.separar(jogo.pastaJogos(), equipesPorDivisao());
         startActivity(new Intent(this, ElifootActivity.class).putExtra(ElifootActivity.EXTRA_EXE, exe));
     }
 

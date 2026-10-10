@@ -49,6 +49,8 @@ public class SaveEditorActivity extends Activity {
 
     private File pasta;
     private final List<String> saves = new ArrayList<>();
+    // Saves de JOGOS e das pastas "<N> equipes" (SavesPorEquipes), na ordem de saves
+    private final List<File> arquivosSaves = new ArrayList<>();
     private final List<SaveCodec.Time> times = new ArrayList<>();
     private ArrayAdapter<String> adapterSaves, adapterTimes;
     private final Jogadores adapterJogadores = new Jogadores();
@@ -86,7 +88,7 @@ public class SaveEditorActivity extends Activity {
         inflacao.setEnabled(atual.temInflacao());
         inflacao.setText(inf);
         infoInflacao.setText(atual.temInflacao() ? "temporada " + atual.ano : "");
-        int is = saves.indexOf(arquivoAtual.getName());
+        int is = arquivosSaves.indexOf(arquivoAtual);
         if (is >= 0) spSave.setSelection(is, false);
         if (timeAtual != null) {
             int it = times.indexOf(timeAtual);
@@ -116,6 +118,7 @@ public class SaveEditorActivity extends Activity {
         barra.addView(new View(this), new LinearLayout.LayoutParams(0, 1, 1));
         spSave = spinner();
         spSave.setAdapter(adapterSaves);
+        spSave.setDropDownWidth(Ui.dp(this, 300));  // nome do save + "— N equipes" inteiro
         spTime = spinner();
         spTime.setAdapter(adapterTimes);
         if (deitado) {
@@ -558,10 +561,10 @@ public class SaveEditorActivity extends Activity {
 
     private void listarSaves() {
         saves.clear();
-        String[] nomes = pasta.list((d, n) -> n.toLowerCase(Locale.ROOT).endsWith(".e98"));
-        if (nomes != null) {
-            Arrays.sort(nomes);
-            saves.addAll(Arrays.asList(nomes));
+        arquivosSaves.clear();
+        for (SavesPorEquipes.Item it : SavesPorEquipes.listar(pasta)) {
+            saves.add(it.rotulo());
+            arquivosSaves.add(it.arquivo);
         }
         adapterSaves.notifyDataSetChanged();
         if (saves.isEmpty()) Ui.mensagem(this, "Sem saves", "Nenhum jogo gravado em JOGOS ainda.");
@@ -569,8 +572,8 @@ public class SaveEditorActivity extends Activity {
 
     private void carregarSave(int pos) {
         if (pos < 0 || pos >= saves.size()) return;
-        if (atual != null && arquivoAtual != null && arquivoAtual.getName().equals(saves.get(pos))) return;
-        arquivoAtual = new File(pasta, saves.get(pos));
+        if (atual != null && arquivoAtual != null && arquivoAtual.equals(arquivosSaves.get(pos))) return;
+        arquivoAtual = arquivosSaves.get(pos);
         try {
             atual = SaveCodec.ler(arquivoAtual);
             timeAtual = null;

@@ -82,6 +82,8 @@ public class ScoutActivity extends Activity {
     private final Map<String, Bitmap> bandeiras = new HashMap<>();
     private TeamCodec.Regras regras;
     private final List<String> saves = new ArrayList<>();
+    // Saves de JOGOS e das pastas "<N> equipes" (SavesPorEquipes), na ordem de saves
+    private final List<File> arquivosSaves = new ArrayList<>();
     private List<Linha> todos = new ArrayList<>();
     private final List<Linha> visiveis = new ArrayList<>();
     private final List<String> paisesFiltro = new ArrayList<>();
@@ -132,6 +134,7 @@ public class ScoutActivity extends Activity {
         barra.addView(rotSave);
         spSave = spinnerBranco();
         spSave.setAdapter(adaptadorTexto(saves));
+        spSave.setTag(dp(300));  // lista aberta com o nome do save + "— N equipes" inteiro
         spSave.setOnItemSelectedListener(new Selecao(p -> carregarSave()));
         barra.addView(spSave, new LinearLayout.LayoutParams(dp(deitado ? 170 : 120), dp(40)));
         raiz.addView(barra);
@@ -248,7 +251,10 @@ public class ScoutActivity extends Activity {
         s.setBackground(SeletorCor.fundo(0xFFFFFFFF, 0, 6));
         s.setPadding(0, 0, dp(4), 0); // sem seta: o padding do tema cortava o texto
         s.setPopupBackgroundDrawable(SeletorCor.fundo(VERDE_CARTAO, AMARELO, 6));
-        s.addOnLayoutChangeListener((v, l, t, r, b, ol, ot, or, ob) -> { if (r - l > 0) s.setDropDownWidth(r - l); });
+        // Lista aberta da largura do campo, ou da minima guardada no tag (lista de saves)
+        s.addOnLayoutChangeListener((v, l, t, r, b, ol, ot, or, ob) -> {
+            if (r - l > 0) s.setDropDownWidth(Math.max(r - l, s.getTag() instanceof Integer ? (Integer) s.getTag() : 0));
+        });
         return s;
     }
 
@@ -522,10 +528,10 @@ public class ScoutActivity extends Activity {
 
     private void listarSaves() {
         saves.clear();
-        String[] nomes = pastaJogos.list((d, n) -> n.toLowerCase(Locale.ROOT).endsWith(".e98"));
-        if (nomes != null) {
-            Arrays.sort(nomes);
-            saves.addAll(Arrays.asList(nomes));
+        arquivosSaves.clear();
+        for (SavesPorEquipes.Item it : SavesPorEquipes.listar(pastaJogos)) {
+            saves.add(it.rotulo());
+            arquivosSaves.add(it.arquivo);
         }
         ((ArrayAdapter<?>) spSave.getAdapter()).notifyDataSetChanged();
         if (saves.isEmpty()) conta.setText("Nenhum jogo gravado em JOGOS ainda.");
@@ -545,7 +551,7 @@ public class ScoutActivity extends Activity {
         if (i < 0 || i >= saves.size()) return;
         SaveCodec.Save sf;
         try {
-            sf = SaveCodec.ler(new File(pastaJogos, saves.get(i)));
+            sf = SaveCodec.ler(arquivosSaves.get(i));
         } catch (Exception e) {
             todos = new ArrayList<>();
             filtrar();

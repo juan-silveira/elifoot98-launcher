@@ -19,6 +19,7 @@
     <Compile Include="../src/PatchApplier.cs" Link="Shared/PatchApplier.cs" />
     <Compile Include="../src/LauncherConfig.cs" Link="Shared/LauncherConfig.cs" />
     <Compile Include="../src/Registro.cs" Link="Shared/Registro.cs" />
+    <Compile Include="../src/SavesPorEquipes.cs" Link="Shared/SavesPorEquipes.cs" />
     <EmbeddedResource Include="../linux/elifoot98.png" LogicalName="elifoot98.png" />
     <EmbeddedResource Include="../android/app/src/main/res/drawable-nodpi/logo.png" LogicalName="logo.png" />
     <EmbeddedResource Include="../game/REFEREE.TXE" LogicalName="REFEREE.TXE" />

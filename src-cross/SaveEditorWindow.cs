@@ -278,28 +278,30 @@ namespace ElifootLauncher
 
         private async Task RefreshSaveList(bool preserveSelection)
         {
-            string? prev = preserveSelection ? _saveSel.SelectedItem as string : null;
+            string? prev = preserveSelection && _saveSel.SelectedIndex >= 0 && _saveSel.SelectedIndex < _saves.Count ? _saves[_saveSel.SelectedIndex].Caminho : null;
             if (!Directory.Exists(_jogosDir))
             {
                 await Dialogos.Mensagem(this, $"Pasta JOGOS não encontrada:\n{_jogosDir}", "Sem saves");
                 return;
             }
-            var files = Directory.GetFiles(_jogosDir, "*.e98", SearchOption.TopDirectoryOnly)
-                .Select(Path.GetFileName).OrderBy(n => n).ToList();
-            _saveSel.ItemsSource = files;
-            if (files.Count > 0)
+            // Saves de JOGOS e das pastas "<N> equipes", com o numero de equipes no nome
+            _saves = SavesPorEquipes.Listar(_jogosDir);
+            _saveSel.ItemsSource = _saves.Select(f => f.Rotulo).ToList();
+            if (_saves.Count > 0)
             {
-                int found = prev != null ? files.IndexOf(prev) : -1;
+                int found = prev != null ? _saves.FindIndex(f => f.Caminho == prev) : -1;
                 _saveSel.SelectedIndex = found >= 0 ? found : 0;
                 if (found >= 0) await LoadSelected();
             }
             else await Dialogos.Mensagem(this, "Nenhum jogo gravado em JOGOS ainda.", "Sem saves");
         }
 
+        private List<SavesPorEquipes.Save> _saves = new List<SavesPorEquipes.Save>();
+
         private async Task LoadSelected()
         {
-            if (_saveSel.SelectedItem is not string name) return;
-            _currentPath = Path.Combine(_jogosDir, name);
+            if (_saveSel.SelectedIndex < 0 || _saveSel.SelectedIndex >= _saves.Count) return;
+            _currentPath = _saves[_saveSel.SelectedIndex].Caminho;
             try
             {
                 _current = SaveCodec.Read(_currentPath);

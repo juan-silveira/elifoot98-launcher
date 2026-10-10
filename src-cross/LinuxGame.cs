@@ -38,7 +38,11 @@ namespace ElifootLauncher
                 throw new IOException("Não consegui preparar os arquivos do jogo em " + DataDir);
         }
 
-        public void LaunchElifoot(LauncherConfig cfg) => StartScript("jogo", cfg);
+        public void LaunchElifoot(LauncherConfig cfg)
+        {
+            SavesPorEquipes.Separar(JogosDir, cfg.EquipesPorDivisao);
+            StartScript("jogo", cfg);
+        }
         public void LaunchEditor(LauncherConfig cfg) => StartScript("editor", cfg);
 
         private Process? StartScript(string modo, LauncherConfig? cfg)

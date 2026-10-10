@@ -355,15 +355,17 @@ namespace ElifootLauncher
 
         // ---- dados ----
 
+        // Saves de JOGOS e das pastas "<N> equipes" (SavesPorEquipes), com o numero de
+        // equipes por divisao de cada um no nome
+        private List<SavesPorEquipes.Save> _saves = new List<SavesPorEquipes.Save>();
+
         private void ListarSaves(bool manter)
         {
-            var antes = manter ? _saveSel.SelectedItem as string : null;
-            var arquivos = Directory.Exists(_jogosDir)
-                ? Directory.GetFiles(_jogosDir).Where(f => f.EndsWith(".e98", StringComparison.OrdinalIgnoreCase)).Select(Path.GetFileName).OrderBy(n => n).ToList()
-                : new List<string?>();
-            _saveSel.ItemsSource = arquivos;
-            if (arquivos.Count == 0) { _conta.Text = "Nenhum jogo gravado em JOGOS ainda."; return; }
-            int i = antes != null ? arquivos.IndexOf(antes) : -1;
+            var antes = manter && _saveSel.SelectedIndex >= 0 && _saveSel.SelectedIndex < _saves.Count ? _saves[_saveSel.SelectedIndex].Caminho : null;
+            _saves = SavesPorEquipes.Listar(_jogosDir);
+            _saveSel.ItemsSource = _saves.Select(f => f.Rotulo).ToList();
+            if (_saves.Count == 0) { _conta.Text = "Nenhum jogo gravado em JOGOS ainda."; return; }
+            int i = antes != null ? _saves.FindIndex(f => f.Caminho == antes) : -1;
             _saveSel.SelectedIndex = -1;
             _saveSel.SelectedIndex = i >= 0 ? i : 0;
         }
@@ -373,9 +375,9 @@ namespace ElifootLauncher
 
         private void CarregarSave()
         {
-            if (_saveSel.SelectedItem is not string nome) return;
+            if (_saveSel.SelectedIndex < 0 || _saveSel.SelectedIndex >= _saves.Count) return;
             SaveFile sf;
-            try { sf = SaveCodec.Read(Path.Combine(_jogosDir, nome)); }
+            try { sf = SaveCodec.Read(_saves[_saveSel.SelectedIndex].Caminho); }
             catch (Exception ex)
             {
                 _todos = new List<Linha>();
