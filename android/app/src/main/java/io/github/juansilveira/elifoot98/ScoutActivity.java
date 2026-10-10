@@ -478,7 +478,7 @@ public class ScoutActivity extends Activity {
             linha.setBackgroundColor(i % 2 == 0 ? VERDE_LINHA : VERDE_CARTAO);
             String[] textos = {j.posicao, j.nome, j.estrela ? "✱" : "", Integer.toString(l.score), Integer.toString(j.forca), Integer.toString(j.nota),
                 Integer.toString(j.lesao), SaveCodec.COMPORTAMENTOS[Math.max(0, Math.min(5, j.comportamento))], Score.textoImpacto(l.impacto),
-                Integer.toString(j.jogos), Integer.toString(j.gols), Integer.toString(j.lesoes), Integer.toString(j.expulsoes), l.equipe.nome, sit};
+                Integer.toString(j.jogos), Integer.toString(j.gols), Integer.toString(j.lesoes), Integer.toString(j.expulsoes), l.equipe.nomeCurto(), sit};
             for (int c = 0; c < textos.length; c++) {
                 View celula;
                 if (c == 1) {
@@ -591,10 +591,10 @@ public class ScoutActivity extends Activity {
         spDivisao.setAdapter(adaptadorTexto(new ArrayList<>(divisoesFiltro)));
         equipesFiltro.clear();
         equipesFiltro.addAll(sf.times);
-        equipesFiltro.sort((a, b) -> col.compare(a.nome, b.nome));
+        equipesFiltro.sort((a, b) -> col.compare(a.nomeCurto(), b.nomeCurto()));
         List<Object[]> eqs = new ArrayList<>();
         eqs.add(new Object[] {null, "Todas"});
-        for (SaveCodec.Time t : equipesFiltro) eqs.add(new Object[] {t.pais, (humanas.contains(t) ? "★ " : "") + t.nome});
+        for (SaveCodec.Time t : equipesFiltro) eqs.add(new Object[] {t.pais, (humanas.contains(t) ? "★ " : "") + t.nomeCurto()});
         spEquipe.setAdapter(adaptadorBandeiras(eqs));
         montando = false;
         filtrar();
@@ -709,7 +709,7 @@ public class ScoutActivity extends Activity {
             case 10: return Comparator.comparingInt(x -> x.j.gols);
             case 11: return Comparator.comparingInt(x -> x.j.lesoes);
             case 12: return Comparator.comparingInt(x -> x.j.expulsoes);
-            case 13: return (a, b) -> col.compare(a.equipe.nome, b.equipe.nome);
+            case 13: return (a, b) -> col.compare(a.equipe.nomeCurto(), b.equipe.nomeCurto());
             case 14: return (a, b) -> a.situacao.compareTo(b.situacao);
             default: return Comparator.comparingInt(x -> x.j.forca);
         }

@@ -58,6 +58,9 @@ public final class SaveCodec {
 
     public static final class Time {
         public String nome = "", pais = "";
+        // Nome curto (o "abreviado" da equipe), o que o jogo mostra nas tabelas
+        public String nomeCurto = "";
+        public String nomeCurto() { return nomeCurto.isEmpty() ? nome : nomeCurto; }
         public long verba;
         int verbaOff = -1;
         public int corLetra, corFundo, estadio;   // RGB 0xRRGGBB; capacidade = 5000 x estadio
@@ -134,6 +137,7 @@ public final class SaveCodec {
             byte[] dec = caesar(b, inicio, fim);
             Time t = new Time();
             t.nome = nomeDoTime(dec);
+            t.nomeCurto = nomeCurto(b, dec, efts.get(e), fim);
             if (efts.get(e) >= 2) t.id = u16(b, efts.get(e) - 2);
 
             // Cores: depois dos dois nomes (textos Pascal) em 0x32
@@ -378,9 +382,27 @@ public final class SaveCodec {
                 Character c = caractere(dec[i] & 0xff);
                 if (c != null) { sb.append(c); validos++; } else sb.append('?');
             }
-            if (validos >= n * 3 / 4) return sb.toString().trim().toUpperCase();
+            if (validos >= n * 3 / 4) return sb.toString().trim();
         }
         return "?";
+    }
+
+    // Os dois nomes sao textos Pascal em 0x32 (o tamanho fica sem cifra no arquivo):
+    // o completo e logo depois o curto
+    private static String nomeCurto(byte[] b, byte[] dec, int eft, int fim) {
+        int o = eft + 0x32;
+        if (o >= fim || (b[o] & 0xff) > 40) return "";
+        o += 1 + (b[o] & 0xff);
+        if (o >= fim) return "";
+        int n = b[o] & 0xff, ini = o + 1 - (eft + 4);
+        if (n == 0 || n > 20 || ini + n > dec.length) return "";
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < n; i++) {
+            Character c = caractere(dec[ini + i] & 0xff);
+            if (c == null) return "";
+            sb.append(c);
+        }
+        return sb.toString().trim();
     }
 
     // Cada registro comeca pelo pais: 0x03 + 3 letras minusculas
@@ -392,38 +414,19 @@ public final class SaveCodec {
     private static String nomeDoJogador(byte[] dec, int rec, int nl) {
         if (dec.length < rec + 5 + nl) return "?";
         StringBuilder sb = new StringBuilder();
-        boolean aposEspaco = false;
         for (int i = 0; i < nl; i++) {
             Character c = caractere(dec[rec + 5 + i] & 0xff);
-            if (c == null) continue;
-            sb.append(i == 0 || aposEspaco ? Character.toUpperCase(c) : c);
-            aposEspaco = c == ' ';
+            if (c != null) sb.append(c);
         }
         return sb.toString().trim();
     }
 
+    // Nomes no save: cada caractere (Latin-1) somado de 0x20 ("." = 0x4E, espaco = 0x40,
+    // "B" = 0x62, "e" = 0x85, "e" agudo = 0x09). Fora do Latin-1 imprimivel: null.
     private static Character caractere(int b) {
-        if (b >= 0x61 && b <= 0x7A) return (char) b;
-        if (b >= 0x81 && b <= 0x9A) return (char) (b - 0x20);
-        if (b >= 0xA1 && b <= 0xBA) return (char) (b - 0x40);
-        if (b >= 0x50 && b <= 0x59) return (char) (b - 0x20);
-        if (b >= 0x30 && b <= 0x39) return (char) b;
-        if (b == 0x40) return ' ';
-        if (b == 0x4D || b == 0x4B || b == 0x2D) return '-';
-        if (b == 0x2E) return '.';
-        switch (b) {
-            case 0xE1: case 0x01: return 'á';
-            case 0xE3: case 0x03: return 'ã';
-            case 0xE7: case 0x07: return 'ç';
-            case 0xE9: case 0x09: return 'é';
-            case 0xED: case 0x0D: return 'í';
-            case 0xF3: case 0x13: return 'ó';
-            case 0xF4: case 0x14: return 'ô';
-            case 0xF5: case 0x15: return 'õ';
-            case 0xFA: case 0x1A: return 'ú';
-            case 0xF1: case 0x11: return 'ñ';
-            default: return null;
-        }
+        int c = (b - 0x20) & 0xff;
+        if (c < 0x20 || (c >= 0x7F && c < 0xA0)) return null;
+        return (char) c;
     }
 
     private static String posicao(byte b) {

@@ -43,6 +43,9 @@ namespace ElifootLauncher
     public class SaveTeam
     {
         public string Nome { get; set; } = "";
+        // Nome curto (o "abreviado" da equipe), o que o jogo mostra nas tabelas
+        public string NomeCurto { get; set; } = "";
+        public string NomeExibido => NomeCurto.Length > 0 ? NomeCurto : Nome;
         public int EftStartOffset { get; set; }
         public long Verba { get; set; }
         public int VerbaOffset { get; set; } = -1;
@@ -209,6 +212,7 @@ namespace ElifootLauncher
                 var decoded = DecodeCaesar(bytes, bodyStart, eftEnd);
 
                 team.Nome = ExtractTeamName(decoded);
+                team.NomeCurto = ExtractNomeCurto(bytes, decoded, eftStart, eftEnd);
 
                 // Cores: depois dos dois nomes (textos Pascal) em 0x32
                 int o = eftStart + 0x32;
@@ -629,75 +633,49 @@ namespace ElifootLauncher
                     else sb.Append('?');
                 }
                 if (validChars >= nameLen * 3 / 4)
-                    return sb.ToString().Trim().ToUpperInvariant();
+                    return sb.ToString().Trim();
             }
             return "?";
         }
 
+        // Nomes no save: cada caractere (Latin-1) somado de 0x20 ("." = 0x4E, espaco = 0x40,
+        // "B" = 0x62, "e" = 0x85, "e" agudo = 0x09). Fora do Latin-1 imprimivel: null.
         private static char? MapTeamChar(byte b)
         {
-            if (b >= 0x61 && b <= 0x7A) return (char)b;
-            if (b >= 0x81 && b <= 0x9A) return (char)(b - 0x20);
-            if (b >= 0xA1 && b <= 0xBA) return (char)(b - 0x40); // final char shifted
-            if (b >= 0x50 && b <= 0x59) return (char)(b - 0x20); // digitos shifted
-            if (b >= 0x30 && b <= 0x39) return (char)b;          // digitos raw
-            if (b == 0x40) return ' ';
-            if (b == 0x4D || b == 0x4B || b == 0x2D) return '-';
-            if (b == 0x2E) return '.';
-            // Acentos ISO-8859-1 diretos
-            if (b == 0xE1) return 'á';
-            if (b == 0xE3) return 'ã';
-            if (b == 0xE7) return 'ç';
-            if (b == 0xE9) return 'é';
-            if (b == 0xED) return 'í';
-            if (b == 0xF3) return 'ó';
-            if (b == 0xF4) return 'ô';
-            if (b == 0xF5) return 'õ';
-            if (b == 0xFA) return 'ú';
-            if (b == 0xF1) return 'ñ';
-            // Acentos shifted +0x20 (embedded ciphered)
-            if (b == 0x01) return 'á';
-            if (b == 0x03) return 'ã';
-            if (b == 0x07) return 'ç';
-            if (b == 0x09) return 'é';
-            if (b == 0x0D) return 'í';
-            if (b == 0x11) return 'ñ';
-            if (b == 0x13) return 'ó';
-            if (b == 0x14) return 'ô';
-            if (b == 0x15) return 'õ';
-            if (b == 0x1A) return 'ú';
-            return null;
+            int c = (b - 0x20) & 0xFF;
+            if (c < 0x20 || (c >= 0x7F && c < 0xA0)) return null;
+            return (char)c;
         }
 
-        // Player name: decoded[recStart+5..+5+NL-1]
-        // 1a char lowercase (0x61-0x7A) unshifted
-        // Resto shifted (0x81-0x9A) → letters
-        // Final char pode ser shifted +0x40 (0xA1-0xBA)
-        // Espaco = 0x40, digitos = 0x30-0x39, acentos = valores baixos ou altos
+        // Nome do jogador: decoded[recStart+5..+5+NL-1], com maiusculas e acentos como no jogo
         private static string ExtractPlayerName(byte[] decoded, int recStart, int NL)
         {
             if (decoded.Length < recStart + 5 + NL) return "?";
             var sb = new StringBuilder(NL);
-            bool afterSpace = false;
             for (int i = 0; i < NL; i++)
             {
-                byte b = decoded[recStart + 5 + i];
-                char? c = MapTeamChar(b);
-                if (c == null)
-                {
-                    // Alguns nomes tem final char em outros ranges — skip
-                    continue;
-                }
-                if (i == 0 || afterSpace)
-                {
-                    sb.Append(char.ToUpperInvariant(c.Value));
-                    afterSpace = false;
-                }
-                else
-                {
-                    sb.Append(c.Value);
-                }
-                if (c.Value == ' ') afterSpace = true;
+                char? c = MapTeamChar(decoded[recStart + 5 + i]);
+                if (c != null) sb.Append(c.Value);
+            }
+            return sb.ToString().Trim();
+        }
+
+        // Os dois nomes sao textos Pascal em 0x32 (o tamanho fica sem cifra no arquivo):
+        // o completo e logo depois o curto
+        private static string ExtractNomeCurto(byte[] b, byte[] decoded, int eft, int fim)
+        {
+            int o = eft + 0x32;
+            if (o >= fim || b[o] > 40) return "";
+            o += 1 + b[o];
+            if (o >= fim) return "";
+            int n = b[o], ini = o + 1 - (eft + 4);
+            if (n == 0 || n > 20 || ini + n > decoded.Length) return "";
+            var sb = new StringBuilder(n);
+            for (int i = 0; i < n; i++)
+            {
+                char? c = MapTeamChar(decoded[ini + i]);
+                if (c == null) return "";
+                sb.Append(c.Value);
             }
             return sb.ToString().Trim();
         }

@@ -24,6 +24,9 @@ namespace ElifootLauncher
             CanResize = false;
             WindowStartupLocation = WindowStartupLocation.CenterScreen;
             Icon = Dialogos.Icone();
+            // Verde e amarelo do jogo, como o launcher do Android
+            Background = Visual.Cor(0x007200);
+            Visual.AplicarEstilos(this);
 
             var btnJogo = Botao("Jogar Elifoot 98");
             var btnEditor = Botao("Editor de Equipes");
@@ -68,25 +71,37 @@ namespace ElifootLauncher
                     _config = LauncherConfig.Load();
             };
 
-            Content = new StackPanel
+            var painel = new StackPanel
             {
-                Margin = new Thickness(60, 12, 60, 24),
-                Spacing = 7,
-                Children =
-                {
-                    new TextBlock
-                    {
-                        Text = "Elifoot 98",
-                        FontSize = 24,
-                        FontWeight = FontWeight.Bold,
-                        HorizontalAlignment = HorizontalAlignment.Center,
-                        Margin = new Thickness(0, 0, 0, 8),
-                    },
-                    btnJogo, btnEditor, btnRefEditor, btnSaveEditor, btnScout, btnPatch,
-                    new Border { Height = 18 },
-                    btnConfig,
-                },
+                Margin = new Thickness(50, 20, 50, 16),
+                Spacing = 8,
             };
+            // Logo "Elifoot 98" (o mesmo do app Android, recortado da Acerca)
+            var logo = typeof(MainWindow).Assembly.GetManifestResourceStream("logo.png");
+            if (logo != null)
+                painel.Children.Add(new Image
+                {
+                    Source = new Avalonia.Media.Imaging.Bitmap(logo),
+                    Width = 260,
+                    HorizontalAlignment = HorizontalAlignment.Center,
+                    Margin = new Thickness(0, 0, 0, 12),
+                });
+            else
+                painel.Children.Add(Visual.Texto("Elifoot 98", 26, Visual.Amarelo, true));
+            foreach (var b in new[] { btnJogo, btnEditor, btnRefEditor, btnSaveEditor, btnScout, btnPatch })
+                painel.Children.Add(b);
+            painel.Children.Add(new Border { Height = 14 });
+            painel.Children.Add(btnConfig);
+            if (ver != null)
+                painel.Children.Add(new TextBlock
+                {
+                    Text = $"v{ver.Major}.{ver.Minor}.{ver.Build}",
+                    FontSize = 12,
+                    Foreground = Visual.Cor(0xC8E6C8),
+                    HorizontalAlignment = HorizontalAlignment.Center,
+                    Margin = new Thickness(0, 8, 0, 0),
+                });
+            Content = painel;
         }
 
         private async Task AplicarPatch()
@@ -148,11 +163,16 @@ namespace ElifootLauncher
             return false;
         }
 
+        // Botao amarelo do launcher (classe "amarelo": continua amarelo com o mouse em cima)
         private static Button Botao(string texto, bool secundario = false) => new Button
         {
+            Classes = { "amarelo" },
             Content = texto,
-            Height = secundario ? 32 : 38,
-            FontSize = secundario ? 13 : 14,
+            Height = 42,
+            FontSize = 15,
+            Foreground = Brushes.Black,
+            Background = Visual.Amarelo,
+            CornerRadius = new CornerRadius(6),
             HorizontalAlignment = HorizontalAlignment.Stretch,
             HorizontalContentAlignment = HorizontalAlignment.Center,
             VerticalContentAlignment = VerticalAlignment.Center,

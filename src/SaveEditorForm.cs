@@ -413,10 +413,10 @@ namespace ElifootLauncher
                 _inflacaoMostrada = _current.InflacaoOffset > 0 ? Fmt(_current.Inflacao * 10) : "";
                 _inflacao.Text = _inflacaoMostrada;
                 _temporada.Text = _current.InflacaoOffset > 0 ? $"temporada {_current.Ano}" : "";
-                _teams = _current.Teams.OrderBy(t => t.Nome, StringComparer.OrdinalIgnoreCase).ToList();
+                _teams = _current.Teams.OrderBy(t => t.NomeExibido, StringComparer.OrdinalIgnoreCase).ToList();
                 _trocandoTime = true;
                 _teamSel.Items.Clear();
-                foreach (var t in _teams) _teamSel.Items.Add(t.Nome);
+                foreach (var t in _teams) _teamSel.Items.Add(t.NomeExibido);
                 _trocandoTime = false;
                 if (_teams.Count > 0) _teamSel.SelectedIndex = 0;
                 MostrarTreinadores();
@@ -499,7 +499,7 @@ namespace ElifootLauncher
         private void PintarCores()
         {
             var t = _currentTeam;
-            _previa.Text = t?.Nome ?? "";
+            _previa.Text = t?.NomeExibido ?? "";
             if (t == null || t.CoresOffset < 0)
             {
                 _previa.BackColor = Cartao;
@@ -596,7 +596,7 @@ namespace ElifootLauncher
                     var linha = new Panel { Size = new Size(292, 42), BackColor = Color.Transparent, Margin = new Padding(0, 2, 0, 2) };
                     var nome = Texto(tec.Nome, FonteNegrito, Color.White);
                     nome.Location = new Point(0, 2);
-                    var eq = Texto(equipe?.Nome ?? "sem equipe", FontePequena, Cinza);
+                    var eq = Texto(equipe?.NomeExibido ?? "sem equipe", FontePequena, Cinza);
                     eq.Location = new Point(0, 22);
                     linha.Controls.Add(nome);
                     linha.Controls.Add(eq);
@@ -627,15 +627,15 @@ namespace ElifootLauncher
             if (destinos.Count == 0) { MessageBox.Show(this, "Não achei as divisões neste save: sem elas não dá pra saber quais equipes podem ter treinador humano.", "Trocar de equipe", MessageBoxButtons.OK, MessageBoxIcon.Information); return; }
 
             using var f = Dialogo($"Trocar de equipe — {tec.Nome}", 470, 250);
-            var atual = new Label { Text = $"Equipe atual: {origem.Nome}", Location = new Point(16, 16), AutoSize = true };
+            var atual = new Label { Text = $"Equipe atual: {origem.NomeExibido}", Location = new Point(16, 16), AutoSize = true };
             var rot = new Label { Text = "Nova equipe", Location = new Point(16, 48), AutoSize = true };
             var combo = new ComboBox { Location = new Point(16, 70), Width = 430, DropDownStyle = ComboBoxStyle.DropDownList };
-            foreach (var t in destinos) combo.Items.Add($"{t.Nome}  ({t.Divisao})");
+            foreach (var t in destinos) combo.Items.Add($"{t.NomeExibido}  ({t.Divisao})");
             var efeito = new Label { Location = new Point(16, 104), Size = new Size(430, 60), ForeColor = Color.DimGray };
             combo.SelectedIndexChanged += (_, _) =>
             {
                 var outro = _current.Tecnico(destinos[Math.Max(0, combo.SelectedIndex)].TecnicoId);
-                efeito.Text = (outro != null ? $"{outro.Nome} vai para {origem.Nome}. " : "")
+                efeito.Text = (outro != null ? $"{outro.Nome} vai para {origem.NomeExibido}. " : "")
                     + "As duas equipes ficam com moral 10, como numa chicotada psicológica do jogo. "
                     + "Só aparecem equipes das divisões (no Distrital o jogo quebra).";
             };
@@ -659,7 +659,7 @@ namespace ElifootLauncher
             MostrarTreinadores();
             if (_currentTeam != null) MostrarCampos();
             _teamSel.SelectedIndex = _teams.IndexOf(destino);
-            MessageBox.Show(this, $"{tec.Nome} agora treina {destino.Nome}.\nClique em Salvar para gravar no save.", "Equipe trocada",
+            MessageBox.Show(this, $"{tec.Nome} agora treina {destino.NomeExibido}.\nClique em Salvar para gravar no save.", "Equipe trocada",
                 MessageBoxButtons.OK, MessageBoxIcon.Information);
         }
 

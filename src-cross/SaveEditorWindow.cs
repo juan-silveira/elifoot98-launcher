@@ -308,9 +308,9 @@ namespace ElifootLauncher
                 _inflacaoMostrada = _current.InflacaoOffset > 0 ? Fmt(_current.Inflacao * 10) : "";
                 _inflacao.Text = _inflacaoMostrada;
                 _temporada.Text = _current.InflacaoOffset > 0 ? $"temporada {_current.Ano}" : "";
-                _teams = _current.Teams.OrderBy(t => t.Nome, StringComparer.OrdinalIgnoreCase).ToList();
+                _teams = _current.Teams.OrderBy(t => t.NomeExibido, StringComparer.OrdinalIgnoreCase).ToList();
                 _trocandoTime = true;
-                _teamSel.ItemsSource = _teams.Select(t => t.Nome).ToList();
+                _teamSel.ItemsSource = _teams.Select(t => t.NomeExibido).ToList();
                 _teamSel.SelectedIndex = -1;
                 _trocandoTime = false;
                 _teamSel.SelectedIndex = _teams.Count > 0 ? 0 : -1;
@@ -377,7 +377,7 @@ namespace ElifootLauncher
         private void PintarCores()
         {
             var t = _currentTeam;
-            _previaTxt.Text = t?.Nome ?? "";
+            _previaTxt.Text = t?.NomeExibido ?? "";
             if (t == null || t.CoresOffset < 0)
             {
                 _previa.Background = Brushes.Transparent;
@@ -482,7 +482,7 @@ namespace ElifootLauncher
                     }
                     linha.Children.Add(new StackPanel
                     {
-                        Children = { Texto(tec.Nome, 15, Branco, true), Texto(equipe?.Nome ?? "sem equipe", 12, Cinza) },
+                        Children = { Texto(tec.Nome, 15, Branco, true), Texto(equipe?.NomeExibido ?? "sem equipe", 12, Cinza) },
                     });
                     _treinadores.Children.Add(linha);
                 }
@@ -505,7 +505,7 @@ namespace ElifootLauncher
             var w = Dialogo($"Trocar de equipe — {tec.Nome}");
             var combo = new ComboBox
             {
-                ItemsSource = destinos.Select(t => $"{t.Nome}  ({t.Divisao})").ToList(),
+                ItemsSource = destinos.Select(t => $"{t.NomeExibido}  ({t.Divisao})").ToList(),
                 SelectedIndex = 0,
                 HorizontalAlignment = HorizontalAlignment.Stretch,
             };
@@ -513,7 +513,7 @@ namespace ElifootLauncher
             void Atualiza()
             {
                 var outro = _current.Tecnico(destinos[Math.Max(0, combo.SelectedIndex)].TecnicoId);
-                efeito.Text = (outro != null ? $"{outro.Nome} vai para {origem.Nome}. " : "")
+                efeito.Text = (outro != null ? $"{outro.Nome} vai para {origem.NomeExibido}. " : "")
                     + "As duas equipes ficam com moral 10, como numa chicotada psicológica do jogo. "
                     + "Só aparecem equipes das divisões (no Distrital o jogo quebra).";
             }
@@ -530,7 +530,7 @@ namespace ElifootLauncher
                 Width = 440,
                 Children =
                 {
-                    new TextBlock { Text = $"Equipe atual: {origem.Nome}" },
+                    new TextBlock { Text = $"Equipe atual: {origem.NomeExibido}" },
                     new TextBlock { Text = "Nova equipe", Margin = new Thickness(0, 6, 0, 0) },
                     combo,
                     efeito,
@@ -551,7 +551,7 @@ namespace ElifootLauncher
             MostrarTreinadores();
             if (_currentTeam != null) MostrarCampos();
             _teamSel.SelectedIndex = _teams.IndexOf(destino);
-            await Dialogos.Mensagem(this, $"{tec.Nome} agora treina {destino.Nome}.\nClique em Salvar para gravar no save.", "Equipe trocada");
+            await Dialogos.Mensagem(this, $"{tec.Nome} agora treina {destino.NomeExibido}.\nClique em Salvar para gravar no save.", "Equipe trocada");
         }
 
         // ---- ficha do jogador ----

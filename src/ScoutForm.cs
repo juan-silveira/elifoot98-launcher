@@ -295,7 +295,7 @@ namespace ElifootLauncher
             string sit = sl.Length > 0 ? sl : l.Situacao == "Estrangeiro" ? "Estrang." : l.Situacao;
             return new[] { j.Posicao, j.Nome, j.Estrela ? "✱" : "", l.Score.ToString(), j.Pais, j.Forca.ToString(), j.Nota.ToString(), j.Lesao.ToString(),
                 SaveCodec.ComportamentoLabels[Math.Max(0, Math.Min(5, j.Comportamento))], Score.TextoImpacto(l.Impacto),
-                j.Jogos.ToString(), j.Gols.ToString(), j.Lesoes.ToString(), j.Expulsoes.ToString(), l.Equipe.Nome,
+                j.Jogos.ToString(), j.Gols.ToString(), j.Lesoes.ToString(), j.Expulsoes.ToString(), l.Equipe.NomeExibido,
                 l.OrdemDivisao <= 4 ? l.OrdemDivisao + "ª" : l.OrdemDivisao == 5 ? "Dist." : "—", Milhar(j.Salario), sit };
         }
 
@@ -387,10 +387,10 @@ namespace ElifootLauncher
             _divisao.Items.Add("Todas");
             foreach (var d in sf.Teams.Select(t => t.Divisao).Where(d => d.Length > 0).Distinct().OrderBy(OrdemDivisao)) _divisao.Items.Add(d);
             _divisao.SelectedIndex = 0;
-            _equipesOrdenadas = sf.Teams.OrderBy(t => t.Nome).ToList();
+            _equipesOrdenadas = sf.Teams.OrderBy(t => t.NomeExibido).ToList();
             _equipe.Items.Clear();
             _equipe.Items.Add("Todas");
-            foreach (var t in _equipesOrdenadas) _equipe.Items.Add((humanas.Contains(t) ? "★ " : "") + t.Nome);
+            foreach (var t in _equipesOrdenadas) _equipe.Items.Add((humanas.Contains(t) ? "★ " : "") + t.NomeExibido);
             _equipe.SelectedIndex = 0;
             _montando = false;
             Filtrar();
@@ -484,7 +484,7 @@ namespace ElifootLauncher
             11 => x => x.J.Gols,
             12 => x => x.J.Lesoes,
             13 => x => x.J.Expulsoes,
-            14 => x => x.Equipe.Nome,
+            14 => x => x.Equipe.NomeExibido,
             15 => x => x.OrdemDivisao,
             16 => x => x.J.Salario,
             17 => x => x.Situacao,

@@ -580,9 +580,9 @@ public class SaveEditorActivity extends Activity {
             infoInflacao.setText(atual.temInflacao() ? "temporada " + atual.ano : "");
             times.clear();
             times.addAll(atual.times);
-            times.sort((a, b) -> a.nome.compareToIgnoreCase(b.nome));
+            times.sort((a, b) -> a.nomeCurto().compareToIgnoreCase(b.nomeCurto()));
             adapterTimes.clear();
-            for (SaveCodec.Time t : times) adapterTimes.add(t.nome);
+            for (SaveCodec.Time t : times) adapterTimes.add(t.nomeCurto());
             adapterTimes.notifyDataSetChanged();
             if (!times.isEmpty()) { spTime.setSelection(0); carregarTime(0); }
             mostrarTreinadores();
@@ -631,7 +631,7 @@ public class SaveEditorActivity extends Activity {
                 LinearLayout txt = new LinearLayout(this);
                 txt.setOrientation(LinearLayout.VERTICAL);
                 txt.addView(texto(tec.nome, 15, BRANCO, true));
-                txt.addView(texto(equipe != null ? equipe.nome : "sem equipe", 12, CINZA, false));
+                txt.addView(texto(equipe != null ? equipe.nomeCurto() : "sem equipe", 12, CINZA, false));
                 l.addView(txt, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1));
                 if (equipe != null) {
                     Button b = new Button(this);
@@ -668,13 +668,13 @@ public class SaveEditorActivity extends Activity {
             return;
         }
         List<String> nomes = new ArrayList<>();
-        for (SaveCodec.Time t : destinos) nomes.add(t.nome + "  (" + t.divisao + ")");
+        for (SaveCodec.Time t : destinos) nomes.add(t.nomeCurto() + "  (" + t.divisao + ")");
 
         LinearLayout caixa = new LinearLayout(this);
         caixa.setOrientation(LinearLayout.VERTICAL);
         caixa.setPadding(dp(20), dp(8), dp(20), 0);
         TextView atualTxt = new TextView(this);
-        atualTxt.setText("Equipe atual: " + origem.nome);
+        atualTxt.setText("Equipe atual: " + origem.nomeCurto());
         caixa.addView(atualTxt);
         TextView rotulo = new TextView(this);
         rotulo.setText("Nova equipe");
@@ -688,7 +688,7 @@ public class SaveEditorActivity extends Activity {
         caixa.addView(efeito);
         sp.setOnItemSelectedListener(new Selecao(pos -> {
             SaveCodec.Tecnico outro = atual.tecnico(destinos.get(pos).tecnicoId);
-            efeito.setText((outro != null ? outro.nome + " vai para " + origem.nome + ". " : "")
+            efeito.setText((outro != null ? outro.nome + " vai para " + origem.nomeCurto() + ". " : "")
                 + "As duas equipes ficam com moral 10, como numa chicotada psicológica do jogo.");
         }));
         ScrollView rolagem = new ScrollView(this);
@@ -708,7 +708,7 @@ public class SaveEditorActivity extends Activity {
                 if (timeAtual != null) mostrarCampos();
                 int i = times.indexOf(destino);
                 if (i >= 0) spTime.setSelection(i);
-                Ui.mensagem(this, "Equipe trocada", tec.nome + " agora treina " + destino.nome + ".\nToque em Salvar para gravar no save.");
+                Ui.mensagem(this, "Equipe trocada", tec.nome + " agora treina " + destino.nomeCurto() + ".\nToque em Salvar para gravar no save.");
             })
             .setNegativeButton("Cancelar", null)
             .show();
@@ -718,12 +718,12 @@ public class SaveEditorActivity extends Activity {
         boolean tem = timeAtual != null && timeAtual.temCores();
         corLetra.setEnabled(tem);
         corFundo.setEnabled(tem);
-        if (!tem) { previa.setText(timeAtual != null ? timeAtual.nome : ""); return; }
+        if (!tem) { previa.setText(timeAtual != null ? timeAtual.nomeCurto() : ""); return; }
         corLetra.setBackground(fundo(0xFF000000 | timeAtual.corLetra, CINZA, 4));
         corFundo.setBackground(fundo(0xFF000000 | timeAtual.corFundo, CINZA, 4));
         hexLetra.setText(String.format(Locale.ROOT, "#%06X", timeAtual.corLetra));
         hexFundo.setText(String.format(Locale.ROOT, "#%06X", timeAtual.corFundo));
-        previa.setText(timeAtual.nome);
+        previa.setText(timeAtual.nomeCurto());
         previa.setTextColor(0xFF000000 | timeAtual.corLetra);
         previa.setBackground(fundo(0xFF000000 | timeAtual.corFundo, CINZA, 4));
     }
