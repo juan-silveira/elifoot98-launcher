@@ -143,8 +143,12 @@ public class SaveEditorActivity extends Activity {
         salvar.setOnClickListener(v -> salvar());
         LinearLayout.LayoutParams ps = new LinearLayout.LayoutParams(dp(100), dp(42));
         ps.leftMargin = dp(12);
-        barra.addView(botaoArquivo("Importar", v -> importar()), paramsArquivo());
-        barra.addView(botaoArquivo("Exportar", v -> exportar()), paramsArquivo());
+        // Deitado, Importar e Exportar ficam na barra; em pe nao cabem (empurravam o
+        // Salvar para fora da tela) e vao numa faixa propria, abaixo do save e do clube
+        if (deitado) {
+            barra.addView(botaoArquivo("Importar", v -> importar()), paramsArquivo());
+            barra.addView(botaoArquivo("Exportar", v -> exportar()), paramsArquivo());
+        }
         barra.addView(salvar, ps);
         raiz.addView(barra);
 
@@ -158,6 +162,13 @@ public class SaveEditorActivity extends Activity {
             pt.leftMargin = dp(8);
             faixa.addView(spTime, pt);
             raiz.addView(faixa);
+            LinearLayout arquivos = new LinearLayout(this);
+            arquivos.setPadding(dp(10), dp(8), dp(10), 0);
+            arquivos.addView(botaoArquivo("Importar save", v -> importar()), new LinearLayout.LayoutParams(0, dp(42), 1));
+            LinearLayout.LayoutParams pe = new LinearLayout.LayoutParams(0, dp(42), 1);
+            pe.leftMargin = dp(8);
+            arquivos.addView(botaoArquivo("Exportar save", v -> exportar()), pe);
+            raiz.addView(arquivos);
         }
 
         // Cartao "Jogo"

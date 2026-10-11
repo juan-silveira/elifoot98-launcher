@@ -82,6 +82,7 @@ public class LauncherActivity extends Activity {
         Ui.areaSegura(this, Color.rgb(0, 114, 0));
 
         preparar();
+        Atualizacao.verificar(this, col, 1);   // faixa de versao nova logo abaixo do logo
     }
 
     // 1a execucao (ou app atualizado): copia o Wine e extrai o jogo (~50 MB)

@@ -1,5 +1,6 @@
 using System;
 using System.Drawing;
+using System.Threading.Tasks;
 using System.Windows.Forms;
 
 namespace ElifootLauncher
@@ -83,6 +84,101 @@ namespace ElifootLauncher
             };
 
             Controls.AddRange(new Control[] { btnJogo, btnEditor, btnRefEditor, btnSaveEditor, btnScout, btnPatch, btnConfig });
+
+            // Aviso de versao nova: busca em segundo plano, sem travar a janela (ver Atualizacao.cs;
+            // ELIFOOT_VERSAO_URL troca o endereco do versao.json pra testar)
+            Shown += (s, e) => Task.Run(async () =>
+            {
+                var info = await Atualizacao.VerificarAsync(ver, "windows").ConfigureAwait(false);
+                if (info == null) return;
+                try
+                {
+                    if (!IsDisposed && IsHandleCreated)
+                        BeginInvoke(new Action(() => { if (!IsDisposed) MostrarAviso(info); }));
+                }
+                catch { }
+            });
+        }
+
+        // Faixa verde no topo da janela: "Nova versao X disponivel", novidades, Baixar / Agora nao.
+        // Empurra os botoes pra baixo e cresce a janela; "Agora nao" desfaz.
+        private void MostrarAviso(InfoAtualizacao info)
+        {
+            var temNovidades = info.Novidades.Length > 0;
+            int altura = temNovidades ? 92 : 64;
+            var verde = Color.FromArgb(0x00, 0x72, 0x00);
+            var amarelo = Color.FromArgb(0xFC, 0xFE, 0x04);
+
+            var faixa = new Panel { Location = new Point(0, 0), Size = new Size(ClientSize.Width, altura), BackColor = verde };
+            faixa.Controls.Add(new Label
+            {
+                Text = $"Nova versão {info.Versao} disponível",
+                Font = new Font("Segoe UI", 10F, FontStyle.Bold),
+                ForeColor = amarelo,
+                Location = new Point(10, 6),
+                Size = new Size(ClientSize.Width - 20, 20),
+                AutoEllipsis = true,
+            });
+            if (temNovidades)
+                faixa.Controls.Add(new Label
+                {
+                    Text = info.Novidades,
+                    Font = new Font("Segoe UI", 8.25F),
+                    ForeColor = Color.White,
+                    Location = new Point(10, 27),
+                    Size = new Size(ClientSize.Width - 20, 30),
+                    AutoEllipsis = true,
+                });
+            int yBotoes = altura - 32;
+            var btnBaixar = new Button
+            {
+                Text = "Baixar",
+                Font = new Font("Segoe UI", 9F, FontStyle.Bold),
+                BackColor = amarelo,
+                ForeColor = Color.Black,
+                FlatStyle = FlatStyle.Flat,
+                Location = new Point(ClientSize.Width - 200, yBotoes),
+                Size = new Size(90, 26),
+            };
+            btnBaixar.FlatAppearance.BorderColor = Color.FromArgb(0xD8, 0xDA, 0x00);
+            var btnAgoraNao = new Button
+            {
+                Text = "Agora não",
+                Font = new Font("Segoe UI", 9F),
+                BackColor = Color.FromArgb(0xE6, 0xE6, 0xE6),
+                ForeColor = Color.Black,
+                FlatStyle = FlatStyle.Flat,
+                Location = new Point(ClientSize.Width - 104, yBotoes),
+                Size = new Size(94, 26),
+            };
+            btnAgoraNao.FlatAppearance.BorderColor = Color.FromArgb(0xB8, 0xB8, 0xB8);
+            faixa.Controls.Add(btnBaixar);
+            faixa.Controls.Add(btnAgoraNao);
+
+            SuspendLayout();
+            foreach (Control c in Controls) c.Top += altura;
+            ClientSize = new Size(ClientSize.Width, ClientSize.Height + altura);
+            Controls.Add(faixa);
+            ResumeLayout();
+
+            btnBaixar.Click += (s, e) =>
+            {
+                try { System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(info.Link) { UseShellExecute = true }); }
+                catch (Exception ex)
+                {
+                    MessageBox.Show(this, $"Não consegui abrir o navegador:\n{ex.Message}\n\n{info.Link}", "Erro",
+                        MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                }
+            };
+            btnAgoraNao.Click += (s, e) =>
+            {
+                SuspendLayout();
+                Controls.Remove(faixa);
+                foreach (Control c in Controls) c.Top -= altura;
+                ClientSize = new Size(ClientSize.Width, ClientSize.Height - altura);
+                ResumeLayout();
+                faixa.Dispose();
+            };
         }
 
         private void AplicarPatch()

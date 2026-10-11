@@ -52,7 +52,7 @@ namespace ElifootLauncher
             _jogosDir = jogosDir;
             Text = "Editor de Save";
             ClientSize = new Size(1180, 700);
-            MinimumSize = new Size(820, 560);
+            MinimumSize = new Size(1020, 560);
             Tela.CaberNaTela(this);
             StartPosition = FormStartPosition.CenterParent;
             BackColor = Verde;
@@ -164,13 +164,17 @@ namespace ElifootLauncher
             _saveSel.SelectedIndexChanged += (_, _) => LoadSelected();
             var recarregar = BotaoClaro("Recarregar");
             recarregar.Click += (_, _) => RefreshSaveList(preserveSelection: true);
+            var importar = BotaoClaro("Importar");
+            importar.Click += (_, _) => Importar();
+            var exportar = BotaoClaro("Exportar");
+            exportar.Click += (_, _) => Exportar();
             _salvar = BotaoAmarelo("Salvar", 110);
             _salvar.Margin = new Padding(8, 0, 8, 0);
             _salvar.Enabled = false;
             _salvar.Click += (_, _) => SaveCurrent();
             var fechar = BotaoClaro("Fechar");
             fechar.Click += (_, _) => Close();
-            direita.Controls.AddRange(new Control[] { rotSave, _saveSel, recarregar, _salvar, fechar });
+            direita.Controls.AddRange(new Control[] { rotSave, _saveSel, recarregar, importar, exportar, _salvar, fechar });
             barra.Controls.Add(direita);
 
             // Coluna da esquerda
@@ -384,9 +388,10 @@ namespace ElifootLauncher
         // equipes por divisao de cada um no nome
         private List<SavesPorEquipes.Save> _saves = new List<SavesPorEquipes.Save>();
 
-        private void RefreshSaveList(bool preserveSelection)
+        // selecionar: caminho do save a abrir depois de listar (o importado)
+        private void RefreshSaveList(bool preserveSelection, string? selecionar = null)
         {
-            string? prev = preserveSelection && _saveSel.SelectedIndex >= 0 && _saveSel.SelectedIndex < _saves.Count ? _saves[_saveSel.SelectedIndex].Caminho : null;
+            string? prev = selecionar ?? (preserveSelection && _saveSel.SelectedIndex >= 0 && _saveSel.SelectedIndex < _saves.Count ? _saves[_saveSel.SelectedIndex].Caminho : null);
             if (!Directory.Exists(_jogosDir))
             {
                 MessageBox.Show(this, $"Pasta JOGOS não encontrada:\n{_jogosDir}", "Sem saves", MessageBoxButtons.OK, MessageBoxIcon.Warning);
@@ -582,6 +587,85 @@ namespace ElifootLauncher
             catch (Exception ex)
             {
                 MessageBox.Show(this, $"Erro ao gravar:\n{ex.Message}", "Erro", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
+        // ---- exportar / importar ----
+
+        // Copia o .e98 do save escolhido (como esta no disco) para onde o usuario quiser
+        private void Exportar()
+        {
+            if (string.IsNullOrEmpty(_currentPath) || !File.Exists(_currentPath))
+            {
+                MessageBox.Show(this, "Escolha primeiro o save a exportar.", "Exportar", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return;
+            }
+            using var dlg = new SaveFileDialog
+            {
+                Title = "Exportar save",
+                FileName = Path.GetFileName(_currentPath),
+                Filter = "Jogo do Elifoot 98 (*.e98)|*.e98",
+                DefaultExt = "e98",
+                OverwritePrompt = true,
+            };
+            if (dlg.ShowDialog(this) != DialogResult.OK) return;
+            try
+            {
+                File.WriteAllBytes(dlg.FileName, File.ReadAllBytes(_currentPath));
+                MessageBox.Show(this, $"{Path.GetFileName(_currentPath)} exportado.", "Exportar", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(this, $"Falha ao exportar:\n{ex.Message}", "Erro", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
+        // Traz um .e98 de fora para JOGOS (o launcher o move para a pasta "<N> equipes"
+        // certa ao abrir o jogo); com o mesmo nome de um save existente, pergunta antes
+        // e guarda o atual como .bak
+        private void Importar()
+        {
+            using var dlg = new OpenFileDialog
+            {
+                Title = "Importar save",
+                Filter = "Jogo do Elifoot 98 (*.e98)|*.e98|Todos os arquivos (*.*)|*.*",
+            };
+            if (dlg.ShowDialog(this) != DialogResult.OK) return;
+            try
+            {
+                // So aceita o que o editor consegue ler como save
+                int equipes;
+                try
+                {
+                    if (SaveCodec.Read(dlg.FileName).Teams.Count == 0) throw new InvalidDataException("sem equipes");
+                    equipes = SavesPorEquipes.EquipesDoSave(dlg.FileName);
+                }
+                catch
+                {
+                    MessageBox.Show(this, "Esse arquivo não é um jogo gravado do Elifoot 98 (.e98).", "Importar", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+                var dados = File.ReadAllBytes(dlg.FileName);
+                var nome = SavesPorEquipes.NomeDoJogo(Path.GetFileName(dlg.FileName));
+                var semExt = Path.GetFileNameWithoutExtension(nome);
+                var existente = SavesPorEquipes.Achar(_jogosDir, nome);
+                if (existente != null)
+                {
+                    if (MessageBox.Show(this, $"Já existe um save {semExt}. Substituir? O atual fica guardado como {Path.GetFileName(existente)}.bak.",
+                            "Importar", MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes)
+                        return;
+                    File.Copy(existente, existente + ".bak", true);
+                }
+                var destino = existente ?? Path.Combine(_jogosDir, nome);
+                Directory.CreateDirectory(Path.GetDirectoryName(destino)!);
+                File.WriteAllBytes(destino, dados);
+                RefreshSaveList(preserveSelection: false, selecionar: destino);
+                var info = semExt + (equipes > 0 ? $" ({equipes} equipes por divisão)" : "");
+                MessageBox.Show(this, $"Save {info} importado.", "Importar", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(this, $"Falha ao importar:\n{ex.Message}", "Erro", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
 

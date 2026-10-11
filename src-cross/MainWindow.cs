@@ -101,7 +101,84 @@ namespace ElifootLauncher
                     HorizontalAlignment = HorizontalAlignment.Center,
                     Margin = new Thickness(0, 8, 0, 0),
                 });
-            Content = painel;
+            // Aviso de versao nova fica acima do painel (ver Atualizacao.cs; ELIFOOT_VERSAO_URL
+            // troca o endereco do versao.json pra testar). SizeToContent cresce a janela.
+            var raiz = new DockPanel();
+            var aviso = new ContentControl();
+            DockPanel.SetDock(aviso, Dock.Top);
+            raiz.Children.Add(aviso);
+            raiz.Children.Add(painel);
+            Content = raiz;
+
+            Opened += (_, _) => _ = Task.Run(async () =>
+            {
+                var info = await Atualizacao.VerificarAsync(ver, Plataforma()).ConfigureAwait(false);
+                if (info != null)
+                    Avalonia.Threading.Dispatcher.UIThread.Post(() => aviso.Content = FaixaAviso(info, () => aviso.Content = null));
+            });
+        }
+
+        // Chave em "links" do versao.json pra este sistema
+        private static string Plataforma()
+        {
+            if (OperatingSystem.IsMacOS()) return "macos";
+            return string.IsNullOrEmpty(Environment.GetEnvironmentVariable("APPIMAGE")) ? "linux-deb" : "linux-appimage";
+        }
+
+        // Faixa verde-escura com borda amarela: "Nova versao X disponivel", novidades, Baixar / Agora nao
+        private Control FaixaAviso(InfoAtualizacao info, Action fechar)
+        {
+            var conteudo = new StackPanel { Spacing = 4 };
+            conteudo.Children.Add(Visual.Texto($"Nova versão {info.Versao} disponível", 15, Visual.Amarelo, true));
+            if (info.Novidades.Length > 0)
+            {
+                var nov = Visual.Texto(info.Novidades, 12, Visual.Cor(0xE6F2E6));
+                nov.TextWrapping = TextWrapping.Wrap;
+                nov.MaxLines = 2;
+                nov.TextTrimming = TextTrimming.WordEllipsis;
+                conteudo.Children.Add(nov);
+            }
+            var btnBaixar = Visual.BotaoAmarelo("Baixar", 100);
+            var btnAgoraNao = Visual.BotaoClaro("Agora não");
+            btnBaixar.Click += async (_, _) =>
+            {
+                if (!AbrirNoNavegador(info.Link))
+                    await Dialogos.Mensagem(this, $"Não consegui abrir o navegador:\n\n{info.Link}", "Erro");
+            };
+            btnAgoraNao.Click += (_, _) => fechar();
+            var botoes = new StackPanel
+            {
+                Orientation = Orientation.Horizontal,
+                Spacing = 8,
+                HorizontalAlignment = HorizontalAlignment.Right,
+                Margin = new Thickness(0, 4, 0, 0),
+                Children = { btnBaixar, btnAgoraNao },
+            };
+            conteudo.Children.Add(botoes);
+            return new Border
+            {
+                Background = Visual.VerdeTopo,
+                BorderBrush = Visual.Amarelo,
+                BorderThickness = new Thickness(0, 0, 0, 2),
+                Padding = new Thickness(16, 10, 16, 10),
+                Child = conteudo,
+            };
+        }
+
+        // xdg-open no Linux, open no Mac
+        private static bool AbrirNoNavegador(string url)
+        {
+            try
+            {
+                var psi = new System.Diagnostics.ProcessStartInfo(OperatingSystem.IsMacOS() ? "open" : "xdg-open")
+                {
+                    UseShellExecute = false,
+                };
+                psi.ArgumentList.Add(url);
+                using var p = System.Diagnostics.Process.Start(psi);
+                return p != null;
+            }
+            catch { return false; }
         }
 
         private async Task AplicarPatch()

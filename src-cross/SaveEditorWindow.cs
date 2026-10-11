@@ -12,6 +12,7 @@ using Avalonia.Controls.Templates;
 using Avalonia.Input;
 using Avalonia.Layout;
 using Avalonia.Media;
+using Avalonia.Platform.Storage;
 using Avalonia.Styling;
 using static ElifootLauncher.Visual;
 
@@ -68,6 +69,10 @@ namespace ElifootLauncher
             _saveSel.SelectionChanged += async (_, _) => await LoadSelected();
             var recarregar = BotaoClaro("Recarregar");
             recarregar.Click += async (_, _) => await RefreshSaveList(preserveSelection: true);
+            var importar = BotaoClaro("Importar");
+            importar.Click += async (_, _) => await Importar();
+            var exportar = BotaoClaro("Exportar");
+            exportar.Click += async (_, _) => await Exportar();
             _salvar = BotaoAmarelo("Salvar", 110);
             _salvar.IsEnabled = false;
             _salvar.Click += async (_, _) => await SaveCurrent();
@@ -88,7 +93,7 @@ namespace ElifootLauncher
                 HorizontalAlignment = HorizontalAlignment.Right,
                 VerticalAlignment = VerticalAlignment.Center,
                 Margin = new Thickness(12, 8),
-                Children = { new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Children = { CentroV(Texto("Save", 14, Cinza)), _saveSel } }, recarregar, _salvar, fechar },
+                Children = { new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Children = { CentroV(Texto("Save", 14, Cinza)), _saveSel } }, recarregar, importar, exportar, _salvar, fechar },
             });
 
             // Cartao Jogo
@@ -276,9 +281,10 @@ namespace ElifootLauncher
 
         // ---- dados ----
 
-        private async Task RefreshSaveList(bool preserveSelection)
+        // selecionar: caminho do save a abrir depois de listar (o importado)
+        private async Task RefreshSaveList(bool preserveSelection, string? selecionar = null)
         {
-            string? prev = preserveSelection && _saveSel.SelectedIndex >= 0 && _saveSel.SelectedIndex < _saves.Count ? _saves[_saveSel.SelectedIndex].Caminho : null;
+            string? prev = selecionar ?? (preserveSelection && _saveSel.SelectedIndex >= 0 && _saveSel.SelectedIndex < _saves.Count ? _saves[_saveSel.SelectedIndex].Caminho : null);
             if (!Directory.Exists(_jogosDir))
             {
                 await Dialogos.Mensagem(this, $"Pasta JOGOS não encontrada:\n{_jogosDir}", "Sem saves");
@@ -458,6 +464,97 @@ namespace ElifootLauncher
             catch (Exception ex)
             {
                 await Dialogos.Mensagem(this, $"Erro ao gravar:\n{ex.Message}", "Erro");
+            }
+        }
+
+        // ---- exportar / importar ----
+
+        private static readonly FilePickerFileType TipoE98 = new FilePickerFileType("Jogo do Elifoot 98 (*.e98)") { Patterns = new[] { "*.e98", "*.E98" } };
+
+        // Copia o .e98 do save escolhido (como esta no disco) para onde o usuario quiser
+        private async Task Exportar()
+        {
+            if (string.IsNullOrEmpty(_currentPath) || !File.Exists(_currentPath))
+            {
+                await Dialogos.Mensagem(this, "Escolha primeiro o save a exportar.", "Exportar");
+                return;
+            }
+            var arquivo = await StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
+            {
+                Title = "Exportar save",
+                SuggestedFileName = Path.GetFileName(_currentPath),
+                DefaultExtension = "e98",
+                FileTypeChoices = new[] { TipoE98 },
+                ShowOverwritePrompt = true,
+            });
+            if (arquivo == null) return;
+            try
+            {
+                var dados = File.ReadAllBytes(_currentPath);
+                await using (var s = await arquivo.OpenWriteAsync())
+                {
+                    if (s.CanSeek) s.SetLength(0);
+                    await s.WriteAsync(dados);
+                }
+                await Dialogos.Mensagem(this, $"{Path.GetFileName(_currentPath)} exportado.", "Exportar");
+            }
+            catch (Exception ex)
+            {
+                await Dialogos.Mensagem(this, $"Falha ao exportar:\n{ex.Message}", "Erro");
+            }
+        }
+
+        // Traz um .e98 de fora para JOGOS (o launcher o move para a pasta "<N> equipes"
+        // certa ao abrir o jogo); com o mesmo nome de um save existente, pergunta antes
+        // e guarda o atual como .bak
+        private async Task Importar()
+        {
+            var arquivos = await StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
+            {
+                Title = "Importar save",
+                AllowMultiple = false,
+                FileTypeFilter = new[]
+                {
+                    TipoE98,
+                    new FilePickerFileType("Todos os arquivos") { Patterns = new[] { "*" } },
+                },
+            });
+            var origem = arquivos.Count > 0 ? arquivos[0].TryGetLocalPath() : null;
+            if (origem == null) return;
+            try
+            {
+                // So aceita o que o editor consegue ler como save
+                int equipes;
+                try
+                {
+                    if (SaveCodec.Read(origem).Teams.Count == 0) throw new InvalidDataException("sem equipes");
+                    equipes = SavesPorEquipes.EquipesDoSave(origem);
+                }
+                catch
+                {
+                    await Dialogos.Mensagem(this, "Esse arquivo não é um jogo gravado do Elifoot 98 (.e98).", "Importar");
+                    return;
+                }
+                var dados = File.ReadAllBytes(origem);
+                var nome = SavesPorEquipes.NomeDoJogo(Path.GetFileName(origem));
+                var semExt = Path.GetFileNameWithoutExtension(nome);
+                var existente = SavesPorEquipes.Achar(_jogosDir, nome);
+                if (existente != null)
+                {
+                    if (!await Dialogos.Confirmar(this, $"Já existe um save {semExt}. Substituir? O atual fica guardado como {Path.GetFileName(existente)}.bak.", "Importar"))
+                        return;
+                    File.Copy(existente, existente + ".bak", true);
+                }
+                var destino = existente ?? Path.Combine(_jogosDir, nome);
+                Directory.CreateDirectory(Path.GetDirectoryName(destino)!);
+                File.WriteAllBytes(destino, dados);
+                await RefreshSaveList(preserveSelection: false, selecionar: destino);
+                var info = semExt + (equipes > 0 ? $" ({equipes} equipes por divisão)" : "");
+                await Dialogos.Mensagem(this, $"Save {info} importado.", "Importar");
+            }
+            catch (Exception ex)
+            {
+                await Dialogos.Mensagem(this, $"Falha ao importar:\n{ex.Message}", "Erro");
             }
         }
 

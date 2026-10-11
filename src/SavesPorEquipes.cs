@@ -46,6 +46,21 @@ namespace ElifootLauncher
                         .ThenBy(s => s.Equipes).ToList();
         }
 
+        // Nome no padrao do jogo para um save importado: ate 8 letras/numeros e .e98
+        public static string NomeDoJogo(string nome)
+        {
+            var b = System.Text.RegularExpressions.Regex.Replace(nome ?? "", @"\.e98$", "", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+            b = System.Text.RegularExpressions.Regex.Replace(b, "[^A-Za-z0-9_]", "");
+            if (b.Length > 8) b = b.Substring(0, 8);
+            return (b.Length == 0 ? "IMPORT" : b) + ".e98";
+        }
+
+        // Save ja existente com esse nome (sem diferenciar maiusculas), em JOGOS ou
+        // numa pasta "<N> equipes"; null se nao houver
+        public static string? Achar(string jogosDir, string nome) =>
+            Listar(jogosDir).Select(s => s.Caminho)
+                .FirstOrDefault(c => string.Equals(Path.GetFileName(c), nome, StringComparison.OrdinalIgnoreCase));
+
         public static void Separar(string jogosDir, int n)
         {
             if (!Directory.Exists(jogosDir)) return;
