@@ -173,6 +173,88 @@ index bf73e61..d3b7ec8 100644
  
  #include "devtty.h"
  #include "devurandom.h"
+diff --git a/source/x11/xrandr.cpp b/source/x11/xrandr.cpp
+index 60f524f..a1253fe 100644
+--- a/source/x11/xrandr.cpp
++++ b/source/x11/xrandr.cpp
+@@ -89,52 +89,45 @@ U32 XrrGetSizes(KThread* thread, const DisplayDataPtr& data, U32 screen, U32 cou
+     }
+     U32 desktopCx = 0;
+     U32 desktopCy = 0;
+-    U32 count = 3;
+     KNativeSystem::getScreenDimensions(&desktopCx, &desktopCy);
+ 
++    // A resolucao pedida (-resolution) entra sempre na lista: fora dela,
++    // XrrConfigCurrentConfiguration devolve o 1o tamanho (o da tela do aparelho)
++    // e o Wine maximiza as janelas nesse tamanho
++    KNativeScreenPtr current = KNativeSystem::getScreen();
++    U32 list[7][2];
++    U32 count = 0;
++    auto add = [&](U32 cx, U32 cy) {
++        if (!cx || !cy) return;
++        for (U32 i = 0; i < count; i++) {
++            if (list[i][0] == cx && list[i][1] == cy) return;
++        }
++        list[count][0] = cx; list[count][1] = cy; count++;
++    };
++    add(current->screenWidth(), current->screenHeight());
+     if (desktopCx > 1600) {
+-        count++;
++        add(desktopCx, desktopCy);
+     }
+     if (desktopCx && desktopCx > 1600 && desktopCy > 1200) {
+-        count++;
++        add(1600, 1200);
+     }
+     if (desktopCx && desktopCx > 1280 && desktopCy > 1024) {
+-        count++;
++        add(1280, 1024);
+     }
++    add(1024, 768);
++    add(800, 600);
++    add(640, 480);
++
+     U32 sizes = thread->process->alloc(thread, sizeof(XRRScreenSize) * count);
+-    
++
+     data->xrrData->sizesAddress = sizes;
+     data->xrrData->sizesCount = count;
+-    if (desktopCx > 1600) {
+-        memory->writed(sizes, desktopCx); sizes += 4;
+-        memory->writed(sizes, desktopCy); sizes += 4;
+-        memory->writed(sizes, 0); sizes += 4;
+-        memory->writed(sizes, 0); sizes += 4;
+-    }
+-    if (desktopCx && desktopCx > 1600 && desktopCy > 1200) {
+-        memory->writed(sizes, 1600); sizes += 4;
+-        memory->writed(sizes, 1200); sizes += 4;
+-        memory->writed(sizes, 0); sizes += 4;
+-        memory->writed(sizes, 0); sizes += 4;
+-    }
+-    if (desktopCx && desktopCx > 1280 && desktopCy > 1024) {
+-        memory->writed(sizes, 1280); sizes += 4;
+-        memory->writed(sizes, 1024); sizes += 4;
++    for (U32 i = 0; i < count; i++) {
++        memory->writed(sizes, list[i][0]); sizes += 4;
++        memory->writed(sizes, list[i][1]); sizes += 4;
+         memory->writed(sizes, 0); sizes += 4;
+         memory->writed(sizes, 0); sizes += 4;
+     }
+-    memory->writed(sizes, 1024); sizes += 4;
+-    memory->writed(sizes, 768); sizes += 4;
+-    memory->writed(sizes, 0); sizes += 4;
+-    memory->writed(sizes, 0); sizes += 4;
+-    memory->writed(sizes, 800); sizes += 4;
+-    memory->writed(sizes, 600); sizes += 4;
+-    memory->writed(sizes, 0); sizes += 4;
+-    memory->writed(sizes, 0); sizes += 4;
+-    memory->writed(sizes, 640); sizes += 4;
+-    memory->writed(sizes, 480); sizes += 4;
+-    memory->writed(sizes, 0); sizes += 4;
+-    memory->writed(sizes, 0);
+     if (countAddress) {
+         memory->writed(countAddress, data->xrrData->sizesCount);
+     }
 diff --git a/source/x11/xwindow.cpp b/source/x11/xwindow.cpp
 index fff67a4..353a84c 100644
 --- a/source/x11/xwindow.cpp

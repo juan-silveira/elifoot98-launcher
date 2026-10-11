@@ -136,6 +136,55 @@ public final class Jogo {
         }
     }
 
+    /**
+     * DPI do Wine, gravada no registro antes do Boxedwine abrir: o Wine le a
+     * LogPixels uma vez, ao iniciar, e o iniciar.exe /dpi chegava tarde (o jogo
+     * desenhava as telas em 96 DPI no desktop de 1600x1200). O registro gravado
+     * pelo Wine fica em files/root; antes da 1a gravacao, so no wine11.zip.
+     */
+    public void definirDpi(int dpi) throws IOException {
+        String valor = String.format("\"LogPixels\"=dword:%08x", dpi);
+        for (String nome : new String[] { "user.reg", "system.reg" }) {
+            String caminho = "home/username/.wine/" + nome;
+            File f = new File(root, caminho);
+            String texto;
+            if (f.exists()) texto = new String(Files.readAllBytes(f.toPath()), StandardCharsets.UTF_8);
+            else {
+                texto = null;
+                try (java.util.zip.ZipFile z = new java.util.zip.ZipFile(new File(dir, "wine11.zip"))) {
+                    ZipEntry e = z.getEntry(caminho);
+                    if (e != null)
+                        try (InputStream in = z.getInputStream(e)) { texto = new String(lerTudo(in), StandardCharsets.UTF_8); }
+                }
+                if (texto == null) continue;
+            }
+            String novo = texto.replaceAll("\"LogPixels\"=dword:[0-9a-fA-F]{8}", valor);
+            if (novo.equals(texto) && f.exists()) continue;
+            f.getParentFile().mkdirs();
+            Files.write(f.toPath(), novo.getBytes(StandardCharsets.UTF_8));
+        }
+        // Letras suavizadas acima de 96 DPI: o otvdm forca a qualidade da fonte
+        File ini = new File(jogo, "otvdm/otvdm.ini");
+        if (ini.exists()) {
+            StringBuilder sb = new StringBuilder();
+            for (String l : new String(Files.readAllBytes(ini.toPath()), StandardCharsets.UTF_8).split("\r?\n", -1)) {
+                if (l.startsWith("ForceFontQuality=")) continue;
+                sb.append(l).append('\n');
+                if (dpi > 96 && l.trim().equalsIgnoreCase("[otvdm]")) sb.append("ForceFontQuality=4\n");
+            }
+            String s = sb.toString().replaceAll("\n+$", "\n");
+            Files.write(ini.toPath(), s.getBytes(StandardCharsets.UTF_8));
+        }
+    }
+
+    private static byte[] lerTudo(InputStream in) throws IOException {
+        java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream();
+        byte[] b = new byte[65536];
+        int n;
+        while ((n = in.read(b)) > 0) out.write(b, 0, n);
+        return out.toByteArray();
+    }
+
     /** "Ativar todos os recursos": grava secondCode (Registro para autor 2) no elif98.ini. */
     public String ativar(Context ctx) throws IOException {
         prepararWindows(ctx);

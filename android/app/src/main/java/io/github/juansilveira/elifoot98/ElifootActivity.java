@@ -69,6 +69,7 @@ public class ElifootActivity extends SDLActivity {
         }
         try {
             jogo.fontesAltaDefinicao(this, DPI > 96);
+            jogo.definirDpi(DPI);
         } catch (IOException e) {
             Log.e(TAG, "Falha nas fontes da alta definicao", e);
         }
