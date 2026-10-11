@@ -9,8 +9,11 @@
 #   ELIFOOT_FULLSCREEN=1         sem janela (jogo ocupa a tela; padrao no macOS)
 #   ELIFOOT_WINE=/caminho/wine   forca um Wine especifico
 #   ELIFOOT_EXE=ELIF20.EXE       EXE do jogo (equipes por divisao; padrao ELIFOOT.EXE)
-#   ELIFOOT_HD=1                 alta definicao: DPI alta no Wine (o jogo desenha as
-#                                telas maiores e o texto nitido), escala pela tela
+#   ELIFOOT_ESCALA=150           tamanho do jogo em % (100 normal; 125 a 200: DPI alta
+#                                no Wine, o jogo desenha as telas maiores e o texto
+#                                nitido; auto = a maior que cabe no monitor principal)
+#   ELIFOOT_JANELA_LIVRE=1       janela redimensionavel (gamescope, baixado na 1a vez;
+#                                so Linux)
 # Compativel com o bash 3.2 do macOS e com as ferramentas BSD.
 set -euo pipefail
 
@@ -38,10 +41,25 @@ RES="${ELIFOOT_RES:-800x600}"
 FULLSCREEN="${ELIFOOT_FULLSCREEN:-$MAC}"
 MODO="${1:-jogo}"
 EXE="${ELIFOOT_EXE:-ELIFOOT.EXE}"
-HD="${ELIFOOT_HD:-0}"
+ESCALA="${ELIFOOT_ESCALA:-100}"
 [[ "$MODO" == "editor" ]] && EXE="EDITEQ.EXE"
 
 export WINEPREFIX="$APP/prefix" WINEDEBUG=-all WINEDLLOVERRIDES="mscoree,mshtml="
+
+# Fontes instaladas na pasta do usuario (milhares de Google Fonts, por exemplo)
+# estouram a lista de fontes do jogo: "EListError ... List index out of bounds"
+# ao abrir. O Wine so ve as fontes do sistema
+if [[ $MAC == 0 ]]; then
+  mkdir -p "$APP"
+  cat > "$APP/fontes.conf" <<FIM
+<?xml version="1.0"?><!DOCTYPE fontconfig SYSTEM "urn:fontconfig:fonts.dtd">
+<fontconfig>
+  <include ignore_missing="yes">/etc/fonts/fonts.conf</include>
+  <selectfont><rejectfont><glob>$HOME/*</glob><glob>/home/*</glob></rejectfont></selectfont>
+</fontconfig>
+FIM
+  export FONTCONFIG_FILE="$APP/fontes.conf"
+fi
 
 # Texto pra dentro de string do AppleScript
 as_texto() { printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g'; }
@@ -66,9 +84,10 @@ confirmar() {
   else read -r -p "$1 [s/N] " r; [[ "$r" =~ ^[sS] ]]; fi
 }
 
-sha256_ok() {  # $1 = arquivo
-  if command -v sha256sum >/dev/null; then echo "$RUNTIME_SHA256  $1" | sha256sum -c --quiet - >/dev/null 2>&1
-  else echo "$RUNTIME_SHA256  $1" | shasum -a 256 -c - >/dev/null 2>&1; fi
+sha256_ok() {  # $1 = arquivo, $2 = hash (padrao: o do Wine)
+  local h="${2:-$RUNTIME_SHA256}"
+  if command -v sha256sum >/dev/null; then echo "$h  $1" | sha256sum -c --quiet - >/dev/null 2>&1
+  else echo "$h  $1" | shasum -a 256 -c - >/dev/null 2>&1; fi
 }
 
 baixar_wine() {
@@ -89,6 +108,36 @@ Baixar um Wine portátil agora? (~$RUNTIME_MB MB, só desta vez)" || erro "Insta
   if [[ $MAC == 1 ]]; then mv "$tmp"/Wine*.app/Contents/Resources/wine "$RUNTIME"
   else mv "$tmp"/wine-*/ "$RUNTIME"; fi
   rm -rf "$tmp"
+}
+
+# Janela redimensionavel (so Linux): o gamescope mostra o desktop do Wine numa
+# janela que amplia ou reduz a imagem ao puxar a borda. Nao vem nas distros
+# (Mint 22, Ubuntu 24.04): um AppImage portatil e baixado na 1a vez
+GAMESCOPE_URL="https://github.com/pkgforge-dev/gamescope-AppImage/releases/download/3.16.31-1%402026-10-01_1790876541/gamescope-3.16.31-1-anylinux-x86_64.AppImage"
+GAMESCOPE_SHA256="8da6aa8948bcbc86faad16c486dcbb7c5e3a0d563dd5b9a85bb6df8ffcdb7cd8"
+GAMESCOPE_MB=41
+
+preparar_gamescope() {
+  local dir="$APP/gamescope" tmp
+  [[ -x "$dir/AppRun" ]] && return 0
+  tmp="$(mktemp -d)"
+  if command -v zenity >/dev/null; then
+    curl -fsSL -o "$tmp/gamescope.AppImage" "$GAMESCOPE_URL" | zenity --progress --pulsate --auto-close --no-cancel \
+      --title="Elifoot 98" --text="Baixando o gamescope (janela redimensionável, ~$GAMESCOPE_MB MB, só desta vez)..." 2>/dev/null || true
+  else
+    aviso "Baixando o gamescope (~$GAMESCOPE_MB MB, só desta vez), aguarde..."
+    curl -fsSL -o "$tmp/gamescope.AppImage" "$GAMESCOPE_URL" || true
+  fi
+  # Extraido: sem depender do FUSE pra rodar o AppImage
+  if sha256_ok "$tmp/gamescope.AppImage" "$GAMESCOPE_SHA256" && chmod +x "$tmp/gamescope.AppImage" \
+     && (cd "$tmp" && ./gamescope.AppImage --appimage-extract >/dev/null 2>&1) && [[ -x "$tmp/squashfs-root/AppRun" ]]; then
+    # squashfs-root pode ser so um link pra pasta de verdade (AppDir)
+    rm -rf "$dir"; mv "$(cd "$tmp/squashfs-root" && pwd -P)" "$dir"; rm -rf "$tmp"
+    return 0
+  fi
+  rm -rf "$tmp"
+  aviso "Não deu para baixar o gamescope; o jogo abre na janela normal."
+  return 1
 }
 
 escolher_wine() {
@@ -164,7 +213,8 @@ ln -sfn "$APP" "$WINEPREFIX/dosdevices/e:"
 
 # Alta definicao: o Delphi 1 desenha cada janela na escala da DPI (texto TrueType
 # nitido, no lugar de ampliar a imagem de 640x480). A escala e a maior entre 2x,
-# 1,75x, 1,5x e 1,25x em que o desktop virtual cabe na tela. A MS Sans Serif do
+# 1,75x, 1,5x e 1,25x em que o desktop virtual (RES x escala) cabe no monitor
+# principal; maior que a tela, o Wine o poe em tela cheia. A MS Sans Serif do
 # jogo e bitmap e para em 20 pontos: em DPI alta vai a TrueType com as mesmas
 # larguras (linux/fontes-hd); em 96 DPI ela nao pode estar instalada (o Wine a
 # preferiria ao bitmap e o jogo mudaria).
@@ -172,26 +222,32 @@ altura_tela() {
   local a=""
   if [[ $MAC == 1 ]]; then
     a="$(system_profiler SPDisplaysDataType 2>/dev/null | awk '/Resolution:/ {print $4; exit}')"
-  elif command -v xdpyinfo >/dev/null; then
-    a="$(xdpyinfo 2>/dev/null | awk '/dimensions:/ {split($2, d, "x"); print d[2]; exit}')"
   elif command -v xrandr >/dev/null; then
-    a="$(xrandr --current 2>/dev/null | awk '/\*/ {split($1, d, "x"); print d[2]; exit}')"
+    # o monitor principal (com 2 monitores a "tela" do X junta os dois)
+    a="$(xrandr --current 2>/dev/null | awk '/ connected primary [0-9]/ {split($4, d, "[x+]"); print d[2]; exit}')"
+    [[ -n "$a" ]] || a="$(xrandr --current 2>/dev/null | awk '/ connected [0-9]/ {split($3, d, "[x+]"); if (m == "" || d[2] < m) m = d[2]} END {print m}')"
+  fi
+  if [[ -z "$a" ]] && command -v xdpyinfo >/dev/null; then
+    a="$(xdpyinfo 2>/dev/null | awk '/dimensions:/ {split($2, d, "x"); print d[2]; exit}')"
   fi
   echo "${a:-1080}"
 }
 dpi=96
-if [[ "$HD" == "1" ]]; then
+if [[ "$ESCALA" == "auto" ]]; then
   tela="$(altura_tela)"
-  w="${RES%x*}"; h="${RES#*x}"
+  h="${RES#*x}"
   margem=80; (( FULLSCREEN == 1 )) && margem=0   # janela: barra de titulo e painel
   for e in 200 175 150 125; do
     if (( h * e / 100 + margem <= tela )); then
       dpi=$(( 96 * e / 100 ))
-      RES="$(( w * e / 100 ))x$(( h * e / 100 ))"
       break
     fi
   done
+elif [[ "$ESCALA" =~ ^(125|150|175|200)$ ]]; then
+  dpi=$(( 96 * ESCALA / 100 ))
 fi
+# o desktop virtual do Wine na mesma escala (em pontos da tela)
+RES="$(( ${RES%x*} * dpi / 96 ))x$(( ${RES#*x} * dpi / 96 ))"
 FONTS="$WINEPREFIX/drive_c/windows/Fonts"
 mkdir -p "$FONTS"
 if (( dpi > 96 )); then
@@ -199,11 +255,38 @@ if (( dpi > 96 )); then
 else
   rm -f "$FONTS/MSSansSerifHD-"*.ttf
 fi
-if [[ "$(cat "$APP/.dpi" 2>/dev/null)" != "$dpi" ]]; then
+# Letras suavizadas (tons de cinza; a ClearType deixa franjas coloridas no verde)
+# na alta definicao: o otvdm forca a qualidade da fonte (ForceFontQuality) e o
+# Wine liga a suavizacao
+OTVDM_INI="$APP/vendor/otvdm/otvdm.ini"
+if [[ -f "$OTVDM_INI" ]]; then
+  grep -v '^ForceFontQuality=' "$OTVDM_INI" > "$OTVDM_INI.tmp" || true
+  if (( dpi > 96 )); then
+    awk '{print} /^\[otvdm\]/ {print "ForceFontQuality=4"}' "$OTVDM_INI.tmp" > "$OTVDM_INI"
+  else
+    cat "$OTVDM_INI.tmp" > "$OTVDM_INI"
+  fi
+  rm -f "$OTVDM_INI.tmp"
+fi
+# ...e esquece as que ja tinha registrado (o Wine as carrega do registro mesmo
+# sem o fontconfig as ver); so com o wineserver parado
+if [[ $MAC == 0 ]] && grep -qsF '="Z:\\home\\' "$WINEPREFIX/system.reg" "$WINEPREFIX/user.reg"; then
+  "$(dirname "$WINE")/wineserver" -w >/dev/null 2>&1 || true
+  for f in "$WINEPREFIX/system.reg" "$WINEPREFIX/user.reg"; do
+    awk 'index($0, "=\"Z:\\\\home\\\\") && tolower($0) ~ /\.(ttf|ttc|otf|otc|pfb|pfa|fon)"$/ {next} {print}' "$f" > "$f.tmp" && mv "$f.tmp" "$f"
+  done
+fi
+# O Wine so aceita no desktop virtual os tamanhos da lista dele (1024x768,
+# 1280x960...) e o Desktops\Default; outro tamanho vira tela cheia
+if [[ "$(cat "$APP/.dpi" 2>/dev/null)" != "$dpi $RES" ]]; then
+  if (( dpi > 96 )); then suave=2; else suave=0; fi
+  "$WINE" reg add 'HKCU\Control Panel\Desktop' /v FontSmoothing /d "$suave" /f >/dev/null 2>&1 || true
+  "$WINE" reg add 'HKCU\Control Panel\Desktop' /v FontSmoothingType /t REG_DWORD /d 1 /f >/dev/null 2>&1 || true
   "$WINE" reg add 'HKCU\Control Panel\Desktop' /v LogPixels /t REG_DWORD /d "$dpi" /f >/dev/null 2>&1 || true
   "$WINE" reg add 'HKLM\System\CurrentControlSet\Hardware Profiles\Current\Software\Fonts' /v LogPixels /t REG_DWORD /d "$dpi" /f >/dev/null 2>&1 || true
+  "$WINE" reg add 'HKCU\Software\Wine\Explorer\Desktops' /v Default /d "$RES" /f >/dev/null 2>&1 || true
   "$(dirname "$WINE")/wineserver" -w >/dev/null 2>&1 || true   # grava o registro antes do jogo
-  echo "$dpi" > "$APP/.dpi"
+  echo "$dpi $RES" > "$APP/.dpi"
 fi
 
 # O otvdm entrega a data em UTC: o instante fixo e 2000-01-01 14:00 UTC (o
@@ -222,5 +305,18 @@ if [[ "$FULLSCREEN" == "1" ]]; then
   [[ -n "$INICIAR" ]] && exec "$WINE" "$INICIAR" "$OTVDM" "E:\\game\\$EXE"
   exec "$WINE" "$OTVDM" "E:\\game\\$EXE"
 fi
-[[ -n "$INICIAR" ]] && exec "$WINE" explorer "/desktop=Elifoot98,$RES" "$INICIAR" "$OTVDM" "E:\\game\\$EXE"
-exec "$WINE" explorer "/desktop=Elifoot98,$RES" "$OTVDM" "E:\\game\\$EXE"
+JOGO=("$WINE" explorer "/desktop=Elifoot98,$RES")
+[[ -n "$INICIAR" ]] && JOGO+=("$INICIAR")
+JOGO+=("$OTVDM" "E:\\game\\$EXE")
+if [[ $MAC == 0 && "${ELIFOOT_JANELA_LIVRE:-0}" == "1" ]] && preparar_gamescope; then
+  # O jogo desenha no tamanho escolhido (nitido) e o gamescope escala a imagem
+  # pro tamanho da janela, suavizada
+  inicio=$SECONDS
+  "$APP/gamescope/AppRun" -w "${RES%x*}" -h "${RES#*x}" -W "${RES%x*}" -H "${RES#*x}" -S fit -F linear -- "${JOGO[@]}" && exit 0
+  (( SECONDS - inicio > 15 )) && exit 0
+  # Sem Vulkan com apresentacao (placa de video sem suporte, maquina virtual...)
+  # o gamescope nao abre: vai sem ele
+  "$(dirname "$WINE")/wineserver" -k >/dev/null 2>&1 || true
+  aviso "A janela redimensionável não funcionou neste computador; o jogo abre na janela normal."
+fi
+exec "${JOGO[@]}"

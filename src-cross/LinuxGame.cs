@@ -56,12 +56,14 @@ namespace ElifootLauncher
             {
                 // Config padrao (compartilhada com o Windows) e 640x480; no
                 // desktop virtual do Wine as telas do jogo precisam de 800x600
-                var (w, h) = cfg.ResolutionWidth < 800 ? (800, 600) : (cfg.ResolutionWidth, cfg.ResolutionHeight);
-                psi.Environment["ELIFOOT_RES"] = $"{w}x{h}";
+                // A janela do Wine tem o tamanho das telas do jogo (800x600, ou mais com
+                // a escala); antes uma janela maior so punha fundo verde em volta
+                psi.Environment["ELIFOOT_RES"] = "800x600";
                 // Sem tela cheia vale o padrao do script (no macOS o jogo abre maximizado)
                 if (cfg.Fullscreen) psi.Environment["ELIFOOT_FULLSCREEN"] = "1";
-                // Alta definicao: o script escolhe a escala pelo tamanho da tela
-                psi.Environment["ELIFOOT_HD"] = cfg.AltaDefinicao ? "1" : "0";
+                // Tamanho do jogo: escala em % (0 = o script escolhe a maior que cabe)
+                psi.Environment["ELIFOOT_ESCALA"] = cfg.Escala == 0 ? "auto" : cfg.Escala.ToString();
+                if (cfg.JanelaLivre) psi.Environment["ELIFOOT_JANELA_LIVRE"] = "1";
                 // EXE das equipes por divisao escolhidas nas Configuracoes
                 if (modo == "jogo") psi.Environment["ELIFOOT_EXE"] = cfg.ExeDoJogo;
             }

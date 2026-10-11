@@ -33,7 +33,9 @@ public class ElifootActivity extends SDLActivity {
     private static final String TAG = "Elifoot98";
     // Resolucao do Windows emulado: a janela do time tem 636x484 (nao cabe em
     // 640x480). 800x600 e 4:3, sem distorcao (720x540 o Boxedwine desenha errado).
-    private static final int LARGURA = 800, ALTURA = 600;
+    // Alta definicao (Configuracoes): 1600x1200 a 192 DPI, o jogo desenha as telas
+    // no dobro com o texto TrueType nitido (o Boxedwine encaixa na tela do aparelho)
+    private int LARGURA = 800, ALTURA = 600, DPI = 96;
 
     private final Handler handler = new Handler(Looper.getMainLooper());
     private Jogo jogo;
@@ -62,6 +64,14 @@ public class ElifootActivity extends SDLActivity {
         new File(jogo.jogo, "janelas.txt").delete();
         new File(jogo.jogo, "comando.txt").delete();
         new File(jogo.jogo, "pronto.txt").delete();
+        if (getSharedPreferences("config", MODE_PRIVATE).getBoolean("hd", false)) {
+            LARGURA = 1600; ALTURA = 1200; DPI = 192;
+        }
+        try {
+            jogo.fontesAltaDefinicao(this, DPI > 96);
+        } catch (IOException e) {
+            Log.e(TAG, "Falha nas fontes da alta definicao", e);
+        }
         String exe = getIntent().getStringExtra(EXTRA_EXE);
         if (exe == null) exe = "ELIFOOT.EXE";
         String files = "/home/username/.wine/dosdevices/c:/files";
@@ -87,7 +97,7 @@ public class ElifootActivity extends SDLActivity {
             // iniciar.exe (linux/iniciar.c): faz a "Acerca" aparecer e, na pasta
             // do jogo, mantem teclado.txt (campo com foco), janelas.txt (abas) e
             // atende comando.txt (aba tocada, botoes ✱/—)
-            "/bin/wine", "iniciar.exe", "/android", "C:\\files",
+            "/bin/wine", "iniciar.exe", "/dpi", Integer.toString(DPI), "/android", "C:\\files",
             "C:\\files\\otvdm\\otvdmw.exe", "C:\\files\\" + exe,
         };
     }

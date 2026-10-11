@@ -84,6 +84,8 @@ rm -rf "$T"
 cp "$ROOT/linux/eli.cod" "$A/eli.cod"
 # dbghelp.dll de verdade pro C:\windows\system32 do Wine (android/otvdm/LEIAME.txt)
 cp "$AND/otvdm/dbghelp.dll" "$A/dbghelp.dll"
+# Alta definicao: a MS Sans Serif TrueType (linux/fontes-hd/gerar.py)
+rm -rf "$A/fontes-hd" && mkdir -p "$A/fontes-hd" && cp "$ROOT/linux/fontes-hd/"*.ttf "$A/fontes-hd/"
 # Fontes com as medidas da Arial/Times New Roman (android/fontes/gerar.py)
 rm -rf "$A/fontes" && mkdir -p "$A/fontes" && cp "$AND"/fontes/*.ttf "$A/fontes/"
 ls -lh "$A"

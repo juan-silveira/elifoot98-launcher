@@ -403,6 +403,23 @@ static void ajustar_listas(void)
     EnumWindows(esticar_lista, 0);
 }
 
+static void definir_dpi(int dpi)
+{
+    static const struct { HKEY raiz; const char *chave; } onde[] = {
+        { HKEY_CURRENT_USER, "Control Panel\\Desktop" },
+        { HKEY_LOCAL_MACHINE, "System\\CurrentControlSet\\Hardware Profiles\\Current\\Software\\Fonts" },
+    };
+    DWORD v = (DWORD)dpi;
+    HKEY k;
+    int i;
+    if (dpi < 96 || dpi > 384) return;
+    for (i = 0; i < 2; i++)
+        if (RegCreateKeyExA(onde[i].raiz, onde[i].chave, 0, NULL, 0, KEY_SET_VALUE, NULL, &k, NULL) == ERROR_SUCCESS) {
+            RegSetValueExA(k, "LogPixels", 0, REG_DWORD, (const BYTE *)&v, sizeof(v));
+            RegCloseKey(k);
+        }
+}
+
 /* Pula um argumento (com ou sem aspas) da linha de comando */
 static char *proximo(char *p, char *destino, int max)
 {
@@ -430,6 +447,14 @@ int WINAPI WinMain(HINSTANCE inst, HINSTANCE prev, LPSTR cmd, int show)
 
     (void)inst; (void)prev; (void)show;
     while (*cmd == ' ') cmd++;
+    /* /dpi N (Android, alta definicao): a DPI do Wine antes de abrir o jogo; o
+     * Delphi 1 desenha cada janela nessa escala (no Linux e o elifoot98.sh) */
+    if (_strnicmp(cmd, "/dpi ", 5) == 0) {
+        char n[16];
+        cmd = proximo(cmd, opcao, sizeof(opcao));
+        cmd = proximo(cmd, n, sizeof(n));
+        definir_dpi(atoi(n));
+    }
     if (_strnicmp(cmd, "/android ", 9) == 0) {
         cmd = proximo(cmd, opcao, sizeof(opcao));
         cmd = proximo(cmd, pasta, sizeof(pasta));

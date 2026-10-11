@@ -14,9 +14,15 @@ namespace ElifootLauncher
         public int ResolutionHeight { get; set; } = 480;
         public bool Fullscreen { get; set; } = false;
 
-        // Alta definicao (Linux/macOS): o jogo desenha as telas em escala maior (DPI
-        // alta no Wine), com o texto nitido, em vez de ampliar a imagem pequena
-        public bool AltaDefinicao { get; set; } = false;
+        // Tamanho do jogo (Linux/macOS): escala em % (100 = normal; 125 a 200 = o jogo
+        // desenha as telas maiores, com DPI alta no Wine e o texto nitido; 0 = a maior
+        // que cabe no monitor)
+        public static readonly int[] OpcoesEscala = { 100, 125, 150, 175, 200, 0 };
+        public int Escala { get; set; } = 100;
+
+        // Janela redimensionavel (so Linux): o gamescope amplia ou reduz a imagem do
+        // jogo ao puxar a borda da janela
+        public bool JanelaLivre { get; set; } = false;
 
         // Equipes por divisao: o pacote traz um EXE para cada opcao (ELIF08.EXE a
         // ELIF20.EXE, gerados por tools/divisoes/patch_divisoes.py). Um jogo gravado
@@ -67,8 +73,11 @@ namespace ElifootLauncher
                         case "fullscreen":
                             cfg.Fullscreen = val == "1" || string.Equals(val, "true", StringComparison.OrdinalIgnoreCase);
                             break;
-                        case "hd":
-                            cfg.AltaDefinicao = val == "1";
+                        case "janela":
+                            cfg.JanelaLivre = val == "1";
+                            break;
+                        case "escala":
+                            if (int.TryParse(val, out var e) && Array.IndexOf(OpcoesEscala, e) >= 0) cfg.Escala = e;
                             break;
                     }
                 }
@@ -85,7 +94,8 @@ namespace ElifootLauncher
                 "width=" + ResolutionWidth,
                 "height=" + ResolutionHeight,
                 "fullscreen=" + (Fullscreen ? "1" : "0"),
-                "hd=" + (AltaDefinicao ? "1" : "0"),
+                "escala=" + Escala,
+                "janela=" + (JanelaLivre ? "1" : "0"),
                 "equipes=" + EquipesPorDivisao,
             };
             File.WriteAllLines(ConfigPath, lines);

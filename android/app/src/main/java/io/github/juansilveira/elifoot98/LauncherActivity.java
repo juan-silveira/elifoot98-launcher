@@ -151,6 +151,25 @@ public class LauncherActivity extends Activity {
             .show();
     }
 
+    private boolean altaDefinicao() {
+        return getSharedPreferences("config", MODE_PRIVATE).getBoolean("hd", false);
+    }
+
+    // Alta definicao: o jogo desenha as telas no dobro (1600x1200, 192 DPI), com o
+    // texto nitido, em vez de ampliar a imagem de 800x600
+    private void altaDefinicaoDialogo() {
+        String[] opcoes = {"Desligada — 800×600, como sempre", "Ligada — texto nítido (mais pesado para o aparelho)"};
+        new AlertDialog.Builder(this)
+            .setTitle("Alta definição")
+            .setSingleChoiceItems(opcoes, altaDefinicao() ? 1 : 0, (dlg, w) -> {
+                getSharedPreferences("config", MODE_PRIVATE).edit().putBoolean("hd", w == 1).apply();
+                dlg.dismiss();
+                Ui.mensagem(this, "Pronto", "Vale a partir da próxima vez que o jogo abrir.");
+            })
+            .setNegativeButton("Cancelar", null)
+            .show();
+    }
+
     private void configuracoes() {
         boolean liberado = TeamCodec.bosmanLiberado(jogo.jogo);
         LinearLayout l = new LinearLayout(this);
@@ -161,6 +180,7 @@ public class LauncherActivity extends Activity {
         t.setText("No Android o jogo abre em tela cheia.\n\n"
             + "\"Ativar todos os recursos\" registra o jogo (Registro para autor).\n\n"
             + "Equipes por divisão: " + equipesPorDivisao() + ".\n\n"
+            + "Alta definição: " + (altaDefinicao() ? "ligada" : "desligada") + ".\n\n"
             + "Estrangeiros: " + (liberado ? "Liberado (sem limite)" : "Original (até 5 por equipe; Lei Bosman e língua portuguesa não contam)") + ".\n\n"
             + "\"Restaurar times originais\" desfaz equipes editadas e patches aplicados.");
         t.setTextSize(TypedValue.COMPLEX_UNIT_SP, 15);
@@ -168,6 +188,7 @@ public class LauncherActivity extends Activity {
         AlertDialog[] d = new AlertDialog[1];
         l.addView(botaoDialogo("Ativar todos os recursos", () -> { d[0].dismiss(); ativar(); }));
         l.addView(botaoDialogo("Equipes por divisão…", () -> { d[0].dismiss(); equipes(); }));
+        l.addView(botaoDialogo("Alta definição…", () -> { d[0].dismiss(); altaDefinicaoDialogo(); }));
         l.addView(botaoDialogo("Estrangeiros…", () -> { d[0].dismiss(); estrangeiros(liberado); }));
         l.addView(botaoDialogo("Restaurar times originais…", () -> { d[0].dismiss(); restaurar(); }));
         ScrollView sv = new ScrollView(this);

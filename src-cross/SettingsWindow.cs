@@ -10,16 +10,6 @@ namespace ElifootLauncher
 {
     public class SettingsWindow : Window
     {
-        // No Linux o jogo roda num desktop virtual do Wine desse tamanho.
-        // Abaixo de 800x600 as telas do Elifoot nao cabem.
-        private static readonly (int W, int H)[] Resolutions =
-        {
-            (800, 600),
-            (1024, 768),
-            (1280, 960),
-            (1600, 1200),
-        };
-
         public SettingsWindow(LauncherConfig cfg, LinuxGame game)
         {
             Title = "Configurações";
@@ -29,25 +19,26 @@ namespace ElifootLauncher
             WindowStartupLocation = WindowStartupLocation.CenterOwner;
             Icon = Dialogos.Icone();
 
-            var resolution = new ComboBox { HorizontalAlignment = HorizontalAlignment.Stretch };
-            foreach (var (w, h) in Resolutions)
-                resolution.Items.Add($"{w} × {h}");
-            resolution.SelectedIndex = Math.Max(0, Array.IndexOf(Resolutions, (cfg.ResolutionWidth, cfg.ResolutionHeight)));
-
             var fullscreen = new CheckBox { Content = "Abrir em tela cheia", IsChecked = cfg.Fullscreen };
-            var altaDef = new CheckBox
-            {
-                Content = "Alta definição (texto nítido em telas grandes)",
-                IsChecked = cfg.AltaDefinicao,
-            };
-            ToolTip.SetTip(altaDef, "O jogo desenha as telas maiores (1,5× ou 2×, conforme o monitor), com o texto nítido, em vez de ampliar a imagem pequena.");
-            var nota = "O jogo desenha suas telas em 640×480; janelas maiores dão mais espaço em volta, sem cortar nada.";
+            // Tamanho do jogo: o jogo desenha as telas na escala (DPI alta no Wine), com o
+            // texto nitido; a janela do jogo nao pode ser redimensionada depois de aberta
+            var escala = new ComboBox { HorizontalAlignment = HorizontalAlignment.Stretch };
+            foreach (var e in LauncherConfig.OpcoesEscala)
+                escala.Items.Add(e == 0 ? "Automático — o maior que cabe no monitor"
+                    : (e == 100 ? "Normal" : $"{e / 100.0:0.##}×".Replace('.', ',')) + $" — {800 * e / 100} × {600 * e / 100}");
+            escala.SelectedIndex = Math.Max(0, Array.IndexOf(LauncherConfig.OpcoesEscala, cfg.Escala));
+            var janelaLivre = new CheckBox { Content = "Janela redimensionável", IsChecked = cfg.JanelaLivre };
+            ToolTip.SetTip(janelaLivre, "Puxe a borda ou maximize: a imagem do jogo acompanha a janela. Usa o gamescope (~41 MB, baixado na primeira vez) e precisa de placa de vídeo com Vulkan.");
+            // Em tela cheia nao ha janela pra redimensionar
+            janelaLivre.IsEnabled = fullscreen.IsChecked != true;
+            fullscreen.IsCheckedChanged += (_, _) => janelaLivre.IsEnabled = fullscreen.IsChecked != true;
+            var nota = "Maior que o normal, o jogo desenha as telas maiores, com o texto nítido. Com a janela redimensionável, a imagem acompanha a borda da janela.";
             if (OperatingSystem.IsMacOS())
             {
                 // O Wine do macOS nao tem desktop virtual: o jogo sempre abre maximizado
-                resolution.IsEnabled = false;
                 fullscreen.IsEnabled = false;
-                nota = "No macOS o jogo sempre abre maximizado.";
+                janelaLivre.IsVisible = false;   // o gamescope e so do Linux
+                nota = "No macOS o jogo sempre abre maximizado; o tamanho escolhido é o das telas.";
             }
 
             var btnAtivar = new Button
@@ -115,11 +106,11 @@ namespace ElifootLauncher
                         return;
                     }
                 }
-                var (w, h) = Resolutions[resolution.SelectedIndex];
-                cfg.ResolutionWidth = w;
-                cfg.ResolutionHeight = h;
+                cfg.ResolutionWidth = 800;   // a janela do Wine fica no tamanho do jogo
+                cfg.ResolutionHeight = 600;
                 cfg.Fullscreen = fullscreen.IsChecked == true;
-                cfg.AltaDefinicao = altaDef.IsChecked == true;
+                cfg.Escala = LauncherConfig.OpcoesEscala[escala.SelectedIndex];
+                cfg.JanelaLivre = janelaLivre.IsChecked == true;
                 cfg.EquipesPorDivisao = LauncherConfig.OpcoesEquipes[equipes.SelectedIndex];
                 cfg.Save();
                 Close(true);
@@ -132,10 +123,10 @@ namespace ElifootLauncher
                 Spacing = 10,
                 Children =
                 {
-                    new TextBlock { Text = "Tamanho da janela do jogo:" },
-                    resolution,
+                    new TextBlock { Text = "Tamanho do jogo:" },
+                    escala,
                     fullscreen,
-                    altaDef,
+                    janelaLivre,
                     new TextBlock
                     {
                         Text = nota,

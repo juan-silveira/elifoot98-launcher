@@ -118,6 +118,24 @@ public final class Jogo {
         }
     }
 
+    /**
+     * Alta definicao: a MS Sans Serif TrueType (as mesmas larguras do bitmap do jogo,
+     * linux/fontes-hd) em C:\windows\Fonts. So no modo alta definicao: em 96 DPI o
+     * Wine tambem a preferiria ao bitmap e o jogo mudaria.
+     */
+    public void fontesAltaDefinicao(Context ctx, boolean hd) throws IOException {
+        File fonts = new File(wine, "Fonts");
+        fonts.mkdirs();
+        String[] nomes = ctx.getAssets().list("fontes-hd");
+        if (nomes == null) return;
+        for (String nome : nomes) {
+            File f = new File(fonts, nome);
+            if (!hd) f.delete();
+            else if (!f.exists())
+                try (InputStream in = ctx.getAssets().open("fontes-hd/" + nome)) { copiar(in, f); }
+        }
+    }
+
     /** "Ativar todos os recursos": grava secondCode (Registro para autor 2) no elif98.ini. */
     public String ativar(Context ctx) throws IOException {
         prepararWindows(ctx);
