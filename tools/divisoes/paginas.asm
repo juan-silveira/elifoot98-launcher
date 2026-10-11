@@ -57,7 +57,8 @@ pagina: mov [PAGINA], ax
         inc ax
 .p:     push si
         les di, [bp+6]
-        les di, [es:di+bx]
+        add di, bx
+        les di, [es:di]
         test dl, 4
         jnz .cor
         push ax

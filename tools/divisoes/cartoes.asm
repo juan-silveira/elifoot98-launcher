@@ -39,15 +39,17 @@ org 0xAA40
         push ss
         push ax
         shl bx, 1
-        les di, [es:di+bx+0x2E]         ; equipa do lado
+        add di, bx
+        les di, [es:di+0x2E]            ; equipa do lado
         les di, [es:di]
         push es
         push di
-        push cs
-        call 0x48BE                     ; cartao (parte 2)
+        push cs                         ; enchimento: a moldura fica igual a de antes
+        call 0x48BE                     ; cartao (parte 2), rotina near (ret 10)
         mov [bp-1], al
         or al, al
-        jnz 0xAAAD
+        jz .prox
+        jmp 0xAAAD
 .prox:  inc word [bp-8]
         cmp word [bp-8], 2
         jb .laco
@@ -72,7 +74,8 @@ fim1:
 ; ---- seg03:48be, no lugar da expulsao: cartao(equipa, var jogador). Escolhe
 ; o jogador como a expulsao (pelo comportamento; Fair Play nunca). Com o sorteio
 ; do aa11 ([bp-0Eh] dele) < VERM e vermelho, senao amarelo; o 2o amarelo no
-; mesmo jogo vira vermelho 1 vez em 4 e o 3o acumulado da 1 jogo de suspensao.
+; mesmo jogo vira vermelho 1 vez em 4. O 3o acumulado so da suspensao no fim
+; do jogo (parte 9).
 org 0x48BE
         push bp
         mov bp, sp
@@ -83,8 +86,8 @@ org 0x48BE
         push byte 1
         push es
         push di
-        push cs
-        call 0x100B                     ; sorteio do jogador
+        db 0x9A                         ; sorteio do jogador (seg03:100B), far com
+..@sj:  dw 0xFFFF, 0                    ; relocacao, como no original
         les di, [bp+0xA]
         mov [es:di], ax
         mov [es:di+2], dx
@@ -98,28 +101,18 @@ org 0x48BE
         cmp word [ss:bx-0xE], VERM
         jl vermelho
         jmp AMARELO                     ; parte 5
-tres:   mov byte [es:di+0x25], 0        ; 3 amarelos acumulados: 1 jogo de suspensao
-        cmp word [es:di+0x27], 0
-        jg sim
-        mov word [es:di+0x27], 2        ; cai 1 depois deste jogo: cumpre o seguinte
-        jmp short sim
 vermelho:
         mov word [es:di+0x10], 0        ; sai de campo
-        push es
-        push di
-        push byte 4
-        db 0x9A                         ; call far Random (seg25:212D)
-..@rnd: dw 0xFFFF, 0
-        inc ax
-        pop di
-        pop es
+        mov ax, [0x247E]                ; suspensao de 1 a 4 jogos pela semente do
+        and ax, 3                       ; Random (RandSeed, DS:247C), ja mexida pelo
+        inc ax                          ; sorteio do minuto
         mov [es:di+0x27], ax            ; 1 a 4 jogos de suspensao
         add word [es:di+0x23], 1        ; expulsoes (so os 2 bytes de baixo)
 sim:    mov al, 1
         jmp short fim
 nada:   mov al, 0
-fim:    pop bp
-        retf 8
+fim:    leave
+        ret 10
 fim2:
 %endif
 
@@ -177,54 +170,53 @@ org 0x7B5A
         jmp 0x7BC8
 letraA: db 3, ' A', 9                 ; como os do jogo: " S" + tab, " " + tab
 
-; Depois do lance (seg03:ab18, no lugar de "les di,[bp+6]"): num amarelo o
+; Depois do lance (seg03:ab18, jmp no lugar de "les di,[bp+6]"): num amarelo o
 ; jogador fica em campo e nao ha substituicao nem forca a recalcular.
+; Entra e sai por jmp.
 pula:   les di, [bp-6]
         les di, [es:di]
         cmp word [es:di+0x10], 0
         les di, [bp+6]
-        je .r
-        pop ax
-        jmp 0xAC6B
-.r:     ret
+        je .volta                       ; vermelho: segue no original
+        jmp 0xAC6B                      ; amarelo: sem substituicao
+.volta: jmp 0xAB1B
 fim4:
 %endif
 
 %if PARTE == 5
 ; ---- fim do seg03 (acrescentado): o amarelo do cartao e os dois ajudantes.
-; Montar com -DORG=<fim do seg03> -DVERMELHO=, -DSIM=, -DTRES= e -DNADA= (da parte 2)
+; Montar com -DORG=<fim do seg03> -DVERMELHO=, -DSIM= e -DNADA= (da parte 2)
 org ORG
 AMARELO:
-        push es                         ; marca do jogo: (ano*80 + 2*jornada + taca) mod 255 + 1
-        push di
-        mov ax, [ANO]
-        mov cx, 80
-        mul cx
-        add ax, [JORNADA]
-        add ax, [JORNADA]
-        les di, [ss:bx+6]
+        mov cl, [JORNADA]               ; marca do jogo, em cl: 2*jornada + 1 (+1 na Taca,
+        shl cl, 1                       ; +80 no ano impar); ch = sorteio do minuto. O ax e
+        inc cx                          ; o dx voltam como o sorteio do jogador os deixou
+        test byte [ANO], 1              ; +80 nos anos impares: a mesma jornada do ano
+        jz .par                         ; seguinte nao passa por este jogo
+        add cl, 80
+.par:   push bp                         ; o jogo e o sorteio estao no quadro do aa11
+        mov bp, [bp]
+        les di, [bp+6]                  ; o jogo
+        mov ch, [bp-0xE]
+        pop bp
         cmp byte [es:di+0x2D], 1        ; jogo da Taca
         jne .liga
-        inc ax
-.liga:  xor dx, dx
-        mov cx, 255
-        div cx
-        inc dx
-        pop di
-        pop es
-        cmp [es:di+0x26], dl
+        inc cx
+.liga:  les di, [bp+0xA]                ; o jogador outra vez, pela var
+        les di, [es:di]
+        les di, [es:di]
+        cmp [es:di+0x26], cl
         jne .novo
-        mov ax, [ss:bx-0xE]             ; 2o amarelo neste jogo: o arbitro so expulsa
-        test al, 3                      ; 1 vez em 4 (pelo mesmo sorteio do minuto)
-        jnz NADA
+        test ch, 3                      ; 2o amarelo neste jogo: o arbitro so expulsa
+        jz .vermelho                    ; 1 vez em 4 (pelo mesmo sorteio do minuto)
+        jmp NADA
+.vermelho:
         inc word [es:di+0x21]           ; amarelos na carreira
         jmp VERMELHO
 .novo:  inc word [es:di+0x21]
-        mov [es:di+0x26], dl
-        inc byte [es:di+0x25]
-        cmp byte [es:di+0x25], 3
-        jb SIM
-        jmp TRES                        ; 3o acumulado (parte 2)
+        mov [es:di+0x26], cl
+        inc byte [es:di+0x25]           ; o 3o acumulado: suspensao no fim do jogo (parte 9)
+        jmp SIM
 
 fim5:
 %endif
@@ -321,4 +313,34 @@ JOGO:   db 5, ' jogo'
 org ORG
 AMS:    db 20, ' amarelos acumulados'
 AM1:    db 18, ' amarelo acumulado'
+%endif
+
+%if PARTE == 9
+; ---- seg03:572d, no fim de cada jogo (seg03:56e4, chamado para as 2 equipas): o
+; laco que desconta 1 dos jogos de suspensao (+0x27) e de lesao (+0x29) de cada
+; jogador. As 2 chamadas a Max(x - 1, 0) viram contas diretas (e o jogador deixa
+; de ser guardado em [bp-0Ch], que so servia para elas), o que abre espaco para
+; os 3 amarelos acumulados: o contador volta a 0 e, sem outra suspensao, o
+; jogador fica suspenso 1 jogo e sai da escalacao (+0x10 = 0), como no vermelho.
+; O jogo original nunca tem um suspenso na escalacao: na 0.9.0-0.9.2 o 3o amarelo
+; o deixava la (em campo, com a suspensao em 2) e o Android caia mais adiante.
+; Entra com es:di = jogador.
+org 0x572D
+        cmp word [es:di+0x27], 0        ; suspensao
+        jle .l
+        dec word [es:di+0x27]
+.l:     cmp word [es:di+0x29], 0        ; lesao
+        jle .a
+        dec word [es:di+0x29]
+.a:     cmp byte [es:di+0x25], 3        ; 3 amarelos acumulados
+        jb .fim
+        xor ax, ax
+        mov [es:di+0x25], al
+        cmp [es:di+0x27], ax
+        jg .fim                         ; ja suspenso (vermelho)
+        mov [es:di+0x10], ax            ; fora da escalacao
+        inc ax
+        mov [es:di+0x27], ax            ; 1 jogo
+.fim:
+        times 0x5763 - 0x572D - ($ - $$) nop
 %endif

@@ -11,8 +11,8 @@ android {
         applicationId 'io.github.juansilveira.elifoot98'
         minSdk 26
         targetSdk 35
-        versionCode 902
-        versionName '0.9.2'
+        versionCode 903
+        versionName '0.9.3'
         externalNativeBuild {
             cmake {
                 arguments '-DANDROID_STL=c++_static'
@@ -22,6 +22,13 @@ android {
     }
 
     buildTypes {
+        debug {
+            // Betas de teste no emulador: ./gradlew assembleDebug -Pbeta=b03
+            // mostra "v0.9.3 b03" no launcher
+            if (project.hasProperty('beta')) {
+                versionNameSuffix " " + project.property('beta')
+            }
+        }
         release {
             minifyEnabled false
             // Sem keystore propria por enquanto: assina com a chave de debug

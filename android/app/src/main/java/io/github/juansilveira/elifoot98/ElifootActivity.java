@@ -65,18 +65,42 @@ public class ElifootActivity extends SDLActivity {
         String exe = getIntent().getStringExtra(EXTRA_EXE);
         if (exe == null) exe = "ELIFOOT.EXE";
         String files = "/home/username/.wine/dosdevices/c:/files";
+        // O jogo (16 bits) roda no otvdm, como no Windows e no Linux. No Win16 do
+        // proprio Wine do Boxedwine a pilha do jogo se desfazia no meio da jornada
+        // (0.9.0 a 0.9.2). Os modulos 16 bits do otvdm sao "builtin" do Wine: sem
+        // o WINEDLLOVERRIDES o Wine usaria os dele (krnl386.exe16 do wine11.zip).
+        StringBuilder nativos = new StringBuilder();
+        File[] dlls = new File(jogo.jogo, "otvdm/dll").listFiles();
+        if (dlls != null)
+            for (File d : dlls) {
+                if (nativos.length() > 0) nativos.append(',');
+                nativos.append(d.getName());
+            }
         return new String[] {
             "-root", jogo.root.getAbsolutePath(),
             "-zip", new File(jogo.dir, "wine11.zip").getAbsolutePath(),
-            "-zip", new File(jogo.dir, "w16.zip").getAbsolutePath(),
             "-mount", jogo.jogo.getAbsolutePath(), files,
             "-resolution", LARGURA + "x" + ALTURA, "-fullscreenAspect",
             "-w", files,
+            "-env", "WINEDEBUG=" + winedebug(),
+            "-env", "WINEDLLOVERRIDES=" + nativos + "=n",
             // iniciar.exe (linux/iniciar.c): faz a "Acerca" aparecer e, na pasta
             // do jogo, mantem teclado.txt (campo com foco), janelas.txt (abas) e
             // atende comando.txt (aba tocada, botoes ✱/—)
-            "/bin/wine", "iniciar.exe", "/android", "C:\\files", exe,
+            "/bin/wine", "iniciar.exe", "/android", "C:\\files",
+            "C:\\files\\otvdm\\otvdmw.exe", "C:\\files\\" + exe,
         };
+    }
+
+    // Canais de log do Wine: files/jogo/winedebug.txt (adb, para testes; ex. +seh)
+    private String winedebug() {
+        try {
+            File f = new File(jogo.jogo, "winedebug.txt");
+            if (f.exists())
+                return new String(java.nio.file.Files.readAllBytes(f.toPath())).trim();
+        } catch (IOException ignored) {
+        }
+        return "-all";
     }
 
     @Override
@@ -88,7 +112,8 @@ public class ElifootActivity extends SDLActivity {
         // Faixa esquerda (o jogo e 4:3): mesmos controles do elifoot98web
         esquerda = grade(RelativeLayout.ALIGN_PARENT_LEFT);
         esquerda.setId(View.generateViewId());
-        esquerda.addView(botao("⌨", v -> alternarTeclado()));
+        botaoTeclado = botao("⌨", v -> { pararPulso(); alternarTeclado(); });
+        esquerda.addView(botaoTeclado);
         esquerda.addView(botao("Esc", v -> tecla(KeyEvent.KEYCODE_ESCAPE)));
         Button enter = botao("", v -> tecla(KeyEvent.KEYCODE_ENTER));
         enter.setBackground(new android.graphics.drawable.LayerDrawable(new android.graphics.drawable.Drawable[] {
@@ -297,6 +322,65 @@ public class ElifootActivity extends SDLActivity {
     // o foco. O iniciar.exe grava "1 esq topo dir base" (coordenadas do jogo,
     // LARGURAxALTURA) ou "0" no teclado.txt.
     private float campoBase = -1;  // base do campo com foco, em pixels da tela (-1: nenhum)
+    private float[] campoJogo;     // esq, topo, dir, base do campo com foco (coordenadas do jogo)
+    private Button botaoTeclado;
+    private android.animation.AnimatorSet pulso;
+
+    // Um anel amarelo pisca em volta do botao do teclado por 5 s para avisar
+    // que ha um campo de texto (o botao nao muda de tamanho)
+    private View anel;
+
+    private void pulsar() {
+        if (botaoTeclado == null || mLayout == null) return;
+        pararPulso();
+        int folga = dp(7);
+        GradientDrawable d = new GradientDrawable();
+        d.setShape(GradientDrawable.OVAL);
+        d.setColor(Color.TRANSPARENT);
+        d.setStroke(dp(4), Color.rgb(252, 254, 4));
+        anel = new View(this);
+        anel.setBackground(d);
+        anel.setClickable(false);
+        int[] b = new int[2], l = new int[2];
+        botaoTeclado.getLocationOnScreen(b);
+        mLayout.getLocationOnScreen(l);
+        mLayout.addView(anel, new android.widget.RelativeLayout.LayoutParams(
+            botaoTeclado.getWidth() + 2 * folga, botaoTeclado.getHeight() + 2 * folga));
+        anel.setX(b[0] - l[0] - folga);
+        anel.setY(b[1] - l[1] - folga);
+        android.animation.ObjectAnimator a = android.animation.ObjectAnimator.ofFloat(anel, "alpha", 0f, 1f);
+        a.setRepeatCount(19);  // 20 meias piscadas de 250 ms = 5 s
+        a.setRepeatMode(android.animation.ValueAnimator.REVERSE);
+        a.setDuration(250);
+        a.addListener(new android.animation.AnimatorListenerAdapter() {
+            @Override
+            public void onAnimationEnd(android.animation.Animator x) { pararPulso(); }
+        });
+        pulso = new android.animation.AnimatorSet();
+        pulso.play(a);
+        pulso.start();
+    }
+
+    private void pararPulso() {
+        android.animation.AnimatorSet p = pulso;
+        pulso = null;
+        if (p != null) p.cancel();
+        if (anel != null && mLayout != null) mLayout.removeView(anel);
+        anel = null;
+    }
+
+    // O toque caiu dentro do campo de texto com foco? (coordenadas do jogo)
+    private boolean tocouNoCampo(android.view.MotionEvent e) {
+        if (campoJogo == null || mSurface == null) return false;
+        int[] o = new int[2];
+        mSurface.getLocationOnScreen(o);
+        float sx = mSurface.getScaleX() == 0 ? 1 : mSurface.getScaleX();
+        float lx = (e.getRawX() - o[0]) / sx, ly = (e.getRawY() - o[1]) / sx;
+        float w = mSurface.getWidth(), h = mSurface.getHeight();
+        float esc = Math.min(w / LARGURA, h / ALTURA);
+        float gx = (lx - (w - LARGURA * esc) / 2f) / esc, gy = (ly - (h - ALTURA * esc) / 2f) / esc;
+        return gx >= campoJogo[0] && gx <= campoJogo[2] && gy >= campoJogo[1] && gy <= campoJogo[3];
+    }
 
     private final Runnable vigiarFoco = new Runnable() {
         @Override
@@ -309,11 +393,19 @@ public class ElifootActivity extends SDLActivity {
                     String[] p = agora.split(" ");
                     if (p[0].equals("1")) {
                         campoBase = p.length >= 5 ? paraTela(Float.parseFloat(p[4])) : -1;
-                        if (!tecladoAberto) alternarTeclado();
+                        campoJogo = p.length >= 5 ? new float[] {Float.parseFloat(p[1]), Float.parseFloat(p[2]),
+                            Float.parseFloat(p[3]), Float.parseFloat(p[4])} : null;
+                        // o teclado nao abre sozinho (atrapalha na Lista de jogadores e
+                        // no leilao): o botao pulsa e abre ao tocar nele ou no campo
+                        if (!tecladoAberto) pulsar();
                         else ajustarAoTeclado();
-                    } else if (tecladoAberto) {
-                        campoBase = -1;
-                        alternarTeclado();
+                    } else {
+                        campoJogo = null;
+                        pararPulso();
+                        if (tecladoAberto) {
+                            campoBase = -1;
+                            alternarTeclado();
+                        }
                     }
                 }
                 if (jogo != null && abas != null) atualizarAbas();
@@ -553,6 +645,10 @@ public class ElifootActivity extends SDLActivity {
             else if (acao == android.view.MotionEvent.ACTION_UP || acao == android.view.MotionEvent.ACTION_CANCEL) {
                 handler.removeCallbacks(soltarRetidos);
                 soltarRetidos();  // toque rapido: clique normal
+                if (acao == android.view.MotionEvent.ACTION_UP && !tecladoAberto && tocouNoCampo(e)) {
+                    pararPulso();
+                    alternarTeclado();
+                }
             }
             return true;
         }

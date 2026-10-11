@@ -4,6 +4,7 @@
 - seg03:48be  cartao(equipa, var jogador), no lugar da expulsao
 - seg03:c1f5  o lance sai com tipo 3 quando o jogador continua em campo
 - seg03:ab18  amarelo: sem substituicao e sem recalcular a forca
+- seg03:572d  fim de cada jogo: 3 amarelos acumulados dao 1 jogo de suspensao
 - seg03:c3fa  desenho na jornada: amarelo (tipo 3) ou vermelho (tipo 4)
 - seg03:c252  tabela de desenhos: o tipo 3 usa o desenho da expulsao
 - seg03:7b5a  coluna S da lista: "S", "A" (amarelos acumulados) ou vazio
@@ -21,7 +22,10 @@ VERM, LIMITE = 5, 50
 
 # (segmento, deslocamento): push word [es:di+alto] dos numeros mostrados nas telas
 EXPULSOES = [(2, 0x331E), (4, 0x24EE), (10, 0x20AB)]
-LESOES = [(2, 0x3347), (4, 0x2523), (7, 0x1E56), (10, 0x20D4)]
+# (seg07:1E56 nao entra: ali o push [es:di+0x21]/[+0x1F] e o endereco da lista dos
+# jogadores observados, que vai para o OrdenarTList (14:0e0d), nao as lesoes; com
+# o segmento trocado por 0 a janela dos observados dava "General protection fault")
+LESOES = [(2, 0x3347), (4, 0x2523), (10, 0x20D4)]
 
 # Textos dos amarelos da aba Jogador (parte 8): no fim da regiao do Historial
 # no seg04 (historial.py os grava la). O seg04 nao pode crescer: no Android o Wine
@@ -69,9 +73,10 @@ def cartoes(ne, b):
     # o tamanho do seg03 nao muda com elas
     org5 = ne.seg(3)[1]
     c2, r2 = montar('cartoes.asm', 0x48BE, PARTE=2, AMARELO='0x%X' % org5, VERM=VERM)
-    regiao(0x48BE, 0x4940, [(RANDOM, r2['..@rnd'])])
+    regiao(0x48BE, 0x4940, [((3, 0x100B), r2['..@sj'])])
+    regiao(0x572D, 0x5763, [])                # as 2 chamadas a Max (parte 9)
     c5, r5 = montar('cartoes.asm', org5, PARTE=5, ORG='0x%X' % org5,
-                    VERMELHO='0x%X' % r2['vermelho'], SIM='0x%X' % r2['sim'], TRES='0x%X' % r2['tres'],
+                    VERMELHO='0x%X' % r2['vermelho'], SIM='0x%X' % r2['sim'],
                     NADA='0x%X' % r2['nada'])
     novos = []
     for r in recs:
@@ -83,6 +88,8 @@ def cartoes(ne, b):
 
     _regiao(b, base, 0xAA40, 0xAAAD, c1, bytes.fromhex('68e803'))
     _regiao(b, base, 0x48BE, 0x4940, c2, bytes.fromhex('5589e5b80600'))
+    c9, _ = montar('cartoes.asm', 0x572D, PARTE=9)
+    _regiao(b, base, 0x572D, 0x5763, c9, bytes.fromhex('897ef48c46f66a006a00'))
     c3, _ = montar('cartoes.asm', 0xC3FA, PARTE=3)
     _regiao(b, base, 0xC3FA, 0xC41A, c3, bytes.fromhex('8b46f0050300'))
     _regiao(b, base, 0x7B5A, 0x7BC8, c4, bytes.fromhex('c47e06'))
@@ -111,7 +118,8 @@ def cartoes(ne, b):
     def chamada(onde, original, alvo):
         ne.patch(3, onde, original, b'\xe8' + struct.pack('<h', alvo - (onde + 3)))
     chamada(0xC1F5, '8b4610', r1['tipo'])     # construtor do lance
-    chamada(0xAB18, 'c47e06', r4['pula'])     # depois do lance, no aa11
+    # depois do lance, no aa11: jmp (e o pula volta por jmp), nada de call sem ret
+    ne.patch(3, 0xAB18, 'c47e06', b'\xe9' + struct.pack('<h', r4['pula'] - (0xAB18 + 3)))
     ne.patch(3, 0xC252 + 2 * 2, struct.pack('<H', 0xC6C6), struct.pack('<H', 0xC3DA))   # desenho do tipo 3
 
     for s, off in EXPULSOES:

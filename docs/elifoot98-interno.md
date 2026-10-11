@@ -931,6 +931,17 @@ Jogadores, plantel com mais de 20) não tinham barra. Os EXEs do launcher pedem 
 duas (`or dx,0x30`). **Validado** no Linux: a Lista de Jogadores e o plantel
 passam a ter a barra vertical.
 
+A barra (16 pontos) ficava por cima da última coluna, que as listas foram
+desenhadas sem ela (a força nos pênaltis, a coluna S/A na equipa...). Os EXEs
+alargam 16 pontos as listas que rolam (`tools/divisoes/larguras.py`: pênaltis,
+substituição e substituição forçada, equipa, plantel, procurar jogador,
+observados, treinadores, balanço, sorteio da Taça, fim de época e disputa de
+pênaltis) e, onde não havia folga, o quadro em volta, os vizinhos da direita e
+a própria janela (a equipa e o plantel passam de 632 para 648 de largura). Só
+troca inteiros do DFM por outros do mesmo tamanho. **Validado** no Android: na
+equipa e nos detalhes da partida a barra aparece ao lado dos números, sem os
+cobrir.
+
 ## 10. Cartões amarelos (patch do launcher)
 
 O jogo original não tem cartão amarelo. O patch (`tools/divisoes/cartoes.asm`
@@ -957,9 +968,19 @@ passam a ler só os 2 bytes de baixo.
   nenhum. Quando expulsa, é o vermelho com tudo o que a expulsão já fazia
   (suspensão de 1 a 4 jogos, substituição do goleiro, pênalti) e conta mais um
   amarelo na carreira, mas não nos acumulados.
-- **3 amarelos acumulados:** 1 jogo de suspensão, e o contador volta a 0. A
-  suspensão é posta em 2, porque cai 1 no fim do próprio jogo.
-- A marca do jogo é `(ano × 80 + 2 × jornada + Taça) mod 255 + 1`.
+- **3 amarelos acumulados:** 1 jogo de suspensão. Durante o jogo o amarelo só
+  conta; a suspensão é posta **no fim do jogo**, no laço que desconta 1 da
+  suspensão e da lesão de cada jogador (`seg03:56e4`, chamado para as 2
+  equipas depois de cada jogo; as 2 chamadas a `Max(x − 1, 0)` viraram contas
+  diretas, `seg03:572d`): com 3 ou mais acumulados o contador volta a 0 e, se o
+  jogador não tiver outra suspensão, fica com 1 (cumpre o jogo seguinte).
+- A marca do jogo é `2 × jornada + 1`, mais 1 nos jogos da Taça e mais 80 nos
+  anos ímpares (só somas: cabe num byte com até 20 equipas por divisão).
+- Na 0.9.0–0.9.2 a suspensão pelo 3º amarelo era posta durante o jogo (em 2,
+  para cair 1 no fim do próprio jogo), com o jogador ainda em campo e na
+  escalação; agora ela é posta no fim do jogo e o jogador sai da escalação
+  (`+0x10 = 0`), como no vermelho. O jogo original nunca tem um suspenso na
+  escalação.
 - O amarelo vira o lance **tipo 3**, desenhado na tela da jornada como o
   vermelho, mas em amarelo. O jogador continua em campo, sem substituição.
 - Na lista do plantel, a coluna do **S** mostra **A** quando o jogador não está
@@ -1024,6 +1045,62 @@ soma = Σ byte[i] × ((i mod 6000) mod 5 + 1)   para i de 0 até tamanho − 5  
 calculada assim bate com a guardada no EXE original (`0x0CD8400F`). Com qualquer
 byte alterado (até um zero de preenchimento sem uso) e a soma antiga, o jogo fica
 na tela verde e não mostra a "Acerca"; com a soma recalculada, abre normalmente.
+
+## Android: o jogo roda no otvdm (0.9.3)
+
+Da 0.9.0 à 0.9.2 o app Android rodava o jogo no Win16 do próprio Wine do
+Boxedwine (módulos 16-bit do `w16.zip`), e o jogo caía no meio da jornada com
+a pilha desfeita (retornos para endereços da pilha, pontos diferentes conforme
+o EXE: `seg03:67f7`, `seg03:141A`, `seg03:001E`...).
+
+**Validado** no emulador, com um save de 20 equipes de quem relatou:
+- tirar do JIT o código de 16 bits (`normalCPU.cpp`, blocos com o CS de 16 bits
+  com `OP_FLAG_NO_JIT`) não basta: o jogo ainda caiu na 2ª jornada (minutos 42 e
+  75), com `page fault on read access to 0000C288 at address 000069E0`,
+  CS=0307 e o IP dentro da área da pilha;
+- com o jogo no **otvdm** (o mesmo do Windows e do Linux), que emula o 16 bits
+  ele mesmo e roda como programa de 32 bits no Wine, várias jornadas passaram
+  sem queda. O Boxedwine voltou a ficar sem mudanças no CPU.
+
+O que o otvdm precisa no Wine do Boxedwine (`android/preparar.sh`,
+`android/otvdm/LEIAME.txt`, `ElifootActivity.java`, `Jogo.java`):
+- os nomes `api-ms-win-crt-*.dll` dos executáveis do otvdm trocados por
+  `ucrtbase.dll` (o Wine do Boxedwine não resolve os apisets) e o
+  `vcruntime140.dll` do Wine 11.19 na pasta do otvdm;
+- `WINEDLLOVERRIDES=<módulos de otvdm/dll>=n`: os módulos do otvdm têm a marca
+  de "builtin" do Wine e, sem isso, o Wine usa o `krnl386.exe16` dele (do
+  `wine11.zip`), sem as funções do otvdm (`krnl386_get_config_int`...);
+- um `dbghelp.dll` de verdade em `C:\windows\system32` (o do Boxedwine é
+  falso; o `imagehlp` o carrega quando o otvdm abre), o do Wine 11.19 com a
+  marca "Wine builtin DLL" (offset 0x40) trocada para ele carregar como DLL comum;
+- o Windows do jogo passa a ser `otvdm/WINDOWS` (elif98.ini, eli.cod), com as
+  datas das pastas fixas como no Linux.
+
+## Listas no otvdm
+
+**Validado** no Linux (Wine + otvdm, os mesmos do Android desde a 0.9.3),
+medindo as janelas do jogo:
+- toda `TListBox` do Delphi 1 fica 4 pontos mais baixa que o `Height` do DFM
+  (Classificação de 20 linhas: DFM 322, janela 318, área útil 316). As listas
+  desenhadas para N linhas exatas ganhavam barra de rolagem. Os EXEs do
+  launcher somam 4 nessas listas (Classificação, substituição, pênalti, aba Jogo,
+  plantel, observados, gestão de treinadores: `larguras.py`, `paginas.py`,
+  `patch_divisoes.py`). Não é a DPI (`AdjustDPI=96`), não é o `ctl3dv2.dll16`
+  nem a versão do Windows informada (`WINVER=3.1`): com qualquer um, o mesmo;
+- as listas suspensas (`TComboBox`) abrem com 1 ou 2 itens e barra. O
+  `iniciar.exe` (`linux/iniciar.c`, `ajustar_listas`) estica a lista aberta para
+  mostrar até 8 itens.
+
+## Cartões amarelos e a janela dos observados
+
+O patch dos cartões troca `push word [es:di+alto]` por `push 0` onde as telas
+mostram expulsões e lesões (só os 2 bytes de baixo; os de cima guardam os
+amarelos). Até a 0.9.2 a lista incluía `seg07:1E56`, que não é um contador: ali
+`[es:di+0x21]:[es:di+0x1F]` é o endereço da lista dos jogadores observados, que
+vai para o `OrdenarTList` (`seg14:0e0d`). **Validado**: com o segmento em 0, abrir
+"Jogadores sob observação" dava "General protection fault in module ELIFnn.EXE
+at 000E:0E1F"; sem esse ponto a janela abre. Os outros seis pontos convertem
+contadores em texto (`IntToStr`).
 
 ## Ainda não comprovado (fora deste documento)
 

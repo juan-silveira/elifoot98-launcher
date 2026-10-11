@@ -14,7 +14,9 @@ t4:     cmp byte [0x2B30], 0            ; caixinha dos vermelhos
         jmp short teste
 t5:     cmp byte [0x2B31], 0            ; caixinha das lesoes
         mov ax, 0x247B                  ; " lesionou-se "
-teste:  jz FIM
+teste:  jnz .sim
+        jmp FIM
+.sim:
         push ax
         lea di, [bp-0x22A]
         push ss

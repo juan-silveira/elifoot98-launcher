@@ -370,6 +370,39 @@ static BOOL CALLBACK achar_visivel(HWND w, LPARAM achada)
     return TRUE;
 }
 
+/* Listas suspensas (TComboBox) do jogo: no otvdm a lista aberta fica com 1 ou
+ * 2 itens e barra de rolagem (no Windows 3.x e no Win16 do Wine vinha com todos,
+ * ate 8). Aberta, ela e esticada para mostrar ate 8 itens. */
+static BOOL CALLBACK esticar_lista(HWND w, LPARAM p)
+{
+    char classe[16];
+    DWORD pid;
+    RECT r, c;
+    LRESULT n, h;
+    int quer, dif;
+    (void)p;
+    GetWindowThreadProcessId(w, &pid);
+    if (pid != processo_aberto || !IsWindowVisible(w)) return TRUE;
+    if (!GetClassNameA(w, classe, sizeof(classe)) || lstrcmpiA(classe, "ComboLBox")) return TRUE;
+    n = SendMessageA(w, LB_GETCOUNT, 0, 0);
+    h = SendMessageA(w, LB_GETITEMHEIGHT, 0, 0);
+    if (n <= 0 || h <= 0 || h > 100) return TRUE;
+    if (n > 8) n = 8;
+    GetWindowRect(w, &r);
+    GetClientRect(w, &c);
+    quer = (int)(n * h);
+    if (c.bottom >= quer) return TRUE;
+    dif = quer - c.bottom;
+    SetWindowPos(w, NULL, 0, 0, r.right - r.left, r.bottom - r.top + dif,
+                 SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE);
+    return TRUE;
+}
+
+static void ajustar_listas(void)
+{
+    EnumWindows(esticar_lista, 0);
+}
+
 /* Pula um argumento (com ou sem aspas) da linha de comando */
 static char *proximo(char *p, char *destino, int max)
 {
@@ -411,8 +444,13 @@ int WINAPI WinMain(HINSTANCE inst, HINSTANCE prev, LPSTR cmd, int show)
         return 1;
     processo_aberto = pi.dwProcessId;
 
-    for (i = 0; WaitForSingleObject(pi.hProcess, 250) == WAIT_TIMEOUT; i++)
+    /* volta a cada 50 ms (as listas suspensas, ajustar_listas, nao podem
+     * ficar pequenas por muito tempo); o resto roda a cada 250 ms (k) */
+    for (i = 0; WaitForSingleObject(pi.hProcess, 50) == WAIT_TIMEOUT; i++)
     {
+        int k = i / 5;
+        ajustar_listas();
+        if (i % 5) continue;
         if (!principal) principal = janela_principal();
         /* o app troca o "Carregando..." pela imagem do programa (o jogo ou o
          * Editor de Equipes, que nao tem a janela principal do jogo) */
@@ -423,7 +461,7 @@ int WINAPI WinMain(HINSTANCE inst, HINSTANCE prev, LPSTR cmd, int show)
         }
 
         /* Ate a "Acerca" aparecer (60 s): WM_MOUSEMOVE 1x por segundo, ate 10 */
-        if (principal && !acerca_ok && i < 240 && i % 4 == 3) {
+        if (principal && !acerca_ok && k < 240 && k % 4 == 3) {
             if (acerca_visivel()) acerca_ok = 1;
             else if (tentativas < 10) {
                 PostMessageA(principal, WM_MOUSEMOVE, 0, MAKELPARAM(20, 20));
@@ -437,8 +475,6 @@ int WINAPI WinMain(HINSTANCE inst, HINSTANCE prev, LPSTR cmd, int show)
                 atualizar_janelas(principal);
             }
             atualizar_teclado();
-        } else if (acerca_ok || tentativas >= 10 || i >= 240) {
-            break;  /* Linux/macOS: so espera o jogo terminar */
         }
     }
     if (pasta[0]) {

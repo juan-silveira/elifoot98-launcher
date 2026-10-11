@@ -18,24 +18,29 @@ import java.util.zip.ZipInputStream;
 
 /**
  * Arquivos do jogo no armazenamento interno do app:
- *   files/wine11.zip, files/w16.zip  Wine do Boxedwine (+ modulos 16-bit)
+ *   files/wine11.zip                 Wine do Boxedwine
  *   files/jogo/                      o Elifoot (montado em C:\files), gravavel:
  *                                    editores, patches e saves trabalham aqui
+ *   files/jogo/otvdm/                o otvdm, que roda o jogo (16 bits), como no
+ *                                    Windows e no Linux; WINDOWS e o Windows dele
+ *                                    (elif98.ini, eli.cod)
  *   files/root/                      raiz do Linux emulado (C:\windows etc.)
  */
 public final class Jogo {
-    /** O jogo deriva a senha do eli.cod das datas de C:\windows e C:\windows\system:
+    /** O jogo deriva a senha do eli.cod das datas de WINDOWS e WINDOWS\SYSTEM do otvdm:
      *  elas sao fixadas nesse instante (o mesmo do Linux/macOS), pro eli.cod do
      *  pacote valer. */
     private static final long DATA_FIXA = 946735200000L;  // 2000-01-01 14:00 UTC
 
-    public final File dir, jogo, root, windows;
+    /** windows: o Windows do jogo (o do otvdm); wine: o C:\windows do Wine */
+    public final File dir, jogo, root, windows, wine;
 
     public Jogo(Context ctx) {
         dir = ctx.getFilesDir();
         jogo = new File(dir, "jogo");
         root = new File(dir, "root");
-        windows = new File(root, "home/username/.wine/drive_c/windows");
+        wine = new File(root, "home/username/.wine/drive_c/windows");
+        windows = new File(jogo, "otvdm/WINDOWS");
     }
 
     public File refereeTxe() { return new File(jogo, "REFEREE.TXE"); }
@@ -51,8 +56,8 @@ public final class Jogo {
         File marca = new File(dir, "versao.txt");
         if (!marca.exists() || !versao.equals(ler(marca).trim())) {
             AssetManager am = ctx.getAssets();
-            for (String nome : new String[] {"wine11.zip", "w16.zip"})
-                try (InputStream in = am.open(nome)) { copiar(in, new File(dir, nome)); }
+            try (InputStream in = am.open("wine11.zip")) { copiar(in, new File(dir, "wine11.zip")); }
+            new File(dir, "w16.zip").delete();  // as versoes ate a 0.9.2 usavam o Win16 do Wine
             try (InputStream in = am.open("elifoot.zip")) { extrairJogo(in); }
             escrever(marca, versao);
         }
@@ -76,14 +81,25 @@ public final class Jogo {
 
     /** Antes de cada execucao: elif98.ini e eli.cod no lugar e datas das pastas fixas. */
     public void prepararWindows(Context ctx) throws IOException {
-        File system = new File(windows, "system");
+        File system = new File(windows, "SYSTEM");
         system.mkdirs();
         File ini = new File(windows, "elif98.ini");
+        // Ate a 0.9.2 o jogo usava o C:\windows do Wine: leva as opcoes e o registro
+        File antigo = new File(wine, "elif98.ini");
+        if (!ini.exists() && antigo.exists())
+            Files.copy(antigo.toPath(), ini.toPath());
         if (!ini.exists()) escrever(ini, "[System]\r\n");
         File cod = new File(windows, "eli.cod");
         if (!cod.exists())
             try (InputStream in = ctx.getAssets().open("eli.cod")) { copiar(in, cod); }
         instalarFontes(ctx);
+        // dbghelp.dll de verdade (o do Wine do Boxedwine e falso): o imagehlp o carrega
+        // quando o otvdm abre
+        File dbg = new File(wine, "system32/dbghelp.dll");
+        if (!dbg.exists() || dbg.length() < 100000) {
+            dbg.getParentFile().mkdirs();
+            try (InputStream in = ctx.getAssets().open("dbghelp.dll")) { copiar(in, dbg); }
+        }
         system.setLastModified(DATA_FIXA);
         windows.setLastModified(DATA_FIXA);
     }
@@ -91,7 +107,7 @@ public final class Jogo {
     /** Elifoot Sans/Serif (medidas da Arial/Times New Roman, que o jogo usa) em
      *  C:\windows\Fonts; o iniciar.exe diz ao Wine pra usa-las no lugar delas. */
     private void instalarFontes(Context ctx) throws IOException {
-        File fonts = new File(windows, "Fonts");
+        File fonts = new File(wine, "Fonts");
         fonts.mkdirs();
         String[] nomes = ctx.getAssets().list("fontes");
         if (nomes == null) return;
@@ -120,7 +136,9 @@ public final class Jogo {
     public void restaurarOriginal(Context ctx) throws IOException {
         File[] itens = jogo.listFiles();
         if (itens != null)
-            for (File f : itens) if (!f.getName().equalsIgnoreCase("JOGOS")) apagar(f);
+            for (File f : itens)
+                // o otvdm fica: o WINDOWS dele tem as opcoes e o registro (elif98.ini)
+                if (!f.getName().equalsIgnoreCase("JOGOS") && !f.getName().equals("otvdm")) apagar(f);
         try (InputStream in = ctx.getAssets().open("elifoot.zip")) { extrairJogo(in); }
     }
 

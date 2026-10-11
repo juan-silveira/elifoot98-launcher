@@ -27,11 +27,13 @@ import struct, sys
 N = 20            # equipas por divisao (main troca)
 R = 2 * (N - 1)   # jornadas
 MAXJOG = 30       # jogadores por equipa (era 24 no jogo, 20 no editor)
+OTVDM = 4         # o que o otvdm tira da altura das listas (ver larguras.py)
 LUG_DS = 0x17C8   # tabela de lugares no DS (4 bits por jornada)
 from montar import montar
 from cartoes import cartoes
 from historial import historial
 from lances import lances
+from larguras import larguras
 
 
 def real10(x):
@@ -158,6 +160,29 @@ def gravar(b, saida):
     open(saida, 'wb').write(b)
 
 
+def classificacao(b):
+    """DFM da Classificacao: N linhas (ItemHeight 16) por lista, ate 14."""
+    i = b.find(b'TPF0\x12TclassificationDlg')
+    assert i > 0
+    j = b.index(b'\x00\x00\x00\x00', i + 4) if False else None
+    extra = 16 * (min(N, 14) - 8)   # com mais de 14 equipas a lista rola
+    def dfm(nome, prop, velho, novo):
+        k = b.index(nome, i)
+        p = b.index(bytes([len(prop)]) + prop + b'\x03', k)
+        assert struct.unpack_from('<h', b, p + len(prop) + 2)[0] == velho, (nome, prop)
+        struct.pack_into('<h', b, p + len(prop) + 2, novo)
+    # + OTVDM: no otvdm as listas do Delphi 1 ficam 4 pontos mais baixas que o DFM
+    # (as N linhas de 16 nao cabiam e aparecia a barra de rolagem)
+    extra += OTVDM
+    dfm(b'TclassificationDlg', b'ClientHeight', 371, 371 + 2 * extra)
+    for lb in (b'\x10ListBoxDivision1', b'\x10ListBoxDivision2', b'\x10ListBoxDivision3', b'\x10ListBoxDivision4'):
+        dfm(lb, b'Height', 130, 130 + extra)
+    dfm(b'\x06Label2', b'Top', 193, 193 + extra)
+    dfm(b'\x06Label4', b'Top', 193, 193 + extra)
+    dfm(b'\x10ListBoxDivision2', b'Top', 217, 217 + extra)
+    dfm(b'\x10ListBoxDivision4', b'Top', 217, 217 + extra)
+
+
 def main(n, entrada, saida):
     global N, R, K
     N, R = n, 2 * (n - 1)
@@ -168,9 +193,11 @@ def main(n, entrada, saida):
     ne = NE(b)
     limite_jogadores(ne)
     if N == 8:                # o jogo original, so com o limite de jogadores e os amarelos
+        classificacao(b)
         cartoes(ne, b)
         historial(ne, b)
         lances(ne, b)
+        larguras(b)
         gravar(b, saida)
         print('ok: 8 equipas/divisao (original), ate %d jogadores' % MAXJOG)
         return
@@ -268,30 +295,15 @@ def main(n, entrada, saida):
         cartoes(ne, b)
         historial(ne, b)
         lances(ne, b)
+        larguras(b)
         print('paginas:', {k: '%04X' % v for k, v in paginas.paginar(ne, b, N).items()})
         gravar(b, saida)
         return
-    # DFM da Classificacao: 10 linhas (ItemHeight 16) por lista
-    i = b.find(b'TPF0\x12TclassificationDlg')
-    assert i > 0
-    j = b.index(b'\x00\x00\x00\x00', i + 4) if False else None
-    extra = 16 * (min(N, 14) - 8)   # com mais de 14 equipas a lista rola
-    def dfm(nome, prop, velho, novo):
-        k = b.index(nome, i)
-        p = b.index(bytes([len(prop)]) + prop + b'\x03', k)
-        assert struct.unpack_from('<h', b, p + len(prop) + 2)[0] == velho, (nome, prop)
-        struct.pack_into('<h', b, p + len(prop) + 2, novo)
-    dfm(b'TclassificationDlg', b'ClientHeight', 371, 371 + 2 * extra)
-    for lb in (b'\x10ListBoxDivision1', b'\x10ListBoxDivision2', b'\x10ListBoxDivision3', b'\x10ListBoxDivision4'):
-        dfm(lb, b'Height', 130, 130 + extra)
-    dfm(b'\x06Label2', b'Top', 193, 193 + extra)
-    dfm(b'\x06Label4', b'Top', 193, 193 + extra)
-    dfm(b'\x10ListBoxDivision2', b'Top', 217, 217 + extra)
-    dfm(b'\x10ListBoxDivision4', b'Top', 217, 217 + extra)
-
+    classificacao(b)
     cartoes(ne, b)
     historial(ne, b)
     lances(ne, b)
+    larguras(b)
     gravar(b, saida)
     print('ok: %d equipas/divisao, %d jornadas; rotinas seg03 %s, ajudante seg11:%04X'
           % (N, R, {k: '%04X' % v for k, v in rot.items()}, aj_off))

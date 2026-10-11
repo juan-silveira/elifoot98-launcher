@@ -99,7 +99,7 @@ def seta(nome, esquerda, legenda, metodo):
 
 def novo_dfm(antigo, n):
     form, fim = ler_dfm(antigo)
-    alt = 16 * n + 2                                  # n linhas de 16 + borda
+    alt = 16 * n + 2 + 4                              # n linhas de 16 + borda + 4 do otvdm
     por(form, 'ClientHeight', inteiro(41 + alt + 12))
     f = {c['nome']: c for c in form['filhos']}
     por(f['Label2'], 'Top', inteiro(17)); por(f['Label2'], 'Left', inteiro(307))

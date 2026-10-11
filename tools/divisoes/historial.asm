@@ -46,7 +46,8 @@ org ORG
         mov si, [ss:bx+4]               ; da pilha (debaixo do texto do IntToStr)
         formulario
         mov bx, [cs:si+tabela+2]
-        les di, [es:di+bx]
+        add di, bx
+        les di, [es:di]
         push es
         push di
         db 0x9A                         ; SetText (seg21:1D8C)

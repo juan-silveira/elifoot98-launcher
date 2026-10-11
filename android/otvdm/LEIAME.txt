@@ -1,0 +1,13 @@
+Arquivos que o app Android acrescenta ao otvdm (linux/otvdm-master-2703.zip) para
+ele rodar no Wine do Boxedwine:
+
+- vcruntime140.dll: o do Wine 11.19 (Kron4ek/Wine-Builds, wine-11.19-amd64-wow64,
+  lib/wine/i386-windows), o mesmo Wine do launcher do Linux. O Wine do Boxedwine
+  nao tem o vcruntime140.
+- dbghelp.dll: o do mesmo Wine 11.19, com a marca "Wine builtin DLL" (offset 0x40)
+  trocada, para o Wine do Boxedwine o carregar como DLL comum. O dele e um arquivo
+  falso, e o imagehlp o carrega quando o otvdm abre (vai para C:\windows\system32).
+
+O preparar.sh tambem troca, nos executaveis do otvdm, os nomes
+api-ms-win-crt-*.dll por ucrtbase.dll (o Wine do Boxedwine nao resolve os apisets).
+Wine: LGPL 2.1 (codigo em https://gitlab.winehq.org/wine/wine).
