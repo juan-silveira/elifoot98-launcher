@@ -37,11 +37,11 @@ JANELAS = {
         'Bevel1': {'Width': (241, 257)},
     },
     'TprepareGameDlg': {
-        '': {'ClientWidth': (632, 648)},
+        '': {'ClientWidth': (632, 664)},   # +16 da barra e +16 para as 5 abas na alta definicao
         'ListBoxOfPlayers': {'Width': (353, 369)},
         'ListBoxClassification': {'Height': (34, 38)},   # as 2 equipas do jogo (aba Jogo)
         'Notebook': {'Left': (358, 374)},
-        'TabSet': {'Left': (368, 384)},
+        'TabSet': {'Left': (368, 376), 'Width': (257, 286)},   # 5 abas tambem na alta definicao
         'textOpponent': {'Left': (360, 376)},
         'Label2': {'Left': (360, 376)},
         'textSeason': {'Left': (568, 584)},
