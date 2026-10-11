@@ -147,6 +147,10 @@ def limite_jogadores(ne):
     ne.patch(3, 0x3B51, '2680bd880015', '2680bd8800%02x' % (MAXJOG - 3))  # computador vende mais
     ne.patch(1, 0x13B3, '26837d0814', '26837d08%02x' % MAXJOG)          # editor: Adicionar
     ne.patch(12, 0x27FA, '837ef814', '837ef8%02x' % MAXJOG)             # editor: validacao
+    # TListBox.CreateParams (VCL, seg18:75C6) pede so WS_HSCROLL (0x00100000). No Windows
+    # a lista mostra a barra vertical mesmo assim; no Wine (Linux, macOS, Android) nao, e as
+    # listas compridas (Lista de Jogadores, plantel com 30) ficavam sem barra. Pede as duas.
+    ne.patch(18, 0x75C6, '81ca1000', '81ca3000')
 
 
 def gravar(b, saida):
@@ -228,6 +232,11 @@ def main(n, entrada, saida):
         import subida
         subida.subir(ne, b, N, K)
     ne.patch(5, 0x3BDB, 'b90800', 'b9%02x00' % N)                        # distribuicao inicial
+    # seg05:39C3, dinheiro inicial pela posicao i no ranking: v = round(50 x (1 - i/(4 x 8))),
+    # max(v - 1, 5) ate a posicao 32 e 1 depois (o Distrital); dinheiro = v x 50000 x moeda.
+    # Com 8 fixo, da 33a equipa em diante todas comecavam com o minimo
+    ne.patch(5, 0x39AD, struct.pack('<f', 8.0), struct.pack('<f', float(N)))
+    ne.patch(5, 0x3A37, '837ef820', '837ef8%02x' % (4 * N))
 
     # seg06: minimo de equipas (4*N + 2) e linhas da classificacao
     minimo = 4 * N + K

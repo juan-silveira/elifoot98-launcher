@@ -2,6 +2,10 @@ package io.github.juansilveira.elifoot98;
 
 import android.app.Activity;
 import android.app.AlertDialog;
+import android.content.Intent;
+import android.database.Cursor;
+import android.net.Uri;
+import android.provider.OpenableColumns;
 import android.content.res.ColorStateList;
 import android.graphics.Color;
 import android.graphics.Typeface;
@@ -30,6 +34,8 @@ import android.widget.Spinner;
 import android.widget.TextView;
 
 import java.io.File;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -137,6 +143,8 @@ public class SaveEditorActivity extends Activity {
         salvar.setOnClickListener(v -> salvar());
         LinearLayout.LayoutParams ps = new LinearLayout.LayoutParams(dp(100), dp(42));
         ps.leftMargin = dp(12);
+        barra.addView(botaoArquivo("Importar", v -> importar()), paramsArquivo());
+        barra.addView(botaoArquivo("Exportar", v -> exportar()), paramsArquivo());
         barra.addView(salvar, ps);
         raiz.addView(barra);
 
@@ -555,6 +563,141 @@ public class SaveEditorActivity extends Activity {
             if (!sit.isEmpty()) ((TextView) l.getChildAt(COL_SIT)).setTextColor(0xFFFF8A80);
             return l;
         }
+    }
+
+    // ---- exportar / importar (o save fica na pasta interna do app, que o
+    // gerenciador de arquivos nao ve: assim ele vai e volta pelo seletor do Android)
+
+    private static final int EXPORTAR = 1, IMPORTAR = 2;
+
+    private Button botaoArquivo(String rotulo, View.OnClickListener acao) {
+        Button b = new Button(this);
+        b.setText(rotulo);
+        b.setAllCaps(false);
+        b.setTextColor(AMARELO);
+        b.setTextSize(TypedValue.COMPLEX_UNIT_SP, 14);
+        b.setBackground(fundo(VERDE_CARTAO, AMARELO, 8));
+        b.setOnClickListener(acao);
+        return b;
+    }
+
+    private LinearLayout.LayoutParams paramsArquivo() {
+        LinearLayout.LayoutParams p = new LinearLayout.LayoutParams(dp(92), dp(42));
+        p.leftMargin = dp(8);
+        return p;
+    }
+
+    private void exportar() {
+        if (arquivoAtual == null) {
+            Ui.mensagem(this, "Exportar", "Escolha primeiro o save a exportar.");
+            return;
+        }
+        Intent i = new Intent(Intent.ACTION_CREATE_DOCUMENT);
+        i.addCategory(Intent.CATEGORY_OPENABLE);
+        i.setType("application/octet-stream");
+        i.putExtra(Intent.EXTRA_TITLE, arquivoAtual.getName());
+        startActivityForResult(i, EXPORTAR);
+    }
+
+    private void importar() {
+        Intent i = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+        i.addCategory(Intent.CATEGORY_OPENABLE);
+        i.setType("*/*");
+        startActivityForResult(i, IMPORTAR);
+    }
+
+    @Override
+    protected void onActivityResult(int pedido, int resultado, Intent dados) {
+        super.onActivityResult(pedido, resultado, dados);
+        if (resultado != RESULT_OK || dados == null || dados.getData() == null) return;
+        Uri uri = dados.getData();
+        try {
+            if (pedido == EXPORTAR) {
+                try (OutputStream out = getContentResolver().openOutputStream(uri, "w")) {
+                    out.write(Files.readAllBytes(arquivoAtual.toPath()));
+                }
+                Ui.mensagem(this, "Exportar", arquivoAtual.getName() + " exportado.");
+            } else if (pedido == IMPORTAR) {
+                receber(uri);
+            }
+        } catch (Exception e) {
+            Ui.mensagem(this, "Erro", (pedido == EXPORTAR ? "Falha ao exportar:\n" : "Falha ao importar:\n") + e.getMessage());
+        }
+    }
+
+    // Nome no padrao do jogo: ate 8 letras/numeros e .e98
+    private static String nomeDoJogo(String nome) {
+        String base = nome == null ? "" : nome.replaceAll("(?i)\\.e98$", "");
+        base = base.replaceAll("[^A-Za-z0-9_]", "");
+        if (base.length() > 8) base = base.substring(0, 8);
+        return (base.isEmpty() ? "IMPORT" : base) + ".e98";
+    }
+
+    private String nomeDoUri(Uri uri) {
+        try (Cursor c = getContentResolver().query(uri, new String[]{OpenableColumns.DISPLAY_NAME}, null, null, null)) {
+            if (c != null && c.moveToFirst()) return c.getString(0);
+        } catch (Exception ignored) { }
+        return uri.getLastPathSegment();
+    }
+
+    private void receber(Uri uri) throws Exception {
+        byte[] dados;
+        try (InputStream in = getContentResolver().openInputStream(uri)) {
+            java.io.ByteArrayOutputStream b = new java.io.ByteArrayOutputStream();
+            byte[] buf = new byte[65536];
+            for (int n; (n = in.read(buf)) > 0; ) b.write(buf, 0, n);
+            dados = b.toByteArray();
+        }
+        // So aceita o que o editor consegue ler como save
+        File tmp = new File(getCacheDir(), "importar.e98");
+        Files.write(tmp.toPath(), dados);
+        int equipes;
+        try {
+            SaveCodec.Save sv = SaveCodec.ler(tmp);
+            if (sv.times.isEmpty()) throw new Exception("sem equipes");
+            equipes = SavesPorEquipes.equipesDoSave(tmp);
+        } catch (Exception e) {
+            tmp.delete();
+            Ui.mensagem(this, "Importar", "Esse arquivo não é um jogo gravado do Elifoot 98 (.e98).");
+            return;
+        }
+        String nome = nomeDoJogo(nomeDoUri(uri));
+        // Ja existe um save com esse nome (em JOGOS ou numa pasta "<N> equipes")?
+        File existente = null;
+        for (SavesPorEquipes.Item it : SavesPorEquipes.listar(pasta))
+            if (it.arquivo.getName().equalsIgnoreCase(nome)) existente = it.arquivo;
+        final File achado = existente;
+        File destino = achado != null ? achado : new File(pasta, nome);
+        String info = nome.substring(0, nome.length() - 4) + (equipes > 0 ? " (" + equipes + " equipes por divisão)" : "");
+        if (achado == null) {
+            gravarImportado(tmp, destino, info);
+            return;
+        }
+        new AlertDialog.Builder(this)
+            .setTitle("Importar")
+            .setMessage("Já existe um save " + nome.substring(0, nome.length() - 4)
+                + ". Substituir? O atual fica guardado como " + achado.getName() + ".bak.")
+            .setPositiveButton("Substituir", (d, w) -> {
+                try {
+                    Files.copy(achado.toPath(), new File(achado.getPath() + ".bak").toPath(),
+                        java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+                    gravarImportado(tmp, destino, info);
+                } catch (Exception e) {
+                    Ui.mensagem(this, "Erro", "Falha ao importar:\n" + e.getMessage());
+                }
+            })
+            .setNegativeButton("Cancelar", (d, w) -> tmp.delete())
+            .show();
+    }
+
+    private void gravarImportado(File tmp, File destino, String info) throws Exception {
+        Files.copy(tmp.toPath(), destino.toPath(), java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+        tmp.delete();
+        if (destino.equals(arquivoAtual)) atual = null;   // recarrega se era o aberto
+        listarSaves();
+        int i = arquivosSaves.indexOf(destino);
+        if (i >= 0) { spSave.setSelection(i); carregarSave(i); }
+        Ui.mensagem(this, "Importar", "Save " + info + " importado.");
     }
 
     // ---- dados ----
