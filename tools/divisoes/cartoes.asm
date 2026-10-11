@@ -316,7 +316,8 @@ JOGO:   db 5, ' jogo'
 %endif
 
 %if PARTE == 8
-; ---- fim do seg04 (acrescentado): os textos dos amarelos; a parte 6 usa -DAMS e -DAM1
+; ---- seg04:251B, no fim da regiao do Historial (gravados por historial.py; o seg04
+; nao pode crescer, ver cartoes.py): os textos dos amarelos; a parte 6 usa -DAMS e -DAM1
 org ORG
 AMS:    db 20, ' amarelos acumulados'
 AM1:    db 18, ' amarelo acumulado'

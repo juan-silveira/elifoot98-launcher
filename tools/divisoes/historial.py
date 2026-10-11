@@ -103,5 +103,10 @@ def historial(ne, b):
         _gravar_tabela(ne, p, novos)
         b[p + 2 + 8 * len(novos): p + 2 + 8 * len(recs)] = b'\0' * (8 * (len(recs) - len(novos)))
         b[base + ini: base + fim] = cod + b'\x90' * (fim - ini - len(cod))
+        if s == 4:      # os textos da aba Jogador (cartoes.py) ficam no fim desta regiao
+            from cartoes import textos_amarelos, TEXTOS4
+            t, _ = textos_amarelos()
+            assert ini + len(cod) <= TEXTOS4 and TEXTOS4 + len(t) <= fim, (len(cod), len(t))
+            b[base + TEXTOS4: base + TEXTOS4 + len(t)] = t
 
         _dfm(b, classe, nome_caixa, fixo, topo)

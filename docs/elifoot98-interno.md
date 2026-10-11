@@ -970,6 +970,16 @@ passam a ler só os 2 bytes de baixo.
   suspensão, "N amarelo(s) acumulado(s)". O texto "Suspenso por 1 jogo" do
   original (`seg04:2266`) deu lugar a `" jogo"`; os textos dos amarelos ficam no
   fim do `seg04`.
+- **O `seg04` não pode crescer.** Na 0.9.0/0.9.1 os textos "amarelo(s)
+  acumulado(s)" eram acrescentados no fim do `seg04` (+40 bytes, com a tabela de
+  segmentos e a de relocações certas). No Windows e no Linux (otvdm) funciona; no
+  Android (Wine de 16 bits no Boxedwine) o jogo cai ao começar a jornada: page
+  fault em `seg13:38B0` (`TIniFile.ReadBool`) com um ponteiro lixo da pilha.
+  **Validado** no emulador com o save de quem relatou: o EXE que só difere do que
+  funciona pelo `seg04` 40 bytes maior cai sempre; com os textos dentro do
+  `seg04` (no fim da região do Historial, `seg04:251B`, onde o laço novo deixa
+  espaço) a jornada roda. A causa exata no Wine não foi encontrada; o `seg03` e o
+  `seg11` crescem sem problema.
 - O **Historial** ganha a linha "Cartões amarelos" (amarelos na carreira, `+0x21`)
   acima de "Cartões vermelhos", nas 3 janelas que o mostram: venda
   (`sellPlayerDlg`, `seg02:32BF`), aba Jogador (`prepareGameDlg`, `seg04:246F`) e

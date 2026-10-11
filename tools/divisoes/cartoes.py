@@ -23,6 +23,16 @@ VERM, LIMITE = 5, 50
 EXPULSOES = [(2, 0x331E), (4, 0x24EE), (10, 0x20AB)]
 LESOES = [(2, 0x3347), (4, 0x2523), (7, 0x1E56), (10, 0x20D4)]
 
+# Textos dos amarelos da aba Jogador (parte 8): no fim da regiao do Historial
+# no seg04 (historial.py os grava la). O seg04 nao pode crescer: no Android o Wine
+# derruba o jogo ao comecar a jornada se o seg04 tiver bytes a mais.
+TEXTOS4 = 0x251B
+
+
+def textos_amarelos():
+    return montar('cartoes.asm', TEXTOS4, PARTE=8, ORG='0x%X' % TEXTOS4)
+
+
 RANDOM, P196E, P19ED, P1988 = (25, 0x212D), (25, 0x196E), (25, 0x19ED), (25, 0x1988)
 INTTOSTR, SETTEXT, SETVISIBLE = (24, 0x07D0), (21, 0x1D8C), (21, 0x1C77)
 
@@ -80,8 +90,7 @@ def cartoes(ne, b):
 
     # --- seg04: aba Jogador (parte 6), textos no lugar do antigo (parte 7) e no fim (parte 8)
     base4 = ne.seg(4)[0]
-    org8 = ne.seg(4)[1]
-    c8, r8 = montar('cartoes.asm', org8, PARTE=8, ORG='0x%X' % org8)
+    c8, r8 = textos_amarelos()
     c6, r6 = montar('cartoes.asm', 0x2614, PARTE=6, JOGO='0x2266', AMS='0x%X' % r8['AMS'], AM1='0x%X' % r8['AM1'])
     p4, recs4 = _tabela(ne, 4)
     velhas = sorted((r for r in recs4 if 0x2614 <= r[2] < 0x26B8), key=lambda r: r[2])
@@ -98,7 +107,6 @@ def cartoes(ne, b):
     c7, _ = montar('cartoes.asm', 0x2266, PARTE=7)
     assert b[base4 + 0x2266: base4 + 0x227A] == b'\x13Suspenso por 1 jogo'
     b[base4 + 0x2266: base4 + 0x2266 + len(c7)] = c7
-    assert ne.append(4, c8) == org8
 
     def chamada(onde, original, alvo):
         ne.patch(3, onde, original, b'\xe8' + struct.pack('<h', alvo - (onde + 3)))
