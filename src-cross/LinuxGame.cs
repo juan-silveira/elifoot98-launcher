@@ -60,6 +60,8 @@ namespace ElifootLauncher
                 psi.Environment["ELIFOOT_RES"] = $"{w}x{h}";
                 // Sem tela cheia vale o padrao do script (no macOS o jogo abre maximizado)
                 if (cfg.Fullscreen) psi.Environment["ELIFOOT_FULLSCREEN"] = "1";
+                // Alta definicao: o script escolhe a escala pelo tamanho da tela
+                psi.Environment["ELIFOOT_HD"] = cfg.AltaDefinicao ? "1" : "0";
                 // EXE das equipes por divisao escolhidas nas Configuracoes
                 if (modo == "jogo") psi.Environment["ELIFOOT_EXE"] = cfg.ExeDoJogo;
             }

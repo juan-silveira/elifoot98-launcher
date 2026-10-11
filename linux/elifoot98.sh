@@ -9,6 +9,8 @@
 #   ELIFOOT_FULLSCREEN=1         sem janela (jogo ocupa a tela; padrao no macOS)
 #   ELIFOOT_WINE=/caminho/wine   forca um Wine especifico
 #   ELIFOOT_EXE=ELIF20.EXE       EXE do jogo (equipes por divisao; padrao ELIFOOT.EXE)
+#   ELIFOOT_HD=1                 alta definicao: DPI alta no Wine (o jogo desenha as
+#                                telas maiores e o texto nitido), escala pela tela
 # Compativel com o bash 3.2 do macOS e com as ferramentas BSD.
 set -euo pipefail
 
@@ -36,6 +38,7 @@ RES="${ELIFOOT_RES:-800x600}"
 FULLSCREEN="${ELIFOOT_FULLSCREEN:-$MAC}"
 MODO="${1:-jogo}"
 EXE="${ELIFOOT_EXE:-ELIFOOT.EXE}"
+HD="${ELIFOOT_HD:-0}"
 [[ "$MODO" == "editor" ]] && EXE="EDITEQ.EXE"
 
 export WINEPREFIX="$APP/prefix" WINEDEBUG=-all WINEDLLOVERRIDES="mscoree,mshtml="
@@ -114,7 +117,7 @@ sincronizar() {
   # Versoes antigas traziam EQUIPAS/ARA<0x80>A_BR.EFT (C cedilha do DOS, nome
   # que nao e UTF-8); agora e ARACA_BR.EFT. Apaga o antigo pra nao duplicar.
   rm -f "$APP/game/EQUIPAS/ARA"$'\x80'"A_BR.EFT"
-  cp "$SRC/linux/"* "$APP/linux/"
+  cp -R "$SRC/linux/"* "$APP/linux/"
   chmod -R u+w "$APP"
   cp "$SRC/VERSAO" "$APP/.versao"
 }
@@ -158,6 +161,50 @@ if [[ ! -f "$WINEPREFIX/system.reg" ]]; then
 fi
 # E: = pasta do jogo (caminhos curtos pro programa 16-bit)
 ln -sfn "$APP" "$WINEPREFIX/dosdevices/e:"
+
+# Alta definicao: o Delphi 1 desenha cada janela na escala da DPI (texto TrueType
+# nitido, no lugar de ampliar a imagem de 640x480). A escala e a maior entre 2x,
+# 1,75x, 1,5x e 1,25x em que o desktop virtual cabe na tela. A MS Sans Serif do
+# jogo e bitmap e para em 20 pontos: em DPI alta vai a TrueType com as mesmas
+# larguras (linux/fontes-hd); em 96 DPI ela nao pode estar instalada (o Wine a
+# preferiria ao bitmap e o jogo mudaria).
+altura_tela() {
+  local a=""
+  if [[ $MAC == 1 ]]; then
+    a="$(system_profiler SPDisplaysDataType 2>/dev/null | awk '/Resolution:/ {print $4; exit}')"
+  elif command -v xdpyinfo >/dev/null; then
+    a="$(xdpyinfo 2>/dev/null | awk '/dimensions:/ {split($2, d, "x"); print d[2]; exit}')"
+  elif command -v xrandr >/dev/null; then
+    a="$(xrandr --current 2>/dev/null | awk '/\*/ {split($1, d, "x"); print d[2]; exit}')"
+  fi
+  echo "${a:-1080}"
+}
+dpi=96
+if [[ "$HD" == "1" ]]; then
+  tela="$(altura_tela)"
+  w="${RES%x*}"; h="${RES#*x}"
+  margem=80; (( FULLSCREEN == 1 )) && margem=0   # janela: barra de titulo e painel
+  for e in 200 175 150 125; do
+    if (( h * e / 100 + margem <= tela )); then
+      dpi=$(( 96 * e / 100 ))
+      RES="$(( w * e / 100 ))x$(( h * e / 100 ))"
+      break
+    fi
+  done
+fi
+FONTS="$WINEPREFIX/drive_c/windows/Fonts"
+mkdir -p "$FONTS"
+if (( dpi > 96 )); then
+  cp -f "$APP/linux/fontes-hd/"*.ttf "$FONTS/" 2>/dev/null || true
+else
+  rm -f "$FONTS/MSSansSerifHD-"*.ttf
+fi
+if [[ "$(cat "$APP/.dpi" 2>/dev/null)" != "$dpi" ]]; then
+  "$WINE" reg add 'HKCU\Control Panel\Desktop' /v LogPixels /t REG_DWORD /d "$dpi" /f >/dev/null 2>&1 || true
+  "$WINE" reg add 'HKLM\System\CurrentControlSet\Hardware Profiles\Current\Software\Fonts' /v LogPixels /t REG_DWORD /d "$dpi" /f >/dev/null 2>&1 || true
+  "$(dirname "$WINE")/wineserver" -w >/dev/null 2>&1 || true   # grava o registro antes do jogo
+  echo "$dpi" > "$APP/.dpi"
+fi
 
 # O otvdm entrega a data em UTC: o instante fixo e 2000-01-01 14:00 UTC (o
 # linux/eli.cod foi gerado pra ele), seja qual for o fuso do computador

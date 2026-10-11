@@ -38,6 +38,7 @@ compilar_iniciar() {
 cp "$ROOT/linux/elifoot98.sh" "$MACOS/"
 chmod +x "$MACOS/elifoot98.sh" "$MACOS/ElifootLauncher"
 cp "$ROOT/linux/eli.cod" "$ROOT/linux/elifoot98.png" "$MACOS/linux/"
+mkdir -p "$MACOS/linux/fontes-hd" && cp "$ROOT/linux/fontes-hd/"*.ttf "$MACOS/linux/fontes-hd/"
 compilar_iniciar "$MACOS/linux"
 cp -R "$ROOT/game" "$MACOS/"
 rm -f "$MACOS/game/CRACK.EXE"

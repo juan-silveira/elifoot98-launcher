@@ -46,6 +46,7 @@ copiar_app() {
   cp "$ROOT/linux/elifoot98.sh" "$PUB/ElifootLauncher" "$dest/"
   chmod +x "$dest/elifoot98.sh" "$dest/ElifootLauncher"
   cp "$ROOT/linux/eli.cod" "$ROOT/linux/elifoot98.png" "$dest/linux/"
+  mkdir -p "$dest/linux/fontes-hd" && cp "$ROOT/linux/fontes-hd/"*.ttf "$dest/linux/fontes-hd/"
   compilar_iniciar "$dest/linux"
   cp -r "$ROOT/game" "$dest/"
   rm -f "$dest/game/CRACK.EXE"

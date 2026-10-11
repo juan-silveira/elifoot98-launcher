@@ -35,6 +35,12 @@ namespace ElifootLauncher
             resolution.SelectedIndex = Math.Max(0, Array.IndexOf(Resolutions, (cfg.ResolutionWidth, cfg.ResolutionHeight)));
 
             var fullscreen = new CheckBox { Content = "Abrir em tela cheia", IsChecked = cfg.Fullscreen };
+            var altaDef = new CheckBox
+            {
+                Content = "Alta definição (texto nítido em telas grandes)",
+                IsChecked = cfg.AltaDefinicao,
+            };
+            ToolTip.SetTip(altaDef, "O jogo desenha as telas maiores (1,5× ou 2×, conforme o monitor), com o texto nítido, em vez de ampliar a imagem pequena.");
             var nota = "O jogo desenha suas telas em 640×480; janelas maiores dão mais espaço em volta, sem cortar nada.";
             if (OperatingSystem.IsMacOS())
             {
@@ -113,6 +119,7 @@ namespace ElifootLauncher
                 cfg.ResolutionWidth = w;
                 cfg.ResolutionHeight = h;
                 cfg.Fullscreen = fullscreen.IsChecked == true;
+                cfg.AltaDefinicao = altaDef.IsChecked == true;
                 cfg.EquipesPorDivisao = LauncherConfig.OpcoesEquipes[equipes.SelectedIndex];
                 cfg.Save();
                 Close(true);
@@ -128,6 +135,7 @@ namespace ElifootLauncher
                     new TextBlock { Text = "Tamanho da janela do jogo:" },
                     resolution,
                     fullscreen,
+                    altaDef,
                     new TextBlock
                     {
                         Text = nota,
