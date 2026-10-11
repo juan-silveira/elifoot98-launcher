@@ -912,6 +912,24 @@ jogadores. Os detalhes estão em `docs/patch-divisoes.md`.
   na tabela de divisões (`src/SavesPorEquipes.cs`).
 - **Validado**: um save de 20 equipes, aberto de novo no EXE de 20, continua a
   temporada normalmente.
+- **Dinheiro inicial** (`seg05:39C3`): para a equipa na posição i da ordem
+  inicial (0 a 4N − 1 nas 4 divisões), `v = arredondar(50 × (1 − i / (4 × 8)))`,
+  `v = max(v − 1, 5)` até i = 32 e `v = 1` depois (Distrital); dinheiro =
+  `v × 50.000 ×` o fator da moeda (`DS:2D87`; 5 em reais: 250 mil a 12,25
+  milhões). Com o 8 e o 32 fixos, com 20 equipes só a 1ª divisão e 12 da 2ª
+  entravam na conta e as outras começavam com 250 mil reais, o mesmo que o
+  Distrital. O patch troca o 8.0 (real de 4 bytes em `cs:39AD`) por N e o 32 por
+  4N (`seg05:3A37`). **Validado**: equipa da 4ª divisão num jogo novo de 20
+  começou com 2,25 milhões de reais.
+
+## Listas sem barra de rolagem no Wine
+
+`TListBox.CreateParams` (VCL, `seg18:75C6`) cria a lista com `WS_HSCROLL`
+(0x00100000), sem `WS_VSCROLL`. No Windows (otvdm) a barra vertical aparece mesmo
+assim; no Wine (Linux, macOS e Android) não, e as listas compridas (Lista de
+Jogadores, plantel com mais de 20) não tinham barra. Os EXEs do launcher pedem as
+duas (`or dx,0x30`). **Validado** no Linux: a Lista de Jogadores e o plantel
+passam a ter a barra vertical.
 
 ## 10. Cartões amarelos (patch do launcher)
 
