@@ -142,7 +142,7 @@ jobs:
             - **Windows 10/11** (escolha um):
               - **`elifoot98-launcher-setup-*.zip`**: RECOMENDADO. O instalador normal dentro de um .zip (o navegador não bloqueia). Extraia e execute o `.exe` de dentro.
               - **`elifoot98-launcher-setup-*.exe`**: o mesmo instalador, sem o .zip (alguns navegadores bloqueiam o download).
-              - **`Elifoot98-*-Windows-portatil.exe`**: sem instalar. Um arquivo só, com o jogo dentro: é só abrir. Use se o launcher instalado não abrir (falta do .NET Framework 4.8). Tem o Tamanho do jogo (alta definição) do Linux.
+              - **`Elifoot98-*-Windows-portatil.exe`**: o launcher sem instalar. Um arquivo só, que já traz o jogo: abre o launcher (o mesmo do Linux, com Jogar, editores e Configurações). Use se o launcher instalado não abrir (falta do .NET Framework 4.8). Tem o Tamanho do jogo (alta definição) do Linux.
               - Nenhum deles é assinado: se o Windows avisar "O Windows protegeu o computador", clique em **Mais informações → Executar assim mesmo**.
             - **`elifoot98_*_amd64.deb`** — Linux (Debian/Ubuntu/Mint): instale e abra "Elifoot 98" no menu.
             - **`Elifoot98-*-x86_64.AppImage`** — Linux (qualquer distro): marque como executável e rode.
