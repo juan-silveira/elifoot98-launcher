@@ -33,9 +33,8 @@ public class ElifootActivity extends SDLActivity {
     private static final String TAG = "Elifoot98";
     // Resolucao do Windows emulado: a janela do time tem 636x484 (nao cabe em
     // 640x480). 800x600 e 4:3, sem distorcao (720x540 o Boxedwine desenha errado).
-    // Alta definicao (Configuracoes): 1600x1200 a 192 DPI, o jogo desenha as telas
-    // no dobro com o texto TrueType nitido (o Boxedwine encaixa na tela do aparelho)
-    private int LARGURA = 800, ALTURA = 600, DPI = 96;
+    // Tamanho do jogo no Wine (o Boxedwine amplia para a tela)
+    private static final int LARGURA = 800, ALTURA = 600;
 
     private final Handler handler = new Handler(Looper.getMainLooper());
     private Jogo jogo;
@@ -64,12 +63,10 @@ public class ElifootActivity extends SDLActivity {
         new File(jogo.jogo, "janelas.txt").delete();
         new File(jogo.jogo, "comando.txt").delete();
         new File(jogo.jogo, "pronto.txt").delete();
-        if (getSharedPreferences("config", MODE_PRIVATE).getBoolean("hd", false)) {
-            LARGURA = 1600; ALTURA = 1200; DPI = 192;
-        }
         try {
-            jogo.fontesAltaDefinicao(this, DPI > 96);
-            jogo.definirDpi(DPI);
+            // a alta definicao saiu (lenta no celular): desfaz a de quem a tinha ligado
+            jogo.removerFontesAltaDefinicao();
+            jogo.definirDpi(96);
         } catch (IOException e) {
             Log.e(TAG, "Falha nas fontes da alta definicao", e);
         }
@@ -85,56 +82,35 @@ public class ElifootActivity extends SDLActivity {
         String exe = getIntent().getStringExtra(EXTRA_EXE);
         if (exe == null) exe = "ELIFOOT.EXE";
         String files = "/home/username/.wine/dosdevices/c:/files";
-        // Modo rapido (padrao): o jogo roda direto no Win16 do Wine, no CPU do
-        // Boxedwine (uns 3x mais rapido que pelo otvdm, cujo interpretador roda
-        // emulado). Ate a 0.9.2 esse caminho caia no meio da jornada: o Boxedwine
-        // errava os saltos de 16 bits que dao a volta em 64 KB (corrigido no patch
-        // dele). O modo compativel (otvdm, como no Windows e no Linux) fica nas
-        // Configuracoes.
-        if (!getSharedPreferences("config", MODE_PRIVATE).getBoolean("otvdm", false)) {
-            try {
-                jogo.prepararWine(this);
-            } catch (IOException e) {
-                Log.e(TAG, "Falha ao preparar o Windows do Wine", e);
-            }
-            return new String[] {
-                "-root", jogo.root.getAbsolutePath(),
-                "-zip", new File(jogo.dir, "wine11.zip").getAbsolutePath(),
-                "-zip", new File(jogo.dir, "w16.zip").getAbsolutePath(),
-                "-mount", jogo.jogo.getAbsolutePath(), files,
-                "-resolution", LARGURA + "x" + ALTURA, "-fullscreenAspect",
-                "-cacheReads",
-                "-w", files,
-                "-env", "WINEDEBUG=" + winedebug(),
-                "/bin/wine", "iniciar.exe", "/dpi", Integer.toString(DPI), "/android", "C:\\files",
-                "C:\\files\\" + exe,
-            };
+        // O jogo roda direto no Win16 do Wine, no CPU do Boxedwine. Ate a 0.9.2 esse
+        // caminho caia no meio da jornada (o Boxedwine errava os saltos de 16 bits
+        // que dao a volta em 64 KB, corrigido no patch dele); a 0.9.3 e a 0.9.4
+        // usavam o otvdm, uns 2x mais lento no Android (o interpretador dele roda
+        // emulado).
+        try {
+            jogo.prepararWine(this);
+        } catch (IOException e) {
+            Log.e(TAG, "Falha ao preparar o Windows do Wine", e);
         }
-        // Modo compativel: o otvdm. Os modulos 16 bits dele sao "builtin" do Wine:
-        // sem o WINEDLLOVERRIDES o Wine usaria os dele (krnl386.exe16 do wine11.zip).
-        StringBuilder nativos = new StringBuilder();
-        File[] dlls = new File(jogo.jogo, "otvdm/dll").listFiles();
-        if (dlls != null)
-            for (File d : dlls) {
-                if (nativos.length() > 0) nativos.append(',');
-                nativos.append(d.getName());
-            }
         return new String[] {
             "-root", jogo.root.getAbsolutePath(),
             "-zip", new File(jogo.dir, "wine11.zip").getAbsolutePath(),
+            "-zip", new File(jogo.dir, "w16.zip").getAbsolutePath(),
             "-mount", jogo.jogo.getAbsolutePath(), files,
             "-resolution", LARGURA + "x" + ALTURA, "-fullscreenAspect",
+            // ampliacao suave da imagem de 800x600 para a tela (a padrao, pixel mais
+            // proximo, deixava as letras serrilhadas na escala quebrada do celular)
+            "-scale_quality", "1",
             // copia em files/root cada arquivo do wine11.zip ao abri-lo: as proximas
             // aberturas do jogo nao descomprimem de novo (Jogo.limparCacheDoWine)
             "-cacheReads",
             "-w", files,
             "-env", "WINEDEBUG=" + winedebug(),
-            "-env", "WINEDLLOVERRIDES=" + nativos + "=n",
-            // iniciar.exe (linux/iniciar.c): faz a "Acerca" aparecer e, na pasta
-            // do jogo, mantem teclado.txt (campo com foco), janelas.txt (abas) e
-            // atende comando.txt (aba tocada, botoes ✱/—)
-            "/bin/wine", "iniciar.exe", "/dpi", Integer.toString(DPI), "/android", "C:\\files",
-            "C:\\files\\otvdm\\otvdmw.exe", "C:\\files\\" + exe,
+            // iniciar.exe (linux/iniciar.c): faz a "Acerca" aparecer, fixa as datas
+            // do C:\\windows (eli.cod) e, na pasta do jogo, mantem teclado.txt (campo
+            // com foco), janelas.txt (abas) e atende comando.txt (aba tocada, botoes ✱/—)
+            "/bin/wine", "iniciar.exe", "/dpi", "96", "/android", "C:\\files",
+            "C:\\files\\" + exe,
         };
     }
 

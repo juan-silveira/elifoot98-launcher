@@ -2,8 +2,7 @@
 # Baixa as dependencias do app Android (versoes fixas) e monta os assets.
 #   app/jni/SDL                 SDL2 (codigo + android-project)
 #   third_party/Boxedwine       emulador (x86 + Wine) que roda o jogo
-#   app/src/main/assets/        wine11.zip, w16.zip (modulos 16-bit do Wine), elifoot.zip
-#                               (jogo + otvdm) e dbghelp.dll
+#   app/src/main/assets/        wine11.zip, w16.zip (modulos 16-bit do Wine) e elifoot.zip
 # uso: android/preparar.sh
 set -euo pipefail
 
@@ -43,9 +42,8 @@ if [[ ! -s "$A/wine11.zip" ]]; then
   baixar "$BW_WEB" "$CACHE/bw-web.zip"
   unzip -p "$CACHE/bw-web.zip" Wine11/boxedwine.zip > "$A/wine11.zip"
 fi
-# Modo rapido (padrao): o jogo roda no Win16 do proprio Wine. O FS reduzido do
-# Wine 11 nao traz os modulos 16-bit (toolhelp, krnl386 PE...): vao no w16.zip.
-# (O modo compativel usa o otvdm, que traz os dele.)
+# O jogo roda no Win16 do proprio Wine. O FS reduzido do Wine 11 nao traz os
+# modulos 16-bit (toolhelp, krnl386 PE...): vao no w16.zip.
 if [[ ! -s "$A/w16.zip" ]]; then
   baixar "$BW_FULLFS" "$CACHE/fullfs.zip"
   T="$(mktemp -d)"
@@ -72,30 +70,14 @@ for raiz, pastas, arqs in os.walk(os.fsencode(sys.argv[1])):
             novo = unicodedata.normalize('NFKD', nome.decode('cp850')).encode('ascii', 'ignore')
             os.rename(os.path.join(raiz, nome), os.path.join(raiz, novo))
 PY
-# otvdm (o mesmo do Linux) em jogo/otvdm, com o que o Wine do Boxedwine nao tem
-# (android/otvdm/LEIAME.txt): os apisets api-ms-win-crt-*.dll viram ucrtbase.dll
-unzip -q "$ROOT/linux/otvdm-master-2703.zip" -d "$T"
-mv "$T/otvdm-master-2703" "$T/jogo/otvdm"
-python3 - "$T/jogo/otvdm" <<'PY'
-import glob, os, re, sys
-d = sys.argv[1]
-for f in [os.path.join(d, n) for n in ('otvdmw.exe', 'otvdm.exe', 'libwine.dll')] + glob.glob(os.path.join(d, 'dll', '*')):
-    b = open(f, 'rb').read()
-    n = re.sub(rb'api-ms-win-crt-[a-z]+-l1-1-0\.dll', lambda m: b'ucrtbase.dll'.ljust(len(m.group(0)), b'\0'), b, flags=re.I)
-    if n != b:
-        open(f, 'wb').write(n)
-PY
-cp "$AND/otvdm/vcruntime140.dll" "$T/jogo/otvdm/"
 (cd "$T/jogo" && zip -qr "$A/elifoot.zip" .)
 i686-w64-mingw32-gcc -O2 -s -mwindows -o "$T/iniciar.exe" "$ROOT/linux/iniciar.c"
 (cd "$T" && zip -q "$A/elifoot.zip" iniciar.exe)
 rm -rf "$T"
 # eli.cod feito pra data fixa das pastas (o mesmo do Linux/macOS)
 cp "$ROOT/linux/eli.cod" "$A/eli.cod"
-# dbghelp.dll de verdade pro C:\windows\system32 do Wine (android/otvdm/LEIAME.txt)
-cp "$AND/otvdm/dbghelp.dll" "$A/dbghelp.dll"
-# Alta definicao: a MS Sans Serif TrueType (linux/fontes-hd/gerar.py)
-rm -rf "$A/fontes-hd" && mkdir -p "$A/fontes-hd" && cp "$ROOT/linux/fontes-hd/"*.ttf "$A/fontes-hd/"
 # Fontes com as medidas da Arial/Times New Roman (android/fontes/gerar.py)
 rm -rf "$A/fontes" && mkdir -p "$A/fontes" && cp "$AND"/fontes/*.ttf "$A/fontes/"
 ls -lh "$A"
+# Ate a 0.9.4 iam tambem o otvdm, o dbghelp.dll e as fontes da alta definicao
+rm -rf "$A/dbghelp.dll" "$A/fontes-hd"

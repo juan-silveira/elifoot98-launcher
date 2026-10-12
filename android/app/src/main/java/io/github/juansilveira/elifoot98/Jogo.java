@@ -63,6 +63,11 @@ public final class Jogo {
             // modulos de 16 bits do Wine: o modo rapido roda o jogo direto no Win16 do Wine
             try (InputStream in = am.open("w16.zip")) { copiar(in, new File(dir, "w16.zip")); }
             try (InputStream in = am.open("elifoot.zip")) { extrairJogo(in); }
+            // a 0.9.3 e a 0.9.4 rodavam o jogo no otvdm: dele fica so o WINDOWS (o
+            // elif98.ini com as opcoes e o registro, e o eli.cod)
+            File[] velhos = new File(jogo, "otvdm").listFiles();
+            if (velhos != null)
+                for (File f : velhos) if (!f.getName().equals("WINDOWS")) apagar(f);
             escrever(marca, versao);
         }
         equipasSemRepetidas();
@@ -114,13 +119,6 @@ public final class Jogo {
         if (!cod.exists())
             try (InputStream in = ctx.getAssets().open("eli.cod")) { copiar(in, cod); }
         instalarFontes(ctx);
-        // dbghelp.dll de verdade (o do Wine do Boxedwine e falso): o imagehlp o carrega
-        // quando o otvdm abre
-        File dbg = new File(wine, "system32/dbghelp.dll");
-        if (!dbg.exists() || dbg.length() < 100000) {
-            dbg.getParentFile().mkdirs();
-            try (InputStream in = ctx.getAssets().open("dbghelp.dll")) { copiar(in, dbg); }
-        }
         system.setLastModified(DATA_FIXA);
         windows.setLastModified(DATA_FIXA);
     }
@@ -163,22 +161,11 @@ public final class Jogo {
         }
     }
 
-    /**
-     * Alta definicao: a MS Sans Serif TrueType (as mesmas larguras do bitmap do jogo,
-     * linux/fontes-hd) em C:\windows\Fonts. So no modo alta definicao: em 96 DPI o
-     * Wine tambem a preferiria ao bitmap e o jogo mudaria.
-     */
-    public void fontesAltaDefinicao(Context ctx, boolean hd) throws IOException {
-        File fonts = new File(wine, "Fonts");
-        fonts.mkdirs();
-        String[] nomes = ctx.getAssets().list("fontes-hd");
-        if (nomes == null) return;
-        for (String nome : nomes) {
-            File f = new File(fonts, nome);
-            if (!hd) f.delete();
-            else if (!f.exists())
-                try (InputStream in = ctx.getAssets().open("fontes-hd/" + nome)) { copiar(in, f); }
-        }
+    /** A alta definicao saiu (0.9.5): apaga a MS Sans Serif TrueType dela de quem a
+     *  tinha ligado (em 96 DPI o Wine a preferiria a da fonte bitmap). */
+    public void removerFontesAltaDefinicao() {
+        File[] fs = new File(wine, "Fonts").listFiles((d, n) -> n.startsWith("MSSansSerifHD"));
+        if (fs != null) for (File f : fs) f.delete();
     }
 
     /**
