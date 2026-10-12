@@ -258,12 +258,41 @@ static void tecla(int vk)
  * aqui a partir da lista de jogadores da janela do time (TprepareGameDlg):
  *  - ela vem agrupada G, D, M, A; a ultima linha de cada grupo e mais alta (tem
  *    o traco separador embaixo);
- *  - S e L aparecem numa coluna entre a forca e o salario.
+ *  - S e L aparecem em duas colunas entre a forca e a nacionalidade (que
+ *    comeca em x 227: estrangeiro nao e indisponivel);
+ *  - na coluna do S, o patch dos cartoes poe A (amarelos acumulados), e esse
+ *    joga: o A tem dois pes separados na linha de baixo, o S um traco so.
+ * O texto dos itens nao serve: a lista guarda um codigo, nao a linha desenhada.
  * Grava em taticas.txt "G D M A" (disponiveis) ou nada se a lista nao fechar. */
-#define SL_X0 180   /* colunas do S (x 189-195) e do L (213-219) na lista, entre */
-#define SL_X1 232   /* a forca (termina em 176) e o salario (comeca em 287)    */
+#define S_X0 184    /* coluna do S/A (letra em x 189-197) */
+#define S_X1 205
+#define L_X0 208    /* coluna do L (x 213-219) */
+#define L_X1 224
 
 static HWND lista_time;
+
+/* Linha de pixels diferentes do fundo: quantos trechos separados ha entre x0 e x1 */
+static int trechos(HDC dc, int y, int x0, int x1, COLORREF fundo)
+{
+    int x, n = 0, dentro = 0;
+    for (x = x0; x < x1; x++) {
+        int marcado = GetPixel(dc, x, y) != fundo;
+        if (marcado && !dentro) n++;
+        dentro = marcado;
+    }
+    return n;
+}
+
+/* Jogador fora (S ou L) na linha da lista que vai de y0 a y0 + 14 */
+static int indisponivel(HDC dc, int y0, COLORREF fundo)
+{
+    int y, base = -1;
+    for (y = y0 + 2; y < y0 + 14; y++) {
+        if (trechos(dc, y, L_X0, L_X1, fundo)) return 1;  /* L */
+        if (trechos(dc, y, S_X0, S_X1, fundo)) base = y;
+    }
+    return base >= 0 && trechos(dc, base, S_X0, S_X1, fundo) < 2;  /* S, nao A */
+}
 
 static BOOL CALLBACK achar_lista(HWND w, LPARAM nao_usado)
 {
@@ -279,7 +308,7 @@ static BOOL CALLBACK achar_lista(HWND w, LPARAM nao_usado)
 static void taticas(void)
 {
     HWND w;
-    int n, i, x, y, grupo = 0, cont[4] = {0, 0, 0, 0}, total = 0;
+    int n, i, grupo = 0, cont[4] = {0, 0, 0, 0}, total = 0;
     char texto[64] = "";
     HDC dc;
     lista_time = NULL;
@@ -295,16 +324,11 @@ static void taticas(void)
     dc = GetDC(lista_time);
     for (i = 0; i < n; i++) {
         RECT r;
-        COLORREF fundo;
-        int fora = 0, alt;
+        int alt;
         if (SendMessageA(lista_time, LB_GETITEMRECT, i, (LPARAM)&r) == LB_ERR) { grupo = 9; break; }
         alt = r.bottom - r.top;
-        fundo = GetPixel(dc, 12, r.top + 8);
-        for (x = SL_X0; x < SL_X1 && !fora; x++)
-            for (y = r.top + 2; y < r.top + 14; y++)
-                if (GetPixel(dc, x, y) != fundo) { fora = 1; break; }
         if (grupo > 3) break;
-        if (!fora) cont[grupo]++;
+        if (!indisponivel(dc, r.top, GetPixel(dc, 12, r.top + 8))) cont[grupo]++;
         total++;
         if (alt > 17) grupo++;  /* ultima linha do grupo: mais alta, tem o traco separador */
     }
