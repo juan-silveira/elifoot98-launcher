@@ -101,7 +101,7 @@ jobs:
       - name: Zip installer (evita bloqueios de navegador em .exe)
         shell: pwsh
         run: |
-          $exe = Get-ChildItem installer\Output\*.exe | Select-Object -First 1
+          $exe = Get-ChildItem installer\Output\elifoot98-launcher-setup-*.exe | Select-Object -First 1
           $zip = "installer\Output\$([System.IO.Path]::GetFileNameWithoutExtension($exe.Name)).zip"
           Compress-Archive -Path $exe.FullName -DestinationPath $zip -Force
           Write-Host "zip: $zip"
