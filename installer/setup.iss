@@ -52,7 +52,10 @@ Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{
 [Files]
 ; Launcher e dependencias .NET (dlls opcionais — se nao houver, tudo bem)
 Source: "..\src\bin\Release\net48\ElifootLauncher.exe"; DestDir: "{app}"; Flags: ignoreversion
-Source: "..\src\bin\Release\net48\ElifootLauncher.exe.config"; DestDir: "{app}"; Flags: ignoreversion skipifsourcedoesntexist
+; O .exe.config (gerado pelo SDK) tem <supportedRuntime sku=".NETFramework,Version=v4.8">: sem
+; ele, num Windows sem o 4.8 o launcher abre no .NET antigo e pode fechar sem mensagem; com ele,
+; o proprio Windows avisa que falta o .NET Framework 4.8. Por isso e obrigatorio.
+Source: "..\src\bin\Release\net48\ElifootLauncher.exe.config"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\src\bin\Release\net48\*.dll";               DestDir: "{app}"; Flags: ignoreversion skipifsourcedoesntexist
 
 ; otvdm (16-bit emulator para ELIFOOT.EXE e EDITEQ.EXE)
@@ -127,16 +130,19 @@ var
   ErrCode: Integer;
 begin
   Result := True;
-  // .NET Framework 4.8 tem Release >= 528040 (Win 10 1903+ e Win 11 ja vem pre-instalado)
-  if RegQueryDWordValue(HKLM, 'SOFTWARE\Microsoft\NET Framework Setup\NDP\v4\Full', 'Release', NetFxVer) then
+  // .NET Framework 4.8 tem Release >= 528040 (Win 10 1903+ e Win 11 ja vem pre-instalado;
+  // o Win 10 1809, minimo aceito, vem com 4.7.2). Sem a chave = sem .NET 4.x: tambem falta.
+  if not RegQueryDWordValue(HKLM, 'SOFTWARE\Microsoft\NET Framework Setup\NDP\v4\Full', 'Release', NetFxVer) then
+    NetFxVer := 0;
+  if NetFxVer < 528040 then
   begin
-    if NetFxVer < 528040 then
-    begin
-      if MsgBox('Este launcher requer .NET Framework 4.8 (ou superior). Instalar agora?' + #13#10 +
-                'Voce sera redirecionado ao download oficial da Microsoft.',
-                mbConfirmation, MB_YESNO) = IDYES then
-        ShellExec('open', 'https://dotnet.microsoft.com/download/dotnet-framework/net48', '', '', SW_SHOW, ewNoWait, ErrCode);
-      Result := False;
-    end;
+    if MsgBox('O Elifoot 98 Launcher precisa do Microsoft .NET Framework 4.8 (ou mais novo), ' +
+              'que nao foi encontrado neste computador.' + #13#10#13#10 +
+              'Sem ele o launcher nao abre. Deseja abrir a pagina oficial da Microsoft para baixa-lo agora?' + #13#10#13#10 +
+              'Depois de instalar o .NET Framework 4.8 (pode pedir para reiniciar o Windows), ' +
+              'execute este instalador de novo.',
+              mbError, MB_YESNO) = IDYES then
+      ShellExec('open', 'https://dotnet.microsoft.com/download/dotnet-framework/net48', '', '', SW_SHOW, ewNoWait, ErrCode);
+    Result := False;
   end;
 end;
