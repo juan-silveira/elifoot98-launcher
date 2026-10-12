@@ -170,6 +170,25 @@ public class LauncherActivity extends Activity {
             .show();
     }
 
+    private boolean modoCompativel() {
+        return getSharedPreferences("config", MODE_PRIVATE).getBoolean("otvdm", false);
+    }
+
+    // Modo de jogo: rapido (o jogo direto no Win16 do Wine) ou compativel (pelo otvdm,
+    // como no Windows e no Linux; mais lento no Android, fica de reserva)
+    private void modoDialogo() {
+        String[] opcoes = {"Rápido (recomendado)", "Compatível (otvdm) — mais lento; use se o jogo der erro"};
+        new AlertDialog.Builder(this)
+            .setTitle("Modo de jogo")
+            .setSingleChoiceItems(opcoes, modoCompativel() ? 1 : 0, (dlg, w) -> {
+                getSharedPreferences("config", MODE_PRIVATE).edit().putBoolean("otvdm", w == 1).apply();
+                dlg.dismiss();
+                Ui.mensagem(this, "Pronto", "Vale a partir da próxima vez que o jogo abrir.");
+            })
+            .setNegativeButton("Cancelar", null)
+            .show();
+    }
+
     private void configuracoes() {
         boolean liberado = TeamCodec.bosmanLiberado(jogo.jogo);
         LinearLayout l = new LinearLayout(this);
@@ -181,6 +200,7 @@ public class LauncherActivity extends Activity {
             + "\"Ativar todos os recursos\" registra o jogo (Registro para autor).\n\n"
             + "Equipes por divisão: " + equipesPorDivisao() + ".\n\n"
             + "Alta definição: " + (altaDefinicao() ? "ligada" : "desligada") + ".\n\n"
+            + "Modo de jogo: " + (modoCompativel() ? "compatível (otvdm)" : "rápido") + ".\n\n"
             + "Estrangeiros: " + (liberado ? "Liberado (sem limite)" : "Original (até 5 por equipe; Lei Bosman e língua portuguesa não contam)") + ".\n\n"
             + "\"Restaurar times originais\" desfaz equipes editadas e patches aplicados.");
         t.setTextSize(TypedValue.COMPLEX_UNIT_SP, 15);
@@ -189,6 +209,7 @@ public class LauncherActivity extends Activity {
         l.addView(botaoDialogo("Ativar todos os recursos", () -> { d[0].dismiss(); ativar(); }));
         l.addView(botaoDialogo("Equipes por divisão…", () -> { d[0].dismiss(); equipes(); }));
         l.addView(botaoDialogo("Alta definição…", () -> { d[0].dismiss(); altaDefinicaoDialogo(); }));
+        l.addView(botaoDialogo("Modo de jogo…", () -> { d[0].dismiss(); modoDialogo(); }));
         l.addView(botaoDialogo("Estrangeiros…", () -> { d[0].dismiss(); estrangeiros(liberado); }));
         l.addView(botaoDialogo("Restaurar times originais…", () -> { d[0].dismiss(); restaurar(); }));
         ScrollView sv = new ScrollView(this);

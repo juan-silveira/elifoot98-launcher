@@ -398,9 +398,13 @@ static BOOL CALLBACK esticar_lista(HWND w, LPARAM p)
     return TRUE;
 }
 
+/* So as janelas da classe ComboLBox: percorrer todas as janelas a cada 50 ms
+ * custava caro no Android (cada consulta passa pelo wineserver, que o jogo usa) */
 static void ajustar_listas(void)
 {
-    EnumWindows(esticar_lista, 0);
+    HWND w = NULL;
+    while ((w = FindWindowExA(NULL, w, "ComboLBox", NULL)) != NULL)
+        esticar_lista(w, 0);
 }
 
 static void definir_dpi(int dpi)

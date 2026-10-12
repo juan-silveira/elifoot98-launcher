@@ -73,13 +73,45 @@ public class ElifootActivity extends SDLActivity {
         } catch (IOException e) {
             Log.e(TAG, "Falha nas fontes da alta definicao", e);
         }
+        // Testes de desempenho (adb): com files/jogo/jitmap.on, o Boxedwine grava em
+        // files/jitmap.tsv de que modulo do Windows vem cada trecho traduzido pelo JIT
+        if (new File(jogo.jogo, "jitmap.on").exists()) {
+            try {
+                android.system.Os.setenv("BOXEDWINE_JIT_MAP", new File(jogo.dir, "jitmap.tsv").getAbsolutePath(), true);
+            } catch (android.system.ErrnoException e) {
+                Log.e(TAG, "BOXEDWINE_JIT_MAP", e);
+            }
+        }
         String exe = getIntent().getStringExtra(EXTRA_EXE);
         if (exe == null) exe = "ELIFOOT.EXE";
         String files = "/home/username/.wine/dosdevices/c:/files";
-        // O jogo (16 bits) roda no otvdm, como no Windows e no Linux. No Win16 do
-        // proprio Wine do Boxedwine a pilha do jogo se desfazia no meio da jornada
-        // (0.9.0 a 0.9.2). Os modulos 16 bits do otvdm sao "builtin" do Wine: sem
-        // o WINEDLLOVERRIDES o Wine usaria os dele (krnl386.exe16 do wine11.zip).
+        // Modo rapido (padrao): o jogo roda direto no Win16 do Wine, no CPU do
+        // Boxedwine (uns 3x mais rapido que pelo otvdm, cujo interpretador roda
+        // emulado). Ate a 0.9.2 esse caminho caia no meio da jornada: o Boxedwine
+        // errava os saltos de 16 bits que dao a volta em 64 KB (corrigido no patch
+        // dele). O modo compativel (otvdm, como no Windows e no Linux) fica nas
+        // Configuracoes.
+        if (!getSharedPreferences("config", MODE_PRIVATE).getBoolean("otvdm", false)) {
+            try {
+                jogo.prepararWine(this);
+            } catch (IOException e) {
+                Log.e(TAG, "Falha ao preparar o Windows do Wine", e);
+            }
+            return new String[] {
+                "-root", jogo.root.getAbsolutePath(),
+                "-zip", new File(jogo.dir, "wine11.zip").getAbsolutePath(),
+                "-zip", new File(jogo.dir, "w16.zip").getAbsolutePath(),
+                "-mount", jogo.jogo.getAbsolutePath(), files,
+                "-resolution", LARGURA + "x" + ALTURA, "-fullscreenAspect",
+                "-cacheReads",
+                "-w", files,
+                "-env", "WINEDEBUG=" + winedebug(),
+                "/bin/wine", "iniciar.exe", "/dpi", Integer.toString(DPI), "/android", "C:\\files",
+                "C:\\files\\" + exe,
+            };
+        }
+        // Modo compativel: o otvdm. Os modulos 16 bits dele sao "builtin" do Wine:
+        // sem o WINEDLLOVERRIDES o Wine usaria os dele (krnl386.exe16 do wine11.zip).
         StringBuilder nativos = new StringBuilder();
         File[] dlls = new File(jogo.jogo, "otvdm/dll").listFiles();
         if (dlls != null)
@@ -92,6 +124,9 @@ public class ElifootActivity extends SDLActivity {
             "-zip", new File(jogo.dir, "wine11.zip").getAbsolutePath(),
             "-mount", jogo.jogo.getAbsolutePath(), files,
             "-resolution", LARGURA + "x" + ALTURA, "-fullscreenAspect",
+            // copia em files/root cada arquivo do wine11.zip ao abri-lo: as proximas
+            // aberturas do jogo nao descomprimem de novo (Jogo.limparCacheDoWine)
+            "-cacheReads",
             "-w", files,
             "-env", "WINEDEBUG=" + winedebug(),
             "-env", "WINEDLLOVERRIDES=" + nativos + "=n",

@@ -56,13 +56,34 @@ public final class Jogo {
         File marca = new File(dir, "versao.txt");
         if (!marca.exists() || !versao.equals(ler(marca).trim())) {
             AssetManager am = ctx.getAssets();
-            try (InputStream in = am.open("wine11.zip")) { copiar(in, new File(dir, "wine11.zip")); }
-            new File(dir, "w16.zip").delete();  // as versoes ate a 0.9.2 usavam o Win16 do Wine
+            File zip = new File(dir, "wine11.zip");
+            long antes = zip.length();
+            try (InputStream in = am.open("wine11.zip")) { copiar(in, zip); }
+            if (zip.length() != antes) limparCacheDoWine(zip);
+            // modulos de 16 bits do Wine: o modo rapido roda o jogo direto no Win16 do Wine
+            try (InputStream in = am.open("w16.zip")) { copiar(in, new File(dir, "w16.zip")); }
             try (InputStream in = am.open("elifoot.zip")) { extrairJogo(in); }
             escrever(marca, versao);
         }
         equipasSemRepetidas();
         prepararWindows(ctx);
+    }
+
+    /**
+     * O Boxedwine (-cacheReads) guarda em files/root uma copia de cada arquivo do
+     * wine11.zip que o Wine abre, para nao descomprimir de novo a cada vez. Um
+     * wine11.zip diferente invalida essas copias; o prefixo (home/, com o registro
+     * e as fontes do jogo) fica.
+     */
+    private void limparCacheDoWine(File zip) throws IOException {
+        try (java.util.zip.ZipFile z = new java.util.zip.ZipFile(zip)) {
+            java.util.Enumeration<? extends ZipEntry> es = z.entries();
+            while (es.hasMoreElements()) {
+                ZipEntry e = es.nextElement();
+                if (e.isDirectory() || e.getName().startsWith("home/")) continue;
+                new File(root, e.getName()).delete();
+            }
+        }
     }
 
     /**
@@ -101,6 +122,30 @@ public final class Jogo {
             try (InputStream in = ctx.getAssets().open("dbghelp.dll")) { copiar(in, dbg); }
         }
         system.setLastModified(DATA_FIXA);
+        windows.setLastModified(DATA_FIXA);
+    }
+
+    /**
+     * Modo rapido (o jogo no Win16 do Wine, sem o otvdm): o Windows do jogo passa a
+     * ser o C:\windows do Wine. O elif98.ini mais recente dos dois (o do otvdm guarda
+     * o registro do "Ativar todos os recursos") vai para o outro, o eli.cod vai junto
+     * e as datas das pastas ficam fixas, como no otvdm.
+     */
+    public void prepararWine(Context ctx) throws IOException {
+        prepararWindows(ctx);
+        File system = new File(wine, "system");
+        system.mkdirs();
+        File iniOtvdm = new File(windows, "elif98.ini"), iniWine = new File(wine, "elif98.ini");
+        if (!iniWine.exists() || iniOtvdm.lastModified() > iniWine.lastModified())
+            Files.copy(iniOtvdm.toPath(), iniWine.toPath(), java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+        else if (iniWine.lastModified() > iniOtvdm.lastModified())
+            Files.copy(iniWine.toPath(), iniOtvdm.toPath(), java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+        Files.copy(new File(windows, "eli.cod").toPath(), new File(wine, "eli.cod").toPath(),
+            java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+        // as copias acima mudam as datas das pastas: fixa por ultimo
+        system.setLastModified(DATA_FIXA);
+        wine.setLastModified(DATA_FIXA);
+        new File(windows, "SYSTEM").setLastModified(DATA_FIXA);
         windows.setLastModified(DATA_FIXA);
     }
 

@@ -1076,6 +1076,47 @@ O que o otvdm precisa no Wine do Boxedwine (`android/preparar.sh`,
 - o Windows do jogo passa a ser `otvdm/WINDOWS` (elif98.ini, eli.cod), com as
   datas das pastas fixas como no Linux.
 
+## Android: a causa das quedas do Win16 e o modo rápido (0.9.5)
+
+**Causa (código, Boxedwine).** Num salto ou chamada relativa em código de 16
+bits, o IP dá a volta em 64 KB (`0xDC11 + 0x6D24` → `0x4935`). O Boxedwine
+calculava o destino como endereço linear (base do CS + IP + deslocamento) sem
+essa volta, em dois lugares:
+- no decodificador (`decoder.cpp`), o "atalho" do destino de cada salto
+  (`op->data.nextJump`) ficava num endereço fora do segmento. O CPU normal usa
+  esse atalho: se ali já houvesse outra instrução traduzida, ela era executada
+  no lugar do destino; se não, a instrução do destino ficava guardada no
+  endereço errado e era dada a quem de fato morava ali;
+- no JIT (`jitOther.h`, `jitJump.h`, `jitCodeGen.h`), o destino dos saltos e
+  das chamadas.
+O CPU normal acerta o endereço da próxima instrução (`getEipAddress` faz
+`eip & 0xFFFF`), por isso só alguns saltos davam errado.
+
+**Validado** no emulador, com o save de 20 equipes:
+- o patch dos amarelos (`cartoes.asm`) põe a parte 5 no fim do `seg03` e salta de
+  `seg03:48BE` (`jmp AMARELO`) para lá e de volta: esses saltos dão a volta. Sem
+  a geração de cartões, 2 jornadas passam (3 vezes); só com vermelhos, passam;
+  com a parte 5 saindo direto (`jmp NADA`), passam (3 vezes); com qualquer
+  instrução a mais antes do salto, cai sempre na 1ª jornada (Taça), em pontos
+  diferentes do `seg03`;
+- com o destino corrigido (`android/patches/boxedwine-android.patch`), o `ELIF20`
+  completo jogou **13 jornadas seguidas** sem queda (Taça, pênaltis, lesões,
+  leilões), e mais 2 com o app no modo rápido.
+
+Outros fatos medidos no mesmo caminho (Win16 do Wine no Boxedwine):
+- o `InterruptRegister` do `toolhelp` do Wine é um stub: um GPF que o Delphi 1
+  transformaria em exceção derruba o jogo (no otvdm e no Windows ele vira
+  exceção). Nenhum caso visto depois da correção acima;
+- cada `int 21h` do Delphi (leitura e escrita de arquivo) vira uma exceção
+  emulada pelo Wine: ~62 mil por sessão, na maioria no `seg25:0F8E`.
+
+**Modo rápido** (padrão a partir da 0.9.5): o jogo roda no Win16 do Wine, no CPU
+do Boxedwine; o otvdm fica como "Modo compatível" nas Configurações. Carregar o
+save de 20 equipes no emulador (x86_64): ~8 s no modo rápido, ~14 s pelo otvdm
+(no Linux, otvdm nativo: 5,3 s). O Windows do jogo no modo rápido é o
+`C:\windows` do Wine: o `elif98.ini` mais recente dos dois lados é copiado para o
+outro e o `eli.cod` vai junto, com as datas das pastas fixas.
+
 ## Listas no otvdm
 
 **Validado** no Linux (Wine + otvdm, os mesmos do Android desde a 0.9.3),

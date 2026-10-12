@@ -2,7 +2,8 @@
 # Baixa as dependencias do app Android (versoes fixas) e monta os assets.
 #   app/jni/SDL                 SDL2 (codigo + android-project)
 #   third_party/Boxedwine       emulador (x86 + Wine) que roda o jogo
-#   app/src/main/assets/        wine11.zip, elifoot.zip (jogo + otvdm) e dbghelp.dll
+#   app/src/main/assets/        wine11.zip, w16.zip (modulos 16-bit do Wine), elifoot.zip
+#                               (jogo + otvdm) e dbghelp.dll
 # uso: android/preparar.sh
 set -euo pipefail
 
@@ -42,9 +43,18 @@ if [[ ! -s "$A/wine11.zip" ]]; then
   baixar "$BW_WEB" "$CACHE/bw-web.zip"
   unzip -p "$CACHE/bw-web.zip" Wine11/boxedwine.zip > "$A/wine11.zip"
 fi
-# O jogo roda no otvdm (como no Windows e no Linux), nao no Win16 do Wine:
-# o w16.zip (modulos 16-bit do Wine) nao vai mais no app
-rm -f "$A/w16.zip"
+# Modo rapido (padrao): o jogo roda no Win16 do proprio Wine. O FS reduzido do
+# Wine 11 nao traz os modulos 16-bit (toolhelp, krnl386 PE...): vao no w16.zip.
+# (O modo compativel usa o otvdm, que traz os dele.)
+if [[ ! -s "$A/w16.zip" ]]; then
+  baixar "$BW_FULLFS" "$CACHE/fullfs.zip"
+  T="$(mktemp -d)"
+  unzip -Z1 "$A/wine11.zip" | sort > "$T/tem.lst"
+  unzip -Z1 "$CACHE/fullfs.zip" | grep -E '(16|16\.so)$' | sort > "$T/16.lst"
+  comm -23 "$T/16.lst" "$T/tem.lst" > "$T/falta.lst"
+  (cd "$T" && unzip -q "$CACHE/fullfs.zip" $(cat falta.lst) -d ov && cd ov && zip -qr "$A/w16.zip" .)
+  rm -rf "$T"
+fi
 # Jogo + iniciar.exe (linux/iniciar.c: manda um movimento de mouse pro jogo
 # exibir a janela "Acerca" da abertura, que no Wine nao aparece sozinha)
 rm -f "$A/elifoot.zip"

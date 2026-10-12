@@ -159,6 +159,324 @@ index f890ebd..f2f8612 100644
                  if (input->scaleY > input->scaleX) {
                      input->scaleY = input->scaleX;
                      input->scaleYOffset = (dm.h - input->height * input->scaleY / 100) / 2;
+diff --git a/source/emulation/cpu/common/cpu.h b/source/emulation/cpu/common/cpu.h
+index 437a32b..5f9b98a 100644
+--- a/source/emulation/cpu/common/cpu.h
++++ b/source/emulation/cpu/common/cpu.h
+@@ -402,6 +402,7 @@ public:
+     U8 fetchByte(U32* eip) override;
+     bool shouldContinue(U32 eip) override;
+     DecodedOp** getOpLocation(U32 eip) override;        
++    U32 getCodeBase() override { return this->seg[CS].address; }
+     bool runNextSingleOp(); // false when exception/debug handling requires returning to the run loop
+ 
+ #ifdef BOXEDWINE_MULTI_THREADED
+diff --git a/source/emulation/cpu/decoder.cpp b/source/emulation/cpu/decoder.cpp
+index f4000f4..0aa963c 100644
+--- a/source/emulation/cpu/decoder.cpp
++++ b/source/emulation/cpu/decoder.cpp
+@@ -6517,8 +6517,16 @@ DecodedOp* decodeBlock(DecodeBlockCallback* callback, U32 eip, bool isBig, U32&
+             break;
+         }
+ #endif
++        // destino do salto relativo; em codigo de 16 bits o IP da a volta em 64 KB
++        // (sem isso o atalho apontava para fora do segmento: o Elifoot 98 caia
++        // quando um salto do fim do segmento voltava para o comeco)
++        U32 branchTarget = d.eip + op->imm;
++        if (!isBig) {
++            U32 base = callback->getCodeBase();
++            branchTarget = base + ((branchTarget - base) & 0xFFFF);
++        }
+         if (instructionInfo[op->inst].branch & DECODE_BRANCH_1) {
+-            op->data.nextJump = callback->getOpLocation(d.eip + op->imm);
++            op->data.nextJump = callback->getOpLocation(branchTarget);
+         }
+         if (!callback->shouldContinue(d.eip)) {
+             break;
+@@ -6543,7 +6551,7 @@ DecodedOp* decodeBlock(DecodeBlockCallback* callback, U32 eip, bool isBig, U32&
+             break;
+         }
+         if ((instructionInfo[op->inst].branch & DECODE_BRANCH_1) && ((S32)op->imm) > 0) {
+-            furtherestDirectJump = d.eip + op->imm;
++            furtherestDirectJump = branchTarget;
+         }
+         op->next = DecodedOp::alloc();
+         op = op->next;
+diff --git a/source/emulation/cpu/decoder.h b/source/emulation/cpu/decoder.h
+index 70debba..8623ca3 100644
+--- a/source/emulation/cpu/decoder.h
++++ b/source/emulation/cpu/decoder.h
+@@ -1684,6 +1684,8 @@ public:
+     virtual DecodedOp** getOpLocation(U32 eip) = 0;
+     virtual DecodedOp* getOp(U32 eip, U32 flags) = 0;
+     virtual bool isValidExecutableAddress(U32 address) = 0;
++    // base do segmento de codigo: em codigo de 16 bits o IP da a volta em 64 KB
++    virtual U32 getCodeBase() { return 0; }
+ };
+ 
+ DecodedOp* decodeBlock(DecodeBlockCallback* callback, U32 eip, bool isBig, U32& opCount, U32& decodedLen, U32 maxOpCount = 0xFFFFFFFF);
+diff --git a/source/emulation/cpu/jit/jit.h b/source/emulation/cpu/jit/jit.h
+index 66798a4..5cb5345 100644
+--- a/source/emulation/cpu/jit/jit.h
++++ b/source/emulation/cpu/jit/jit.h
+@@ -142,6 +142,15 @@ using MemPtr = std::shared_ptr<JitMem>;
+ // API available to dynamic ops
+ class Jit {
+ public:
++    // Destino de salto relativo a partir do fim da instrucao (endereco linear). Em
++    // codigo de 16 bits o IP da a volta em 64 KB, como no processador
++    U32 relativeTarget(U32 fallthrough, U32 disp) {
++        if (cpu->isBig()) {
++            return fallthrough + disp;
++        }
++        U32 base = cpu->seg[CS].address;
++        return base + ((fallthrough - base + disp) & 0xFFFF);
++    }
+     enum class ComparisonType {
+         Signed,
+         Unsigned
+diff --git a/source/emulation/cpu/jit/jitCodeGen.h b/source/emulation/cpu/jit/jitCodeGen.h
+index 852a065..6e91a6c 100644
+--- a/source/emulation/cpu/jit/jitCodeGen.h
++++ b/source/emulation/cpu/jit/jitCodeGen.h
+@@ -37,11 +37,11 @@ public:
+     
+     // per instruction, not per block.  
+     bool canJumpInBlock(DecodedOp* op) override {
+-        return currentEip < lastOpEip && isBlockOpBoundary(currentEip + op->len + op->imm);
++        return currentEip < lastOpEip && isBlockOpBoundary(relativeTarget(currentEip + op->len, op->imm));
+     }
+ 
+     bool canJumpInBlock(U32 opEip, DecodedOp* op) override {
+-        return opEip < lastOpEip && isBlockOpBoundary(opEip + op->len + op->imm);
++        return opEip < lastOpEip && isBlockOpBoundary(relativeTarget(opEip + op->len, op->imm));
+     }
+ 
+     void preCompile(DecodedOp* op, bool skippedOp = false) override;
+diff --git a/source/emulation/cpu/jit/jitJump.h b/source/emulation/cpu/jit/jitJump.h
+index 9f3d024..5b91145 100644
+--- a/source/emulation/cpu/jit/jitJump.h
++++ b/source/emulation/cpu/jit/jitJump.h
+@@ -18,14 +18,14 @@
+ 
+ void Jit::dynamic_jump(DecodedOp* op, JitConditional condition) {
+     if (canJumpInBlock(op)) {
+-        U32 target = currentEip + op->len + op->imm;
++        U32 target = relativeTarget(currentEip + op->len, op->imm);
+         if (target <= currentEip) {
+             exitToRunLoopIfNeeded(currentEip);
+         }
+         JumpIfCondition(condition, target);
+     } else {
+         IfCondition(condition); {
+-            blockNext1(currentEip + op->len + op->imm, op);
++            blockNext1(relativeTarget(currentEip + op->len, op->imm), op);
+         }StartElse(); {
+             blockNext2(currentEip + op->len, op);
+         } EndIf();
+diff --git a/source/emulation/cpu/jit/jitOther.h b/source/emulation/cpu/jit/jitOther.h
+index 7f0b4fc..509afc8 100644
+--- a/source/emulation/cpu/jit/jitOther.h
++++ b/source/emulation/cpu/jit/jitOther.h
+@@ -287,9 +287,9 @@ void Jit::dynamic_loopnz(DecodedOp* op) {
+     EndIf();
+     If(width, reg);
+         if (canJumpInBlock(op)) {                
+-            jumpInBlock(currentEip + op->len + (S32)((S8)op->imm));
++            jumpInBlock(relativeTarget(currentEip + op->len, (S32)((S8)op->imm)));
+         } else {
+-            blockNext1(currentEip + op->len + (S32)((S8)op->imm), op);
++            blockNext1(relativeTarget(currentEip + op->len, (S32)((S8)op->imm)), op);
+         }
+     EndIf();
+     if (!canJumpInBlock(op)) {
+@@ -317,9 +317,9 @@ void Jit::dynamic_loopz(DecodedOp* op) {
+     EndIf();
+     If(width, reg);
+         if (canJumpInBlock(op)) {
+-            jumpInBlock(currentEip + op->len + (S32)((S8)op->imm));
++            jumpInBlock(relativeTarget(currentEip + op->len, (S32)((S8)op->imm)));
+         } else {
+-            blockNext1(currentEip + op->len + (S32)((S8)op->imm), op);
++            blockNext1(relativeTarget(currentEip + op->len, (S32)((S8)op->imm)), op);
+         }
+     EndIf();
+     if (!canJumpInBlock(op)) {
+@@ -341,9 +341,9 @@ void Jit::dynamic_loop(DecodedOp* op) {
+ 
+     If(width, getReadOnlyReg(1));
+         if (canJumpInBlock(op)) {
+-            jumpInBlock(currentEip + op->len + (S32)((S8)op->imm));
++            jumpInBlock(relativeTarget(currentEip + op->len, (S32)((S8)op->imm)));
+         } else {
+-            blockNext1(currentEip + op->len + (S32)((S8)op->imm), op);
++            blockNext1(relativeTarget(currentEip + op->len, (S32)((S8)op->imm)), op);
+         }
+     EndIf();
+     if (!canJumpInBlock(op)) {
+@@ -361,9 +361,9 @@ void Jit::dynamic_jcxz(DecodedOp* op) {
+ 
+     IfNot(width, getReadOnlyReg(1));
+         if (canJumpInBlock(op)) {
+-            jumpInBlock(currentEip + op->len + op->imm);
++            jumpInBlock(relativeTarget(currentEip + op->len, op->imm));
+         } else {
+-            blockNext1(currentEip + op->len + (S32)((S8)op->imm), op);
++            blockNext1(relativeTarget(currentEip + op->len, (S32)((S8)op->imm)), op);
+         }
+     EndIf();
+     if (!canJumpInBlock(op)) {
+@@ -410,7 +410,7 @@ void Jit::dynamic_callJw(DecodedOp* op) {
+     RegPtr eip = getTmpReg();
+     movValue(JitWidth::b32, eip, this->currentEip - cpu->seg[CS].address + op->len);
+     push16(eip); 
+-    blockNext1(currentEip + op->len + (S32)((S16)op->imm), op);
++    blockNext1(relativeTarget(currentEip + op->len, (S32)((S16)op->imm)), op);
+ }
+ void Jit::dynamic_callJd(DecodedOp* op) {
+     RegPtr eip = getTmpReg();
+@@ -420,16 +420,16 @@ void Jit::dynamic_callJd(DecodedOp* op) {
+ }
+ void Jit::dynamic_jmp8(DecodedOp* op) {
+     if (canJumpInBlock(op)) {
+-        jumpInBlock(currentEip + op->len + (S32)((S8)op->imm));
++        jumpInBlock(relativeTarget(currentEip + op->len, (S32)((S8)op->imm)));
+     } else {
+-        blockNext1(currentEip + op->len + (S32)((S8)op->imm), op);
++        blockNext1(relativeTarget(currentEip + op->len, (S32)((S8)op->imm)), op);
+     }
+ }
+ void Jit::dynamic_jmp16(DecodedOp* op) {
+     if (canJumpInBlock(op)) {
+-        jumpInBlock(currentEip + op->len + (S32)((S16)op->imm));
++        jumpInBlock(relativeTarget(currentEip + op->len, (S32)((S16)op->imm)));
+     } else {
+-        blockNext1(currentEip + op->len + (S32)((S16)op->imm), op);
++        blockNext1(relativeTarget(currentEip + op->len, (S32)((S16)op->imm)), op);
+     }
+ }
+ void Jit::dynamic_jmp32(DecodedOp* op) {
+diff --git a/source/emulation/cpu/normal/normal_strings.cpp b/source/emulation/cpu/normal/normal_strings.cpp
+index 44e50a9..fbf65ee 100644
+--- a/source/emulation/cpu/normal/normal_strings.cpp
++++ b/source/emulation/cpu/normal/normal_strings.cpp
+@@ -1,3 +1,5 @@
++#include <algorithm>
++#include <string.h>
+ /*
+  *  Copyright (C) 2012-2025  The BoxedWine Team
+  *
+@@ -38,6 +40,62 @@ void movsb16r(CPU* cpu, U32 base) {
+         CX--;
+     }
+ }
++
++// rep movs/stos com enderecamento de 32 bits, no sentido crescente: em blocos de
++// ate uma pagina, direto na memoria do host (o Wine usa muito, ao desenhar). Uma
++// pagina que nao e RAM comum (sem permissao, invalida) volta ao caminho de um
++// elemento por vez, que gera a falha certa no ponto certo.
++static inline U32 bytesNaPagina(U32 address) {
++    return K_PAGE_SIZE - (address & K_PAGE_MASK);
++}
++
++static void movs32rBlocos(CPU* cpu, U32 base, U32 width) {
++    U32 dBase = cpu->seg[ES].address;
++    U32 sBase = cpu->seg[base].address;
++    while (ECX) {
++        U32 d = dBase + EDI, s = sBase + ESI;
++        U32 n = std::min(bytesNaPagina(d), bytesNaPagina(s)) / width;
++        if (n > ECX) n = ECX;
++        if (!n) return;
++        U32 len = n * width;
++        U8* pd = cpu->memory->getRamPtr(d, len, true);
++        if (!pd) return;
++        U8* ps = cpu->memory->getRamPtr(s, len, false);
++        if (!ps) return;
++        if (d > s && d < s + len) {
++            // sobreposto com o destino a frente: o rep movs repete o padrao (com
++            // palavras de 2 ou 4 bytes, o caminho de um elemento por vez faz igual)
++            if (width != 1) return;
++            for (U32 i = 0; i < len; i++) pd[i] = ps[i];
++        } else {
++            ::memmove(pd, ps, len);
++        }
++        EDI += len;
++        ESI += len;
++        ECX -= n;
++    }
++}
++
++static void stos32rBlocos(CPU* cpu, U32 width, U32 value) {
++    U32 dBase = cpu->seg[ES].address;
++    while (ECX) {
++        U32 d = dBase + EDI;
++        U32 n = bytesNaPagina(d) / width;
++        if (n > ECX) n = ECX;
++        if (!n) return;
++        U32 len = n * width;
++        U8* pd = cpu->memory->getRamPtr(d, len, true);
++        if (!pd) return;
++        if (width == 1) {
++            ::memset(pd, (U8)value, len);
++        } else {
++            for (U32 i = 0; i < len; i += width) ::memcpy(pd + i, &value, width);
++        }
++        EDI += len;
++        ECX -= n;
++    }
++}
++
+ void movsb32(CPU* cpu, U32 base) {
+     U32 dBase = cpu->seg[ES].address;
+     U32 sBase = cpu->seg[base].address;
+@@ -47,6 +105,7 @@ void movsb32(CPU* cpu, U32 base) {
+     ESI+=inc;
+ }
+ void movsb32r(CPU* cpu, U32 base) {
++    if (cpu->getDirection() > 0) movs32rBlocos(cpu, base, 1);
+     U32 dBase = cpu->seg[ES].address;
+     U32 sBase = cpu->seg[base].address;
+     S32 inc = cpu->getDirection();
+@@ -89,6 +148,7 @@ void movsw32(CPU* cpu, U32 base) {
+     ESI+=inc;
+ }
+ void movsw32r(CPU* cpu, U32 base) {
++    if (cpu->getDirection() > 0) movs32rBlocos(cpu, base, 2);
+     U32 dBase = cpu->seg[ES].address;
+     U32 sBase = cpu->seg[base].address;
+     S32 inc = cpu->getDirection() << 1;
+@@ -131,6 +191,7 @@ void movsd32(CPU* cpu, U32 base) {
+     ESI+=inc;
+ }
+ void movsd32r(CPU* cpu, U32 base) {
++    if (cpu->getDirection() > 0) movs32rBlocos(cpu, base, 4);
+     U32 dBase = cpu->seg[ES].address;
+     U32 sBase = cpu->seg[base].address;
+     S32 inc = cpu->getDirection() << 2;
+@@ -380,6 +441,7 @@ void stosb32(CPU* cpu) {
+     EDI += cpu->getDirection();
+ }
+ void stosb32r(CPU* cpu) {
++    if (cpu->getDirection() > 0) stos32rBlocos(cpu, 1, AL);
+     U32 dBase = cpu->seg[ES].address;
+     S32 inc = cpu->getDirection();
+     U32 count = ECX;
+@@ -410,6 +472,7 @@ void stosw32(CPU* cpu) {
+     EDI += cpu->getDirection() << 1;
+ }
+ void stosw32r(CPU* cpu) {
++    if (cpu->getDirection() > 0) stos32rBlocos(cpu, 2, AX);
+     U32 dBase = cpu->seg[ES].address;
+     S32 inc = cpu->getDirection() << 1;
+     U32 count = ECX;
+@@ -440,6 +503,7 @@ void stosd32(CPU* cpu) {
+     EDI += cpu->getDirection() << 2;
+ }
+ void stosd32r(CPU* cpu) {
++    if (cpu->getDirection() > 0) stos32rBlocos(cpu, 4, EAX);
+     U32 dBase = cpu->seg[ES].address;
+     S32 inc = cpu->getDirection() << 2;
+     U32 count = ECX;
 diff --git a/source/sdl/startupArgs.cpp b/source/sdl/startupArgs.cpp
 index bf73e61..d3b7ec8 100644
 --- a/source/sdl/startupArgs.cpp
@@ -173,6 +491,23 @@ index bf73e61..d3b7ec8 100644
  
  #include "devtty.h"
  #include "devurandom.h"
+diff --git a/source/x11/x11common.cpp b/source/x11/x11common.cpp
+index 642609c..e8d432b 100644
+--- a/source/x11/x11common.cpp
++++ b/source/x11/x11common.cpp
+@@ -1635,8 +1635,11 @@ static void x11_PutImage(CPU* cpu) {
+ 
+ // int XFlush(Display* display)
+ static void x11_Flush(CPU* cpu) {
++    // O laco principal (doMainLoop) ja redesenha a tela a cada ~17 ms. Desenhar
++    // aqui obrigava a thread do jogo a esperar a thread da interface a cada
++    // XFlush (o Wine chama muito): no Android era boa parte do tempo do jogo
+     XServer* server = XServer::getServer();
+-    server->draw(true);
++    server->isDisplayDirty = true;
+     EAX = Success;
+ }
+ 
 diff --git a/source/x11/xrandr.cpp b/source/x11/xrandr.cpp
 index 60f524f..a1253fe 100644
 --- a/source/x11/xrandr.cpp
