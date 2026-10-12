@@ -424,6 +424,32 @@ static void definir_dpi(int dpi)
         }
 }
 
+/* O jogo valida o eli.cod pelas datas de C:\windows e C:\windows\system (no
+ * Android, modo rapido). O app as fixa antes do Wine abrir, mas na 1a vez o
+ * Wine copia arquivos para la (cache do wine11.zip) e muda a data: fixa de novo
+ * aqui, logo antes de abrir o jogo. 2000-01-01 14:00 UTC, como no Linux. */
+static void fixar_data(const char *pasta)
+{
+    SYSTEMTIME st = { 2000, 1, 6, 1, 14, 0, 0, 0 };
+    FILETIME ft;
+    HANDLE h = CreateFileA(pasta, FILE_WRITE_ATTRIBUTES, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+                           NULL, OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS, NULL);
+    if (h == INVALID_HANDLE_VALUE) return;
+    SystemTimeToFileTime(&st, &ft);
+    SetFileTime(h, &ft, &ft, &ft);
+    CloseHandle(h);
+}
+
+static void fixar_datas_windows(void)
+{
+    char w[MAX_PATH], s[MAX_PATH + 8];
+    UINT n = GetWindowsDirectoryA(w, MAX_PATH);
+    if (!n || n >= MAX_PATH) return;
+    wsprintfA(s, "%s\\system", w);
+    fixar_data(s);
+    fixar_data(w);
+}
+
 /* Pula um argumento (com ou sem aspas) da linha de comando */
 static char *proximo(char *p, char *destino, int max)
 {
@@ -468,6 +494,7 @@ int WINAPI WinMain(HINSTANCE inst, HINSTANCE prev, LPSTR cmd, int show)
     if (pasta[0]) {
         gravar_texto("comando.txt", "");
         trocar_fontes();
+        fixar_datas_windows();
     }
     if (!CreateProcessA(NULL, cmd, NULL, NULL, FALSE, 0, NULL, NULL, &si, &pi))
         return 1;
