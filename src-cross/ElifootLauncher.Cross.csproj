@@ -1,6 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
-  <!-- Launcher nativo pra Linux (e, depois, Mac). Mesmas telas do launcher
-       do Windows (src/), reaproveitando os codecs de save/arbitros/patch. -->
+  <!-- Launcher do Linux, do macOS e do Windows portatil (win-x86, sem depender do
+       .NET Framework). Mesmas telas do launcher classico do Windows (src/),
+       reaproveitando os codecs de save/arbitros/patch. -->
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
     <TargetFramework>net8.0</TargetFramework>
@@ -21,9 +22,13 @@
     <Compile Include="../src/Registro.cs" Link="Shared/Registro.cs" />
     <Compile Include="../src/SavesPorEquipes.cs" Link="Shared/SavesPorEquipes.cs" />
     <Compile Include="../src/Atualizacao.cs" Link="Shared/Atualizacao.cs" />
+    <!-- Windows (portatil): injecao do ScreenHook.dll, como no launcher classico -->
+    <Compile Include="../src/DllInjector.cs" Link="Shared/DllInjector.cs" />
     <EmbeddedResource Include="../linux/elifoot98.png" LogicalName="elifoot98.png" />
     <EmbeddedResource Include="../android/app/src/main/res/drawable-nodpi/logo.png" LogicalName="logo.png" />
     <EmbeddedResource Include="../game/REFEREE.TXE" LogicalName="REFEREE.TXE" />
+    <!-- Windows (.exe unico): jogo, otvdm, fontes e ScreenHook (scripts/build-windows-portatil.sh) -->
+    <EmbeddedResource Include="$(PacotePortatil)" LogicalName="pacote.zip" Condition="'$(PacotePortatil)' != ''" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Avalonia" Version="12.1.3" />

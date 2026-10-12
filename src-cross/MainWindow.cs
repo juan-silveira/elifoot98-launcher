@@ -121,6 +121,7 @@ namespace ElifootLauncher
         // Chave em "links" do versao.json pra este sistema
         private static string Plataforma()
         {
+            if (OperatingSystem.IsWindows()) return "windows-portatil";
             if (OperatingSystem.IsMacOS()) return "macos";
             return string.IsNullOrEmpty(Environment.GetEnvironmentVariable("APPIMAGE")) ? "linux-deb" : "linux-appimage";
         }
@@ -165,11 +166,16 @@ namespace ElifootLauncher
             };
         }
 
-        // xdg-open no Linux, open no Mac
+        // xdg-open no Linux, open no Mac, o navegador padrao no Windows
         private static bool AbrirNoNavegador(string url)
         {
             try
             {
+                if (OperatingSystem.IsWindows())
+                {
+                    using var w = System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(url) { UseShellExecute = true });
+                    return true;
+                }
                 var psi = new System.Diagnostics.ProcessStartInfo(OperatingSystem.IsMacOS() ? "open" : "xdg-open")
                 {
                     UseShellExecute = false,

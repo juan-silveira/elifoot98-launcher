@@ -33,6 +33,13 @@ namespace ElifootLauncher
             janelaLivre.IsEnabled = fullscreen.IsChecked != true;
             fullscreen.IsCheckedChanged += (_, _) => janelaLivre.IsEnabled = fullscreen.IsChecked != true;
             var nota = "Maior que o normal, o jogo desenha as telas maiores, com o texto nítido. Com a janela redimensionável, a imagem acompanha a borda da janela.";
+            // No Windows (versao portatil) o Tamanho do jogo e o mesmo; a janela redimensionavel
+            // (gamescope) e so do Linux
+            if (OperatingSystem.IsWindows())
+            {
+                janelaLivre.IsVisible = false;
+                nota = "Maior que o normal, o jogo desenha as telas maiores, com o texto nítido. A janela não muda de tamanho depois de aberta: troque aqui e abra o jogo de novo.";
+            }
             if (OperatingSystem.IsMacOS())
             {
                 // O Wine do macOS nao tem desktop virtual: o jogo sempre abre maximizado
@@ -106,7 +113,7 @@ namespace ElifootLauncher
                         return;
                     }
                 }
-                cfg.ResolutionWidth = 800;   // a janela do Wine fica no tamanho do jogo
+                cfg.ResolutionWidth = 800;   // a janela do jogo fica no tamanho das telas
                 cfg.ResolutionHeight = 600;
                 cfg.Fullscreen = fullscreen.IsChecked == true;
                 cfg.Escala = LauncherConfig.OpcoesEscala[escala.SelectedIndex];

@@ -5,19 +5,23 @@ using System.Text;
 
 namespace ElifootLauncher
 {
-    // Lado Linux/macOS do launcher. O jogo roda pelo elifoot98.sh (Wine + otvdm),
-    // que copia os arquivos do pacote (somente leitura) pra pasta gravavel —
-    // ~/.local/share/elifoot98 ou ~/Library/Application Support/Elifoot98 —
-    // e la que o launcher le e grava.
+    // O jogo de cada sistema. No Linux e no macOS roda pelo elifoot98.sh (Wine +
+    // otvdm), que copia os arquivos do pacote (somente leitura) pra pasta gravavel —
+    // ~/.local/share/elifoot98 ou ~/Library/Application Support/Elifoot98 — e la que
+    // o launcher le e grava. No Windows (versao portatil) quem faz isso e o WindowsJogo,
+    // em %LOCALAPPDATA%\Elifoot98.
     public class LinuxGame
     {
         public string AppDir { get; } = AppContext.BaseDirectory;
         public string Script => Path.Combine(AppDir, "elifoot98.sh");
         public string DataDir { get; } = PastaDeDados();
+        public static string PastaDeDadosPublica() => PastaDeDados();
 
         // Mesma regra do elifoot98.sh
         private static string PastaDeDados()
         {
+            if (OperatingSystem.IsWindows())
+                return WindowsJogo.PastaDeDados();
             var home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
             if (OperatingSystem.IsMacOS())
                 return Path.Combine(home, "Library", "Application Support", "Elifoot98");
@@ -32,6 +36,11 @@ namespace ElifootLauncher
         // Copia/atualiza os arquivos do jogo na pasta gravavel (sem abrir o Wine)
         public void Preparar()
         {
+            if (OperatingSystem.IsWindows())
+            {
+                WindowsJogo.Sincronizar(this);
+                return;
+            }
             using var p = StartScript("preparar", null) ?? throw new IOException("Não consegui executar o elifoot98.sh.");
             p.WaitForExit();
             if (p.ExitCode != 0)
@@ -40,10 +49,24 @@ namespace ElifootLauncher
 
         public void LaunchElifoot(LauncherConfig cfg)
         {
+            if (OperatingSystem.IsWindows())
+            {
+                WindowsJogo.Sincronizar(this);
+                SavesPorEquipes.Separar(JogosDir, cfg.EquipesPorDivisao);
+                var exe = Path.Combine(GameDir, cfg.ExeDoJogo);
+                WindowsJogo.Abrir(this, File.Exists(exe) ? exe : Path.Combine(GameDir, "ELIFOOT.EXE"), cfg);
+                return;
+            }
             SavesPorEquipes.Separar(JogosDir, cfg.EquipesPorDivisao);
             StartScript("jogo", cfg);
         }
-        public void LaunchEditor(LauncherConfig cfg) => StartScript("editor", cfg);
+        public void LaunchEditor(LauncherConfig cfg)
+        {
+            if (OperatingSystem.IsWindows())
+                WindowsJogo.Abrir(this, Path.Combine(GameDir, "EDITEQ.EXE"), cfg);
+            else
+                StartScript("editor", cfg);
+        }
 
         private Process? StartScript(string modo, LauncherConfig? cfg)
         {
@@ -74,7 +97,12 @@ namespace ElifootLauncher
         public string Ativar()
         {
             Preparar();
-            var senha = Registro.SenhaFromEliCod(File.ReadAllBytes(Path.Combine(OtvdmWindowsDir, "eli.cod")));
+            var eliCod = Path.Combine(OtvdmWindowsDir, "eli.cod");
+            // No Windows o proprio jogo cria o eli.cod na 1a vez que abre (no Linux e no
+            // macOS ele vem no pacote, feito para as datas fixas)
+            if (!File.Exists(eliCod))
+                throw new FileNotFoundException("Abra o jogo uma vez (até a tela inicial) e depois ative os recursos.");
+            var senha = Registro.SenhaFromEliCod(File.ReadAllBytes(eliCod));
             var contraSenha = Registro.ContraSenha(senha, Registro.TipoAutor2);
             GravarIni(Path.Combine(OtvdmWindowsDir, "elif98.ini"), "System", "secondCode", contraSenha);
             return contraSenha;

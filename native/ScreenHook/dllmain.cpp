@@ -17,6 +17,7 @@
 #include <windows.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <wchar.h>
 #include "minhook/include/MinHook.h"
 
 typedef int  (WINAPI *GetSystemMetrics_t)(int);
@@ -250,6 +251,23 @@ static void InstallHooks(void)
     if (n > 0 && n < sizeof(buf)) { int v = atoi(buf); if (v > 0) g_FakeWidth = v; }
     n = GetEnvironmentVariableA("ELIFOOT_FAKE_HEIGHT", buf, sizeof(buf));
     if (n > 0 && n < sizeof(buf)) { int v = atoi(buf); if (v > 0) g_FakeHeight = v; }
+
+    /* Alta definicao (launcher portatil): as fontes da lista (a MS Sans Serif
+     * TrueType, com as medidas da original) so para este processo, sem instalar
+     * nada no Windows. Caminhos separados por ';' */
+    {
+        static WCHAR fontes[4096];
+        DWORD m = GetEnvironmentVariableW(L"ELIFOOT_FONTES", fontes, 4096);
+        if (m > 0 && m < 4096) {
+            WCHAR *p = fontes;
+            while (p && *p) {
+                WCHAR *q = wcschr(p, L';');
+                if (q) *q = 0;
+                if (*p) AddFontResourceExW(p, FR_PRIVATE, 0);
+                p = q ? q + 1 : NULL;
+            }
+        }
+    }
 
     if (MH_Initialize() != MH_OK) return;
 

@@ -82,6 +82,13 @@ jobs:
           cmake --build build/screenhook --config Release
           copy build\screenhook\Release\ScreenHook.dll src\bin\Release\net48\ScreenHook.dll
 
+      - name: Build portable launcher (.exe unico, sem .NET Framework)
+        shell: bash
+        run: |
+          bash scripts/build-windows-portatil.sh "${{ steps.version.outputs.value }}" build/screenhook/Release/ScreenHook.dll
+          mkdir -p installer/Output
+          cp dist/Elifoot98-*-Windows-portatil.exe installer/Output/
+
       - name: Install Inno Setup
         run: |
           choco install innosetup -y --no-progress
@@ -134,6 +141,7 @@ jobs:
 
             - **`elifoot98-launcher-setup-*.zip`** — RECOMENDADO. Baixa sem bloqueio de browser. Extraia e execute o `.exe` de dentro.
             - **`elifoot98-launcher-setup-*.exe`** — instalador direto (browsers podem bloquear).
+            - **`Elifoot98-*-Windows-portatil.exe`** — Windows 10/11 sem instalar: um arquivo só, com o jogo dentro. Para quem o launcher instalado não abre (sem .NET Framework 4.8). Tem o Tamanho do jogo (alta definição) do Linux. Se o Windows avisar "O Windows protegeu o computador", clique em **Mais informações → Executar assim mesmo**.
             - **`elifoot98_*_amd64.deb`** — Linux (Debian/Ubuntu/Mint): instale e abra "Elifoot 98" no menu.
             - **`Elifoot98-*-x86_64.AppImage`** — Linux (qualquer distro): marque como executável e rode.
             - **`Elifoot98-*-macOS.zip`** — macOS 10.15+ (Intel ou Apple Silicon com Rosetta 2): extraia e arraste o `Elifoot98.app` para Aplicativos. O app não é assinado pela Apple: na 1ª vez, clique com o botão direito → **Abrir** (ou rode `xattr -cr /Applications/Elifoot98.app`).
