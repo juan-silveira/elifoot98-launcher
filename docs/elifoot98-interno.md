@@ -1271,6 +1271,62 @@ Onde os textos ficam e como a tradução cabe:
 Bilheteria, Arquibancadas…) e mensagens em pt-BR, e as rodadas correm
 normalmente.
 
+## 14. Filtros da Lista de Jogadores e explicação do árbitro (patch do launcher)
+
+**Filtros de Comportamento, Nota e Risco de lesão** (`tools/divisoes/filtros.py`
+e `filtros.asm`).
+- **Como a busca decide.** A busca (`findBtnClick`, `seg10:34F5`) passa cada
+  jogador por uma função aninhada (`seg10:3223`). Ela testa os filtros originais
+  e devolve `[bp-1]`.
+  - Nessa função, `[bp+6]` aponta para o ponteiro do jogador, e `[bp+4]` é o
+    quadro do `findBtnClick`, cujo `+6` é a janela.
+  - No jogador: comportamento em `+0x2D` (0 Fair Play, 1 Cordeirinho,
+    2 Cavalheiro, 3 Caneleiro, 4 Caceteiro, 5 Sarrafeiro), nota em `+0x2B` e
+    risco de lesão em `+0x2F`, todos words.
+- **O que o patch faz.** O fim da função (`mov al, [bp-1]`, `seg10:34EC`) salta
+  para um trecho no fim do `seg10` (`call far` + `leave; ret 6`). Esse trecho
+  chama o filtro no fim do `seg18`.
+  - O filtro lê o `ItemIndex` dos 3 combos (`seg18:568B`, chamado como
+    `push cs; call` perto, sem relocação).
+  - Comportamento igual ao escolhido, nota ≥ 11 − índice e risco ≤ índice − 1.
+  - O índice 0 ("Qualquer") ou −1 não filtra.
+- **Os combos** usam os campos dos rótulos fixos `Label1` a `Label3` (`+0x188`,
+  `+0x18C`, `+0x190`), que o código da janela não lê.
+  - O Delphi 1 não guarda o `ItemIndex` no DFM. O `FormCreate` da tabela de
+    métodos passa a ser o de `filtros.asm`, que põe os 3 em "Qualquer"
+    (`seg18:56B2`).
+  - Os filtros originais voltam a vazio a cada rodada (`seg10:2EEC`, quando
+    `+0x1EC` muda). Os novos guardam a escolha.
+- **A janela** não muda de tamanho.
+  - Os 3 filtros ficam na coluna da direita.
+  - "Não mostrar…" fica numa linha só, na altura da Nacionalidade.
+  - "Dinheiro em caixa" fica na linha do Preço.
+
+**Mover um DFM para o fim do arquivo** (`paginas.mover_dfm`).
+- Os recursos ficam no fim do EXE (alinhados a 256 bytes), logo antes dos 4
+  bytes da autoverificação.
+- Para uma janela crescer além do enchimento:
+  - o DFM novo vai para o fim, com folga para as traduções;
+  - a entrada na tabela de recursos (deslocamento e tamanho, em unidades do
+    alinhamento) passa a apontar para lá;
+  - o DFM antigo é zerado;
+  - a soma da autoverificação é recalculada.
+- O EXE passa de 836.356 para 849.412 bytes.
+
+**Explicação na "Ajuda do Árbitro"** (`TRefereeAidDlg`, `arbitro.py`).
+- A janela fica 96 pontos mais alta e ganha 2 parágrafos debaixo das barras
+  (seção 4, "Árbitro"):
+  - mais pênaltis a favor e menos expulsões;
+  - nenhuma expulsão a partir de 60% da barra (V ≥ 9 de 15);
+  - o cálculo pelas letras dos nomes, +3 do mesmo país e +2 em casa.
+- São 2 legendas porque cada uma tem no máximo 255 caracteres no Delphi 1.
+
+**Comprovado.**
+- No Linux: Cavalheiro + nota 8 ou mais + risco até 3 listou só jogadores com
+  Cav, nota ≥ 8 e RL ≤ 3. A janela do árbitro mostra os 2 parágrafos.
+- No Android: a janela abre com os 3 combos em "Qualquer". As listas abrem pelo
+  toque, e "Sarrafeiro" listou só jogadores Sar.
+
 ## Autoverificação do executável (`seg12:39D9` → `seg12:3825`)
 
 **Validado.** Ao abrir, o jogo lê o próprio `ELIFOOT.EXE` e compara os **4

@@ -181,3 +181,36 @@ def paginar(ne, b, n):
     novo = novo_dfm(bytes(b[i:fim]), n)
     b[i:fim] = novo
     return rot
+
+
+def _recurso(b, nome):
+    """(posicao da entrada na tabela de recursos, deslocamento, tamanho, alinhamento)."""
+    ne = struct.unpack_from('<H', b, 0x3C)[0]
+    rt = ne + struct.unpack_from('<H', b, ne + 0x24)[0]
+    sh = struct.unpack_from('<H', b, rt)[0]
+    p = rt + 2
+    while True:
+        tipo, n = struct.unpack_from('<HH', b, p)
+        p += 8
+        assert tipo, nome
+        for _ in range(n):
+            off, ln, fl, id_ = struct.unpack_from('<HHHH', b, p)
+            if not id_ & 0x8000 and b[rt + id_ + 1: rt + id_ + 1 + b[rt + id_]].upper() == nome.upper().encode():
+                return p, off << sh, ln << sh, sh
+            p += 12
+
+
+def mover_dfm(b, classe, novo, folga=512):
+    """Poe o DFM novo (b'TPF0'...) da janela no fim do arquivo e aponta a entrada dela na
+    tabela de recursos para la; o antigo e zerado. Os recursos ficam no fim do EXE, antes
+    dos 4 bytes da autoverificacao (gravar recalcula a soma). A folga e para as
+    traducoes crescerem."""
+    p, off, ln, sh = _recurso(b, classe)
+    i = b.find(b'TPF0' + bytes([len(classe)]) + classe.encode())
+    assert off <= i < off + ln, (classe, hex(off), hex(i))
+    b[off: off + ln] = b'\0' * ln
+    pos = len(b) - 4
+    assert pos % (1 << sh) == 0, pos
+    tam = -(-(len(novo) + folga) // (1 << sh)) * (1 << sh)
+    b[pos:] = novo + b'\0' * (tam - len(novo)) + b'\0\0\0\0'
+    struct.pack_into('<HH', b, p, pos >> sh, tam >> sh)
