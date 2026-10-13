@@ -1093,6 +1093,68 @@ países, 3 jornadas, uns 145 jogos cada):
 
 Num jogo de futebol real são uns 4 amarelos e 0,2 vermelho por jogo.
 
+## 11. Nota e Risco de lesão nas telas (patch do launcher)
+
+O jogo original guarda a Nota e a Lesão de cada jogador (seção 2) mas não as
+mostra. Os EXEs do launcher mostram as duas, para ajudar na compra.
+
+**Na ficha do jogador** (`tools/divisoes/ficha.py`). São as 3 janelas que têm o
+Historial: leilão, aba Jogador e plantel de outra equipa.
+- Abaixo do Comportamento entram 2 linhas: "Nota" (`+0x2B`) e "Risco de lesão"
+  (`+0x2F`). Os dois campos têm 2 bytes.
+- Os valores são escritos pelo mesmo laço do Historial (`historial.asm`), que
+  ganha 2 linhas na tabela.
+- Os rótulos dos valores usam os campos de textos fixos que o código nunca lê:
+  - leilão: `+0x1D8` e `+0x1DC`;
+  - aba Jogador: `+0x2BC` e `+0x2D4`;
+  - plantel: `+0x1B0` e `+0x1B8`.
+
+  O texto fixo muda de nome, e o rótulo novo fica com o nome antigo, que o
+  Delphi liga ao campo ao ler o DFM.
+- As linhas ficam a 15 pontos, com todos os valores em x 96. A aba Jogador
+  acaba no "Renovar contrato" (página de 329 pontos), e com 16 não caberia.
+
+**Comprovado** no Linux (Wine + otvdm) e no Android: os valores batem com as
+fórmulas da seção 2 (Nigel Quashie 8/4, Marcus Bignot 3/8, Adrian Coote 10/7,
+Dennis Bergkamp 1/9), nas 3 janelas.
+
+Dois comportamentos do `TLabel` do Delphi 1 que importam para patches de DFM
+(**observados** no otvdm e no Wine):
+- o `AutoSize` não ajusta a largura de um rótulo novo ao abrir: sem `Width`, ele
+  fica com 65;
+- o texto que não cabe na largura quebra por palavra para a linha de baixo.
+  "Risco de lesão" com 65 mostrava só "Risco de", e o til de "lesão" aparecia na
+  linha seguinte. O "Golos esta época" do leilão, com 85, também quebrava.
+
+**Na Lista de Jogadores** (Procura, `TcheckPlayerDlg`; `procura.py` e
+`procura.asm`):
+- **Como a linha é desenhada.** O `ListBoxOfPlayersDrawItem` (`seg10:3168`) não
+  desenha as colunas. Ele chama a rotina comum `seg14:0AD6` com uma máscara de
+  colunas (a Procura usa `0xE063`). Essa rotina pede ao jogador (método virtual
+  `+0x08`, `seg03:76A3`–`7FB7`) um texto com as colunas que a máscara liga, cada
+  uma com um byte de largura, o texto e um TAB.
+  - O bit `0x8000` é o Comportamento abreviado, de uma tabela de `string[3]` em
+    `DS:0x1762`: FP, Cor, Cav, Can, Cac, Sar, na ordem de 0 a 5.
+  - Os 7 bits de `0xE063` são as 7 colunas da tela: posição, nome, equipa,
+    força, nacionalidade, preço e comportamento.
+- **O que o patch faz.** O `seg03` não tem espaço para colunas novas. Por isso o
+  fim do desenho (`seg10:321F`, `leave; retf 0x10`) salta para um trecho
+  acrescentado no fim do `seg10`. Esse trecho escreve
+  `Canvas.TextOut(Left + x, Top, IntToStr(...))` da Nota e do Risco:
+  - o `Canvas` da `TListBox` fica em `+0xDD`;
+  - o `IntToStr` é `seg24:07D0`;
+  - o `TCanvas.TextOut` é `seg19:1F22`.
+- **A janela.** Fica 50 pontos mais larga (lista, quadro e botões), com o título
+  "Nota RL" sobre as colunas.
+- **Espaço no arquivo.** O `seg10` tinha 169 bytes livres antes do segmento
+  seguinte. Ele cresce 102 bytes, mais 4 relocações.
+- **Comprovado** no Linux e no Android:
+  - os números batem com as fórmulas (Aaron Flahavan 1/10, Adelmo 5/0, Adrian
+    Coote 10/7);
+  - "Cav" aparece para quem o plantel mostra como Cavalheiro;
+  - no Android, com o `seg10` maior, a rodada começa e termina normalmente (ao
+    contrário do `seg04`, seção 10).
+
 ## Autoverificação do executável (`seg12:39D9` → `seg12:3825`)
 
 **Validado.** Ao abrir, o jogo lê o próprio `ELIFOOT.EXE` e compara os **4

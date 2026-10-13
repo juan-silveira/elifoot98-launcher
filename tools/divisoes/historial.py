@@ -14,15 +14,16 @@ from paginas import (_tabela, _gravar_tabela, ler_dfm, escrever_dfm, por,
 
 INTTOSTR, SETTEXT = (24, 0x07D0), (21, 0x1D8C)
 
-# seg, regiao, [bp-TEMP], jogador, campos (golos, golos, amarelos, vermelhos, lesoes),
-# formulario, caixa, texto fixo dos vermelhos, 1a linha
+# seg, regiao, [bp-TEMP], jogador, campos (golos, golos, amarelos, vermelhos, lesoes,
+# e na ficha a Nota e o Risco de lesao: ficha.py), formulario, caixa, texto fixo dos
+# vermelhos, 1a linha
 JANELAS = [
-    (2, 0x32BF, 0x3363, 0x20C, 0x26DA, (0x20C, 0x1F8, 0x1F0, 0x1FC, 0x200),
+    (2, 0x32BF, 0x3363, 0x20C, 0x26DA, (0x20C, 0x1F8, 0x1F0, 0x1FC, 0x200, 0x1D8, 0x1DC),
      'TsellPlayerDlg', 'GroupBox2', 'Label19', 16),
-    (4, 0x246F, 0x2543, 0x208, None, (0x2E8, 0x2D8, 0x2D0, 0x2DC, 0x2E0),
+    (4, 0x246F, 0x2543, 0x208, None, (0x2E8, 0x2D8, 0x2D0, 0x2DC, 0x2E0, 0x2BC, 0x2D4),
      'TprepareGameDlg', 'GroupBox1', 'Label13', 16),
-    (10, 0x204C, 0x20F0, 0x108, 0x2892, (0x1DC, 0x1C4, 0x1B4, 0x1C8, 0x1CC),
-     'TPlantelDlg', 'GroupBox1', 'Label4', 24),
+    (10, 0x204C, 0x20F0, 0x108, 0x2892, (0x1DC, 0x1C4, 0x1B4, 0x1C8, 0x1CC, 0x1B0, 0x1B8),
+     'TPlantelDlg', 'GroupBox1', 'Label4', 16),
 ]
 
 LINHAS = ['Jogos', 'Golos', 'Cart\xf5es amarelos', 'Cart\xf5es vermelhos', 'Les\xf5es']
