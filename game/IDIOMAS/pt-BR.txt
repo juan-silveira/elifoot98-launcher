@@ -183,6 +183,5 @@ Registo para autor = Registro para autor
 ") lesionou-se e tem de ser substituído.\rEscolha o jogador a entrar." = ") se lesionou e tem de ser substituído.\rEscolha o jogador a entrar."
 "Há transferências por realizar.\rSe sair do programa, essas transferências não serão executadas e os jogadores correspondentes serão removidos.\rTem a certeza que quer sair?\x00" = "Há transferências pendentes.\rSe sair do programa, essas transferências não serão feitas e os jogadores correspondentes serão removidos.\rTem certeza de que quer sair?\x00"
 
-# --- Ajuda do Arbitro (explicacao do launcher) ---
-Quanto maior a barra, mais o árbitro ajuda a equipa: mais penáltis a favor e menos expulsões. A partir de 60% da barra, a equipa não tem expulsões. = Quanto maior a barra, mais o árbitro ajuda o time: mais pênaltis a favor e menos expulsões. A partir de 60% da barra, o time não tem expulsões.
-A barra vem da comparação das letras do nome do árbitro com as do nome da equipa, +3 se ele for do mesmo país e +2 para quem joga em casa. = A barra vem da comparação das letras do nome do árbitro com as do nome do time, +3 se ele for do mesmo país e +2 para quem joga em casa.
+# --- Ajuda do Arbitro (chances no nome de cada time, do launcher) ---
+"   Penálti: " = "   Pênalti: "

@@ -116,14 +116,43 @@ class NE:
                 pos = struct.unpack_from('<H', self.b, base + pos)[0]
         return locs
 
+    def limite(self, base):
+        """Inicio do que vem depois de base no arquivo: o segmento ou recurso seguinte,
+        ou os 4 bytes da autoverificacao no fim."""
+        ini = [self.seg(t)[0] for t in range(1, self.nseg + 1)]
+        ne = struct.unpack_from('<H', self.b, 0x3C)[0]
+        rt = ne + struct.unpack_from('<H', self.b, ne + 0x24)[0]
+        sh = struct.unpack_from('<H', self.b, rt)[0]
+        p = rt + 2
+        while struct.unpack_from('<H', self.b, p)[0]:
+            n = struct.unpack_from('<H', self.b, p + 2)[0]
+            p += 8
+            for _ in range(n):
+                ini.append(struct.unpack_from('<H', self.b, p)[0] << sh)
+                p += 12
+        return min([o for o in ini if o > base] + [len(self.b) - 4])
+
+    def mover(self, s, folga=1024):
+        """Leva o segmento (com as relocacoes) para o fim do arquivo, antes da soma de
+        verificacao, com folga para crescer; o lugar antigo e zerado."""
+        base, ln, fl, mn = self.seg(s)
+        fim = base + ln
+        if fl & 0x100:
+            fim += 2 + 8 * struct.unpack_from('<H', self.b, base + ln)[0]
+        dados = bytes(self.b[base:fim])
+        self.b[base:fim] = b'\0' * (fim - base)
+        al = 1 << self.shift
+        pos = -(-(len(self.b) - 4) // al) * al
+        tam = -(-(len(dados) + folga) // al) * al
+        self.b[len(self.b) - 4:] = b'\0' * (pos - (len(self.b) - 4)) + dados + b'\0' * (tam - len(dados)) + b'\0' * 4
+        struct.pack_into('<H', self.b, self.ent(s), pos >> self.shift)
+
     def append(self, s, data):
         """acrescenta bytes no fim do segmento (empurra a tabela de relocacoes)."""
         base, ln, fl, mn = self.seg(s)
         n = struct.unpack_from('<H', self.b, base + ln)[0]
         rel = bytes(self.b[base + ln: base + ln + 2 + 8 * n])
-        nxt = min((struct.unpack_from('<H', self.b, self.segtab + 8 * i)[0] << self.shift)
-                  for i in range(self.nseg)
-                  if (struct.unpack_from('<H', self.b, self.segtab + 8 * i)[0] << self.shift) > base)
+        nxt = self.limite(base)
         fim = base + ln + len(data) + len(rel)
         if fim > nxt:
             sys.exit('sem espaco no seg%02d' % s)
@@ -207,7 +236,7 @@ def main(n, entrada, saida):
         procura(ne, b)
         ingressos(ne, b)
         filtros(ne, b)
-        arbitro(b)
+        arbitro(ne, b)
         gravar(b, saida)
         print('ok: 8 equipas/divisao (original), ate %d jogadores' % MAXJOG)
         return
@@ -310,7 +339,7 @@ def main(n, entrada, saida):
         procura(ne, b)
         ingressos(ne, b)
         filtros(ne, b)
-        arbitro(b)
+        arbitro(ne, b)
         print('paginas:', {k: '%04X' % v for k, v in paginas.paginar(ne, b, N).items()})
         gravar(b, saida)
         return
@@ -323,7 +352,7 @@ def main(n, entrada, saida):
     procura(ne, b)
     ingressos(ne, b)
     filtros(ne, b)
-    arbitro(b)
+    arbitro(ne, b)
     gravar(b, saida)
     print('ok: %d equipas/divisao, %d jornadas; rotinas seg03 %s, ajudante seg11:%04X'
           % (N, R, {k: '%04X' % v for k, v in rot.items()}, aj_off))

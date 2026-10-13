@@ -1,40 +1,48 @@
-"""Explicacao na janela "Ajuda do Arbitro" (TRefereeAidDlg).
+"""Chances na janela "Ajuda do Arbitro" (TRefereeAidDlg).
 
-A janela so mostra a balanca e uma barra por equipa (gaugeHomeAid/gaugeAwayAid, de 0
-a 15), sem dizer o que elas sao. A barra e a influencia do arbitro em cada equipa
-(docs/elifoot98-interno.md, "Arbitro"): mais penaltis a favor e menos expulsoes, e
-com 9 ou mais (60% da barra) nenhuma expulsao. A janela fica mais alta e ganha 2
-paragrafos debaixo do quadro das barras (cada legenda do Delphi 1 tem ate 255
-caracteres). O DFM vai para o fim do arquivo (mover_dfm).
+A janela so mostra a balanca e uma barra por equipa (de 0 a 15), sem dizer o que
+elas sao. A barra e a influencia V do arbitro em cada equipa (docs/elifoot98-interno.md,
+"Arbitro"). O nome de cada equipa passa a mostrar a chance de penalti a favor no jogo
+e quantos cartoes o arbitro deixa de dar a ela (arbitro.asm, no fim do seg25),
+antes do ShowModal da rotina que preenche a janela (seg06:2963). O seg25 vai para o
+fim do arquivo (NE.mover): nenhum segmento tinha espaco para o trecho. Os nomes ficam com
+letra menor (-13) para caber.
 """
 import struct
-from paginas import ler_dfm, escrever_dfm, por, inteiro, texto, ident, conjunto, mover_dfm
+from paginas import _tabela, _gravar_tabela, ler_dfm, escrever_dfm, por, inteiro
+from montar import montar
+from ingressos import _registro, _novos
 
 CLASSE = 'TRefereeAidDlg'
-MAIS = 96                              # quanto a janela cresce
-EFEITO = ('Quanto maior a barra, mais o \xe1rbitro ajuda a equipa: mais pen\xe1ltis a favor '
-          'e menos expuls\xf5es. A partir de 60% da barra, a equipa n\xe3o tem expuls\xf5es.')
-CALCULO = ('A barra vem da compara\xe7\xe3o das letras do nome do \xe1rbitro com as do nome da '
-           'equipa, +3 se ele for do mesmo pa\xeds e +2 para quem joga em casa.')
+MODAL = 0x2963                          # seg06: les di,[bp+6]; push es; push di; call ShowModal
+SEG = 25
 
 
-def _paragrafo(top, altura, caption):
-    assert len(caption) <= 255, len(caption)
-    return dict(cls='TLabel', nome='', filhos=[], props=[
-        ['Left', inteiro(22)], ['Top', inteiro(top)], ['Width', inteiro(370)],
-        ['Height', inteiro(altura)], ['AutoSize', b'\x08'], ['WordWrap', b'\x09'],
-        ['Caption', texto(caption)], ['Font.Color', ident('clBlack')],
-        ['Font.Height', inteiro(-11)], ['Font.Name', texto('MS Sans Serif')],
-        ['Font.Style', conjunto()], ['ParentFont', b'\x08']])
-
-
-def arbitro(b):
+def _dfm(b):
     i = b.find(b'TPF0' + bytes([len(CLASSE)]) + CLASSE.encode())
     assert i > 0
     form, fim = ler_dfm(b, i + 4)
-    altura = struct.unpack('<h', dict(form['props'])['ClientHeight'][1:3])[0]
-    assert altura == 397, altura
-    por(form, 'ClientHeight', inteiro(altura + MAIS))
-    form['filhos'].append(_paragrafo(altura + 2, 42, EFEITO))
-    form['filhos'].append(_paragrafo(altura + 48, 42, CALCULO))
-    mover_dfm(b, CLASSE, b'TPF0' + escrever_dfm(form))
+    for c in form['filhos']:
+        if c['nome'] in ('textHomeTeam', 'textAwayTeam'):
+            assert dict(c['props'])['Font.Height'] == inteiro(-16)
+            por(c, 'Font.Height', inteiro(-13))
+    novo = b'TPF0' + escrever_dfm(form)
+    assert len(novo) == fim - i
+    b[i:fim] = novo
+
+
+def arbitro(ne, b):
+    s6 = ne.seg(6)[0]
+    assert b[s6 + MODAL: s6 + MODAL + 10] == bytes.fromhex('c47e0606579affff0000')
+    ne.mover(SEG)                       # nenhum segmento tem 330 bytes livres
+    org = ne.seg(SEG)[1]
+    cod, rot = montar('arbitro.asm', org, ORG='0x%X' % org)
+    assert ne.append(SEG, cod) == org
+    _novos(ne, SEG, [[3, 0, rot['..@texto'], 21, 0x1D8C], [3, 0, rot['..@modal'], 22, 0x5743]])
+    # o call far do ShowModal passa a ser o de mostrar, 5 bytes antes
+    p, recs, k = _registro(ne, 6, MODAL + 6)
+    assert (recs[k][3], recs[k][4]) == (22, 0x5743), recs[k]
+    recs[k][2], recs[k][3], recs[k][4] = MODAL + 1, SEG, rot['mostrar']
+    _gravar_tabela(ne, p, recs)
+    b[s6 + MODAL: s6 + MODAL + 10] = bytes.fromhex('9affff0000') + b'\x90' * 5
+    _dfm(b)

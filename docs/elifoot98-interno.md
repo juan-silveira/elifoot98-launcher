@@ -1311,19 +1311,33 @@ e `filtros.asm`).
     alinhamento) passa a apontar para lá;
   - o DFM antigo é zerado;
   - a soma da autoverificação é recalculada.
-- O EXE passa de 836.356 para 849.412 bytes.
+- Com o `seg25` movido, o EXE passa de 836.356 para cerca de 860 mil bytes.
 
-**Explicação na "Ajuda do Árbitro"** (`TRefereeAidDlg`, `arbitro.py`).
-- A janela fica 96 pontos mais alta e ganha 2 parágrafos debaixo das barras
-  (seção 4, "Árbitro"):
-  - mais pênaltis a favor e menos expulsões;
-  - nenhuma expulsão a partir de 60% da barra (V ≥ 9 de 15);
-  - o cálculo pelas letras dos nomes, +3 do mesmo país e +2 em casa.
-- São 2 legendas porque cada uma tem no máximo 255 caracteres no Delphi 1.
+**Chances na "Ajuda do Árbitro"** (`TRefereeAidDlg`, `arbitro.py` e `arbitro.asm`).
+- **Onde entra.** A rotina que preenche a janela (`seg06:27B5`) recebe o jogo
+  (`+0x194` da janela). A influência V de cada time fica no jogo: `+0x4C`
+  mandante e `+0x4E` visitante (seção 4).
+  - O `call far` do `ShowModal` (`seg06:2963`) passa a chamar `mostrar`.
+  - `mostrar` escreve no rótulo de cada time (`textHomeTeam`/`textAwayTeam`,
+    letra −13) o nome mais 2 números, e então chama o `ShowModal`.
+- **Pênalti:** a chance de pelo menos 1 pênalti a favor nos 90 minutos,
+  `1 − (1 − V/6000)^90` no mandante e `V/7000` no visitante. Vai de 0 a 20%,
+  por tabela.
+- **Cartões:** o sorteio de cartão de cada minuto (0 a 49, seção 10) só vale
+  acima de V. O árbitro anula V + 1 de 50 sorteios: `−2 × (V + 1)%`.
+- Os textos são passados com `mov di; push cs; push di`, para a ferramenta de
+  tradução achá-los ("Penálti" → "Pênalti").
+- **Espaço.** Nenhum segmento tinha os ~310 bytes livres. O `seg25` vai para o
+  fim do arquivo com folga (`NE.mover`): a entrada dele na tabela de segmentos
+  passa a apontar para lá e o lugar antigo é zerado. `NE.limite` dá o fim do
+  espaço de um segmento (o próximo segmento ou recurso, ou a soma no fim).
 
 **Comprovado.**
-- No Linux: Cavalheiro + nota 8 ou mais + risco até 3 listou só jogadores com
-  Cav, nota ≥ 8 e RL ≤ 3. A janela do árbitro mostra os 2 parágrafos.
+- No Linux:
+  - Cavalheiro + nota 8 ou mais + risco até 3 listou só jogadores com Cav,
+    nota ≥ 8 e RL ≤ 3;
+  - a janela do árbitro mostrou "BURY FC  Penálti: 20%  Cartões: -32%"
+    (V = 15) e "Q.P.R.  Penálti: 15%  Cartões: -28%" (V = 13).
 - No Android: a janela abre com os 3 combos em "Qualquer". As listas abrem pelo
   toque, e "Sarrafeiro" listou só jogadores Sar.
 

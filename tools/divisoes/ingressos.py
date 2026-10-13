@@ -59,8 +59,7 @@ def _redirecionar(ne, s, local, alvo_seg, alvo, de=None):
 def _novos(ne, s, registros):
     """Acrescenta registros [tipo, flags, local, seg, alvo] na tabela do segmento."""
     p, recs = _tabela(ne, s)
-    base = ne.seg(s)[0]
-    proximo = min(o for o in (ne.seg(x)[0] for x in range(1, ne.nseg + 1)) if o > base)
+    proximo = ne.limite(ne.seg(s)[0])
     recs = recs + registros
     assert p + 2 + 8 * len(recs) <= proximo, 'sem espaco para relocacoes no seg%02d' % s
     _gravar_tabela(ne, p, recs)
