@@ -318,8 +318,23 @@ exatamente o que a regra prevê.
 
 Na lista de jogadores dessa janela, os grupos G, D, M e A vêm nessa ordem e a
 última linha de cada grupo é mais alta (16 → 20 pixels, por causa do traço
-separador); S e L aparecem numa coluna entre a força e o salário. **Validado**
-lendo a lista no Boxedwine (o app Android usa isso no botão "Tát").
+separador). Entre a força e o salário há duas colunas, e depois delas a
+nacionalidade. Em 96 DPI:
+- a letra **S** fica em x 189–197. Na mesma coluna, os EXEs do launcher põem o
+  **A** dos amarelos acumulados (seção 10), e esse jogador está disponível;
+- o **L** fica em x 213–219;
+- a nacionalidade, só nos estrangeiros, começa em x 227.
+
+Os itens da lista não guardam o texto desenhado: `LB_GETTEXT` devolve um
+código de 8 ou 9 bytes. Por isso o app Android (botão "Tát") conta pelos
+pixels: só as duas colunas, e o A se distingue do S pela linha de baixo (dois
+pés separados contra um traço).
+
+**Validado** no Boxedwine (Android 0.9.5) com um save editado: 1 goleiro
+suspenso, 1 goleiro estrangeiro lesionado, 1 defesa suspenso e 3 jogadores com
+A. A conta deu exatamente os disponíveis, e as formações acinzentadas foram as
+que a regra prevê. Antes, a faixa lida ia até a nacionalidade (todo estrangeiro
+contava como fora) e o A contava como S.
 
 ### Tática 5-0-5 (tecla T) — patch do launcher
 
@@ -941,6 +956,52 @@ a própria janela (a equipa e o plantel passam de 632 para 648 de largura). Só
 troca inteiros do DFM por outros do mesmo tamanho. **Validado** no Android: na
 equipa e nos detalhes da partida a barra aparece ao lado dos números, sem os
 cobrir.
+
+## Tamanho do jogo (alta definição)
+
+O Delphi 1 desenha cada janela na escala da DPI do Windows. Com a DPI maior, as
+telas saem maiores e o texto é desenhado no tamanho novo, nítido, em vez de
+uma imagem de 800×600 ampliada. O launcher usa DPI = 96 × escala (escala de
+125 a 200%).
+
+- **A fonte.** A MS Sans Serif do jogo é bitmap. Em 192 DPI o Wine para em 20
+  pontos de altura, e uma TrueType qualquer é mais larga e corta rótulos. O
+  launcher traz a "MS Sans Serif" em TrueType (`linux/fontes-hd`): o desenho da
+  Tahoma do Wine, com a largura de cada letra igual à da MS Sans Serif de 8
+  pontos. Ela só vai instalada com DPI acima de 96: em 96 o Wine a preferiria
+  ao bitmap, e o jogo mudaria.
+- **A janela da equipa.** Em 192 DPI as 5 abas não cabiam. Os EXEs do launcher
+  alargam a janela em 16 pontos e a faixa de abas para 286. Em 96 DPI fica
+  igual.
+- **Linux e macOS** (Wine + otvdm): a DPI vai para `LogPixels` no registro do
+  Wine, e o desktop virtual tem 800×600 × escala. O Wine só aceita um tamanho
+  fora da sua lista padrão se ele estiver em
+  `HKCU\Software\Wine\Explorer\Desktops`, valor `Default`; sem isso, abre em
+  tela cheia.
+- **otvdm.** Só a build de desenvolvimento 2703 tem o `AdjustDPI` no
+  `otvdm.ini`, que faz o `GetDeviceCaps` de 16 bits devolver essa DPI em
+  `LOGPIXELSX`/`LOGPIXELSY`. A v0.9.0, do instalador do Windows, não tem.
+  `ForceFontQuality=4` suaviza as letras.
+- **Windows portátil (0.9.5).** Usa o `AdjustDPI` do otvdm 2703. O ScreenHook
+  mostra ao jogo uma tela de 800×600 × escala, e a MS Sans Serif TrueType é
+  carregada só para o processo do jogo (`AddFontResourceEx` com `FR_PRIVATE`).
+  **Validado** no Windows 10 em 125%: `AdjustDPI=120`, janela de 1000×750,
+  texto suavizado.
+- **Validado** no Linux em 1600×1200 a 192 DPI: Acerca, escolha do jogo,
+  equipa, classificação, jornada, substituição, lista de jogadores, opções e
+  plantel.
+- **Android:** a 0.9.4 tinha alta definição (192 DPI). Num celular real o jogo
+  ficou lento demais, e ela saiu na 0.9.5.
+
+## A "Acerca" espera um evento de entrada
+
+**Validado** no Windows 10 (otvdm 2703) e no Wine. Com o EXE certo, o jogo
+abre a janela principal e só mostra a "Acerca" depois de algum evento de
+entrada. Sem o cursor por cima da janela, ele fica na tela verde. Um
+`WM_MOUSEMOVE` enviado às janelas do jogo resolve: é o que fazem o
+`iniciar.exe` (Linux, macOS e Android) e o launcher portátil do Windows. Não
+confundir com a autoverificação (mais abaixo), que também deixa a tela verde
+quando o EXE foi alterado sem recalcular a soma.
 
 ## 10. Cartões amarelos (patch do launcher)
 
