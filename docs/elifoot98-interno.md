@@ -1356,8 +1356,13 @@ e `filtros.asm`).
     `seg04:3A55 → seg21:1CB8`).
 - **O desvio.** Essa chamada sai da cadeia de relocações e passa a ir para
   `campo` (fim do `seg25`, movido). `campo` liga o botão e redesenha o campo.
-- **A imagem.** Um `TImage` novo na aba Seleccao, no campo `+0x2D0` (o
-  `Label13`, texto fixo que o código não lê).
+- **A imagem.** Um `TImage` novo na aba Seleccao, sem campo no formulário.
+  - Os rótulos fixos que sobram na janela são pintados com a cor do time, e o
+    `Label13` é o número de amarelos do Histórico (seção 10). Na primeira
+    versão o campinho usava o campo dele, e o Histórico ficou sem esse número.
+  - O código acha a imagem como o 1º controle gráfico da aba do botão "Jogar":
+    OKBtn (`+0x1D0`) → Parent (`+0x1A`) → FControls (`+0x92`, `FList[0]`). O
+    DFM a põe antes dos outros filhos da aba.
   - Ele vem do DFM com um TBitmap de 8×8.
   - O desenho põe o bitmap no tamanho da imagem: `SetWidth`/`SetHeight` da VMT
     do TBitmap, `seg19:61A2`/`6116`.

@@ -8,7 +8,9 @@ no TImage novo da aba: gramado verde com linhas brancas (sempre igual, para serv
 qualquer time) e uma bolinha nas cores do time por titular, com a letra do setor (G, D,
 M, A), na coluna do setor e espalhadas na altura.
 
-O TImage usa o campo do Label13 (+0x2D0, texto fixo que o codigo nao le) e vem do DFM
+O TImage nao tem campo no formulario (os rotulos fixos que sobram sao pintados com a
+cor do time, e o Label13 e o numero de amarelos do Historial): o codigo o acha como o
+1o controle grafico da aba do botao Jogar (OKBtn +0x1A Parent, +0x92 FControls). Vem do DFM
 com um TBitmap de 8x8; o codigo poe o bitmap no tamanho da imagem (SetWidth/SetHeight
 da VMT do TBitmap) e desenha no canvas dele (TBitmap.GetCanvas, seg19:5945). O DFM vai
 para o fim do arquivo (mover_dfm).
@@ -72,13 +74,11 @@ def _dfm(b):
         yield c
         for f in c['filhos']:
             yield from todos(f)
-    c = {x['nome']: x for x in todos(form)}
-    assert 'Rotulo13' not in c
-    c['Label13']['nome'] = 'Rotulo13'          # o texto fixo cede o campo a imagem
     selecao = [x for x in todos(form) if x['cls'] == 'TPage'
                and dict(x['props']).get('Caption') == texto('Selec\xe7\xe3o')]
     assert len(selecao) == 1
-    selecao[0]['filhos'].insert(0, dict(cls='TImage', nome='Label13', filhos=[], props=[
+    # sem nome (sem campo): o codigo acha a imagem como o 1o controle grafico da aba
+    selecao[0]['filhos'].insert(0, dict(cls='TImage', nome='', filhos=[], props=[
         ['Left', inteiro(8)], ['Top', inteiro(8)], ['Width', inteiro(256)], ['Height', inteiro(166)],
         ['Picture.Data', _picture()]]))
     mover_dfm(b, CLASSE, b'TPF0' + escrever_dfm(form))

@@ -1,8 +1,8 @@
 ; Campinho na aba Escalacao da janela do time (ver campo.py).
 ; A rotina que confere a escalacao (seg04:38B0, chamada sempre que ela muda) acaba
 ; ligando ou desligando o "Jogar" (OKBtn.SetEnabled, seg21:1CB8); essa chamada passa a
-; ser campo: ela liga o botao como antes e redesenha o campo no TImage da aba (no
-; campo +0x2D0 da janela): gramado verde com linhas brancas, sempre igual, e uma
+; ser campo: ela liga o botao como antes e redesenha o campo no TImage da aba (o 1o
+; controle grafico da aba do botao, sem campo no formulario): gramado verde com linhas brancas, sempre igual, e uma
 ; bolinha para cada titular na cor da letra do time, com a letra do setor (G, D, M,
 ; A) em negrito na cor do fundo do time.
 ;
@@ -10,7 +10,7 @@
 bits 16
 org ORG
 
-IMAGEM  equ 0x2D0                       ; o TImage (campo do Label13, sem uso)
+JOGAR   equ 0x1D0                       ; OKBtn: a imagem e o 1o controle grafico da aba dele
 TIME    equ 0x348                       ; ponteiro para o time do tecnico
 
 LARG    equ -6                          ; largura e altura da imagem
@@ -75,12 +75,19 @@ campo:  cld                             ; o Delphi nao garante a direcao
 desenhar:
         mov bx, [bp]                    ; quadro da 38B0: [+6] = a janela
         les di, [ss:bx+6]
-        les di, [es:di+IMAGEM]
-        mov ax, es
-        or ax, di
-        jnz .tem
+        les di, [es:di+JOGAR]           ; o botao "Jogar", na aba Escalacao
+        call naonulo
+        les di, [es:di+0x1A]            ; Parent: a aba
+        call naonulo
+        les di, [es:di+0x92]            ; FControls: os controles graficos da aba
+        call naonulo
+        cmp word [es:di+8], 0
+        jne .tem
         ret
-.tem:   mov ax, [es:di+0x22]
+.tem:   les di, [es:di+4]               ; FList
+        les di, [es:di]                 ; o 1o: a imagem (o DFM a poe antes dos outros)
+        call naonulo
+        mov ax, [es:di+0x22]
         mov [bp+LARG], ax
         mov ax, [es:di+0x24]
         mov [bp+ALT], ax
@@ -302,6 +309,15 @@ desenhar:
         mov byte [bp+PASSO], 1
         jmp .lista
 .fim:   ret
+
+; es:di nulo: sai de desenhar (tira a volta desta e volta de desenhar)
+naonulo:
+        mov ax, es
+        or ax, di
+        jz .nulo
+        ret
+.nulo:  pop ax
+        ret
 
 ; as 2 areas (esquerda e direita): cx = % da largura, dx = % da altura do topo
 areas:  push dx
