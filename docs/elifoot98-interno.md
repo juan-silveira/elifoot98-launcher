@@ -1371,7 +1371,7 @@ e `filtros.asm`).
     círculo central e linha do meio;
   - uma bolinha por titular nas cores do time (fundo `+0x46` e letra `+0x42`
     do objeto `[time+4]`, as mesmas da Ajuda do Árbitro), com a letra do setor
-    em Arial 7;
+    em Arial 5;
   - as bolinhas ficam na coluna do setor (6%, 25%, 47% e 71% da largura),
     espalhadas na altura: `altura × k / (n + 1)`.
 - **Rotinas do Canvas** (`seg19`, pelas chamadas ao GDI e ao USER):

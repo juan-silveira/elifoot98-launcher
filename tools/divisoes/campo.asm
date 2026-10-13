@@ -202,7 +202,7 @@ desenhar:
         push di
         objeto 7
         longe fontenome
-        push byte 7
+        push byte 5
         objeto 7
         longe fontetam
         push word [bp+LETRA+2]
@@ -211,8 +211,9 @@ desenhar:
         longe fontecor
         mov ax, [bp+ALT]
         xor dx, dx
-        mov cx, 11
+        mov cx, 30
         div cx
+        inc ax
         mov [bp+RAIO], ax
 
         lea di, [bp+POSI]               ; zera POSI e NUM
@@ -282,7 +283,7 @@ desenhar:
         add ax, [bp+X]
         push ax
         mov ax, [bp+Y]
-        sub ax, 7
+        sub ax, 5
         push ax
         lea ax, [di+letras]
         push cs
@@ -346,7 +347,7 @@ bola:   mov ax, [bp+X]
 
 ; setor (G, D, M, A) -> coluna em % da largura, meia largura da letra
 colunas:   db 6, 0, 25, 0, 47, 0, 71, 0
-meialetra: db 3, 0, 3, 0, 4, 0, 3, 0
+meialetra: db 2, 0, 2, 0, 3, 0, 2, 0
 letras:    db 1, 'G', 1, 'D', 1, 'M', 1, 'A'
 ARIAL:     db 5, 'Arial'
 
