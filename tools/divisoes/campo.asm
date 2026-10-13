@@ -203,7 +203,7 @@ desenhar:
         push di
         objeto 7
         longe fontenome
-        push byte 6
+        push byte 8
         objeto 7
         longe fontetam
         push byte 1                     ; [fsBold]
@@ -287,7 +287,7 @@ desenhar:
         add ax, [bp+X]
         push ax
         mov ax, [bp+Y]
-        sub ax, 6
+        sub ax, 7
         push ax
         lea ax, [di+letras]
         push cs
@@ -351,7 +351,7 @@ bola:   mov ax, [bp+X]
 
 ; setor (G, D, M, A) -> coluna em % da largura, meia largura da letra
 colunas:   db 6, 0, 25, 0, 47, 0, 71, 0
-meialetra: db 3, 0, 3, 0, 4, 0, 3, 0
+meialetra: db 4, 0, 4, 0, 5, 0, 4, 0
 letras:    db 1, 'G', 1, 'D', 1, 'M', 1, 'A'
 ARIAL:     db 5, 'Arial'
 

@@ -1370,7 +1370,7 @@ e `filtros.asm`).
     grande área (16% da largura, 56% da altura), pequena área (6% e 28%),
     círculo central e linha do meio;
   - uma bolinha por titular nas cores do time, invertidas: a bolinha na cor da
-    letra (`+0x42` do objeto `[time+4]`) e a letra do setor, em Arial 6
+    letra (`+0x42` do objeto `[time+4]`) e a letra do setor, em Arial 8
     negrito (`TFont.SetStyle` `seg19:1205`), na cor do fundo (`+0x46`). São as
     mesmas cores da Ajuda do Árbitro;
   - as bolinhas ficam na coluna do setor (6%, 25%, 47% e 71% da largura),
