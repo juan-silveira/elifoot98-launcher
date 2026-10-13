@@ -1341,6 +1341,51 @@ e `filtros.asm`).
 - No Android: a janela abre com os 3 combos em "Qualquer". As listas abrem pelo
   toque, e "Sarrafeiro" listou só jogadores Sar.
 
+## 15. Campinho na aba Escalação (patch do launcher)
+
+`tools/divisoes/campo.py` e `campo.asm`.
+
+- **Quando desenha.** A rotina que confere a escalação (`seg04:38B0`) é chamada
+  de 17 lugares, sempre que a escalação muda: clique na lista, menu
+  Seleccionar/F-teclas, Melhores e ao abrir a janela.
+  - Ela percorre os jogadores do time (`+0x348` da janela → time → `+0xA` →
+    lista, jogador i por `seg03:0EF0`).
+  - Titular é `+0x10` = 1 e reserva `+0x10` = 2. O setor fica em
+    `[+6]+0x19`: 0 G, 1 D, 2 M, 3 A.
+  - No fim ela liga ou desliga o "Jogar" (`OKBtn.SetEnabled`,
+    `seg04:3A55 → seg21:1CB8`).
+- **O desvio.** Essa chamada sai da cadeia de relocações e passa a ir para
+  `campo` (fim do `seg25`, movido). `campo` liga o botão e redesenha o campo.
+- **A imagem.** Um `TImage` novo na aba Seleccao, no campo `+0x2D0` (o
+  `Label13`, texto fixo que o código não lê).
+  - Ele vem do DFM com um TBitmap de 8×8.
+  - O desenho põe o bitmap no tamanho da imagem: `SetWidth`/`SetHeight` da VMT
+    do TBitmap, `seg19:61A2`/`6116`.
+  - Desenha no canvas dele (`TBitmap.GetCanvas`, `seg19:5945`). O TBitmap
+    avisa a imagem, que se redesenha.
+  - O `TImage.GetCanvas` não existe no EXE: o linker do Delphi tira os métodos
+    que o jogo não usa.
+- **O desenho.**
+  - Fundo branco, linhas verdes de 3 pontos: contorno, grandes áreas (15% da
+    largura, 60% da altura), círculo central e linha do meio.
+  - Uma bolinha azul por titular, na coluna do setor (5%, 24%, 47% e 72% da
+    largura), espalhadas na altura: `altura × k / (n + 1)`.
+- **Rotinas do Canvas** (`seg19`, pelas chamadas ao GDI e ao USER):
+  - Ellipse `1C74`, FillRect `1CB7`, LineTo `1D4D`, MoveTo `1D8A`, Rectangle
+    `1E84`;
+  - `TPen.SetColor` `13AC` e `SetWidth` `14C7` (a caneta fica em `+0xB` do
+    canvas);
+  - `TBrush.SetColor` `1656` (o pincel fica em `+0xF`);
+  - `TFont.SetColor` `0FDF` (a fonte fica em `+0x7`).
+  - As funções do Delphi não preservam o SI.
+- **Comprovado** no Linux e no Android:
+  - o 4-3-3 aparece 1-4-3-3 e o 5-2-3 (F7) aparece 1-5-2-3;
+  - o "Melhores" mostra a escolha do jogo;
+  - no Android, a rodada começou normalmente depois disso.
+
+**Caixinhas da janela de lances** (`lances.py`): "Cartão amarelo", "Cartão
+vermelho" e "Lesão", no singular para caber.
+
 ## Autoverificação do executável (`seg12:39D9` → `seg12:3825`)
 
 **Validado.** Ao abrir, o jogo lê o próprio `ELIFOOT.EXE` e compara os **4

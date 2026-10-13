@@ -34,7 +34,7 @@ def _dfm(b):
 def arbitro(ne, b):
     s6 = ne.seg(6)[0]
     assert b[s6 + MODAL: s6 + MODAL + 10] == bytes.fromhex('c47e0606579affff0000')
-    ne.mover(SEG)                       # nenhum segmento tem 330 bytes livres
+    ne.mover(SEG, folga=2048)           # nenhum segmento tem espaco (e campo.asm vem depois)
     org = ne.seg(SEG)[1]
     cod, rot = montar('arbitro.asm', org, ORG='0x%X' % org)
     assert ne.append(SEG, cod) == org

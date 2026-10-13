@@ -32,9 +32,12 @@ def _dfm(b):
         f[nome]['props'] = [pv for pv in f[nome]['props'] if pv[0] not in ('Color', 'ParentColor', 'Font.Color')]
     por(f['checkViewRedCards'], 'Left', inteiro(136))
     por(f['checkViewInjuries'], 'Left', inteiro(264))
+    # no singular, para caber nas caixinhas
+    por(f['checkViewRedCards'], 'Caption', texto('Cart\xe3o vermelho'))
+    por(f['checkViewInjuries'], 'Caption', texto('Les\xe3o'))
     nova = dict(cls='TCheckBox', nome='GroupBox1', filhos=[], props=[
         ['Left', inteiro(16)], ['Top', inteiro(144)], ['Width', inteiro(113)], ['Height', inteiro(17)],
-        ['Caption', texto('Cart\xf5es amarelos')],
+        ['Caption', texto('Cart\xe3o amarelo')],
         ['Font.Height', inteiro(-11)], ['Font.Name', texto('MS Sans Serif')], ['Font.Style', conjunto()],
         ['ParentFont', FALSO], ['OnMouseUp', ident('checkViewInjuriesMouseUp')]])
     k = form['filhos'].index(f['checkViewRedCards'])
