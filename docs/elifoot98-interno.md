@@ -1155,6 +1155,122 @@ Dois comportamentos do `TLabel` do Delphi 1 que importam para patches de DFM
   - no Android, com o `seg10` maior, a rodada começa e termina normalmente (ao
     contrário do `seg04`, seção 10).
 
+## 12. Preço dos ingressos escolhido pelo técnico (patch do launcher)
+
+No jogo original o técnico não mexe no preço dos ingressos, e o público não
+depende do preço. Os EXEs do launcher (`tools/divisoes/ingressos.py`,
+`ingressos.asm` e `abas.asm`) põem um campo de % na aba Finanças, ao lado do
+"Preço dos bilhetes". O preço mostrado continua o de tabela do próximo jogo; o
+% vale nos jogos **em casa** do time do técnico.
+
+**Como o jogo calcula a renda (original).**
+- O jogo (objeto da partida) guarda: `+0x2D` tipo (0 = campeonato, 1 = Taça),
+  `+0x2E` mandante e `+0x32` visitante (ponteiros para ponteiros de `TTeam`),
+  `+0x36` preço (real de 10 bytes) e `+0x40` público (dword).
+- O preço é calculado em `seg09:35E1`, chamado pelo construtor do jogo
+  (`seg03:8DB2`).
+- Renda = público × preço: `seg03:93C4` no campeonato (tudo para o mandante),
+  `seg03:98A6` e `98DB` na Taça (dividida entre os dois).
+- O público (seção 4) termina com o `Round` em `seg03:B1EC`, antes do limite do
+  estádio (`seg03:C0C0`).
+
+**O que o patch faz.**
+- O `TTeam` ganha um byte em `+0xCB`: o tamanho da instância, na VMT do `TTeam`
+  (`seg03:0215`), passa de `0xCB` para `0xCC`. O Delphi zera o objeto ao criar,
+  então 0 = não escolhido (100%). De 2 a 12 é a escolha em quartos: 50% a 300%,
+  de 25 em 25.
+- **Renda**: as 3 leituras do preço (`fld tword [es:di+0x36]`) viram `call far`
+  para `preco` (fim do `seg22`), que multiplica o preço por escolha/4 quando o
+  mandante tem escolha.
+- **Público**: o `Round` de `seg03:B1EC` vira `publico` (fim do `seg22`), que
+  multiplica o público por (escolha/4)^−1,3 antes de arredondar. Os fatores
+  vêm de uma tabela: 2,4623 (50%) … 1,0 (100%) … 0,2397 (300%). O limite do
+  estádio continua depois.
+- **Save**: o byte vai no cabeçalho "EFa" de 50 bytes do time (byte 4, que o
+  jogo grava como zero).
+  - A gravação do .EFT (`seg12:1694`) escreve o cabeçalho montado em
+    `DS:0x2AFE`. O `TTeam.Store` (`seg03:3093`) passa a chamar `gravar` (fim do
+    `seg16`), que põe o byte do time em `DS:0x2B02` antes e o zera depois.
+  - A leitura (`seg12:15B8`) lê o cabeçalho em `[bp−0x32]`. Um trecho no fim do
+    `seg12` copia o byte 4 para `DS:0x2B02`. O `TTeam.Load` (`seg03:284D` e
+    `2C33`) passa a chamar `carregar` (fim do `seg16`), que guarda o byte no
+    time.
+- **Tela**: o `TabSetClick` da janela do time (`seg04:3215`) vira um `jmp far`
+  para `abas` (fim do `seg02`).
+  - `abas` faz o que o original fazia (`Notebook.PageIndex := TabSet.TabIndex`,
+    `seg17:3460`).
+  - Quando o `Sender` é o campo (o `OnChange` dele também é o `TabSetClick`),
+    lê o valor (`seg07:1836`), arredonda para 25 e grava no time do técnico
+    (`+0x348` da janela).
+  - Nas trocas de aba, mostra no campo o que o time tem (`seg07:1899`).
+- **O campo** é um `TSpinEdit` (de 50 a 300, passo 25) no DFM da aba Finanças.
+  - Um `TComboBox` não serve: o leitor do DFM só acha as classes da tabela de
+    campos do formulário, e dá `EClassNotFound`.
+  - O campo usa o nome e o campo `+0x2CC` do `Label12` (o "Golos" fixo do
+    Historial, que o código não lê). O texto fixo passa a se chamar `Golos12`.
+  - O espaço no DFM vem dos textos de exemplo de rótulos que o código sempre
+    preenche (`textTicketPrice`, `textMoney`, …).
+
+**TSpinEdit sem texto no Android.**
+- No Wine de 16 bits do Android, o texto de um `TSpinEdit` não aparecia. O
+  número estava no controle: o log `+edit` mostra `WM_CREATE L"100"` e a linha
+  sendo pintada. O campo do salário em "Renovar contrato" também ficava vazio.
+- A causa é o `TWinControl.WMPaint` do Delphi 1 (`seg21:4A8C`). Quando o
+  controle tem algum filho (`ControlCount`), ele chama o `PaintHandler`, que
+  pinta o controle passando o próprio DC no `WM_PAINT`. O `TSpinEdit` tem um
+  filho, o botão de setas. Nesse caminho, o edit do Wine 16 bits não desenha o
+  texto. Um `TEdit` sem filhos se pinta sozinho e funciona.
+- O `PaintHandler` só é necessário para os filhos **gráficos** (`FControls`,
+  `+0x92`). Por isso o patch troca a chamada a `ControlCount` (`seg21:39FD`)
+  por `FControls <> nil`. O teste olha o seletor do ponteiro, em `+0x94`, e a
+  relocação da chamada sai da tabela.
+- Tirar `ES_MULTILINE` ou o `EM_SETRECTNP` do `TSpinEdit` não resolvia.
+
+**Comprovado.**
+- No Linux (Wine + otvdm), com 300% num jogo em casa da 4ª divisão: renda de
+  9.324 = 1.554 de público × 6 reais (tabela 2 × 3). O público ficou bem abaixo
+  do estádio.
+- O save guarda o byte 12 só no cabeçalho do QPR (os outros 87 times ficam com
+  zero). Ao carregar de novo, o campo mostra 300.
+- No Android:
+  - o campo mostra o valor;
+  - as setas mudam o valor, e ele continua depois de trocar de aba e de passar
+    duas rodadas;
+  - a rodada da Taça (fora) e a do campeonato (em casa) correm normalmente;
+  - com 150%, a bilheteria subiu 11.328 = 3.776 × 3 reais (tabela 2 × 1,5).
+
+## 13. Idioma do jogo (português do Brasil)
+
+O launcher tem a opção Idioma nas Configurações. O original (pt-PT) continua o
+padrão.
+- O pt-BR abre um EXE traduzido: `ELIFnnBR.EXE`, ou `ELIF98BR.EXE` na versão
+  original.
+- `tools/idiomas/gerar.py` gera esses EXEs de cada `game/IDIOMAS/xx-YY.txt`,
+  usando `tools/idiomas/traduzir.py`.
+- O arquivo de idioma tem uma linha por texto: "original = tradução", com o
+  texto inteiro. Entre aspas valem espaços nas pontas e `\t`, `\r`, `\n` e
+  `\xNN`.
+
+Onde os textos ficam e como a tradução cabe:
+- **Formulários (DFM)**: a tradução pode ter outro tamanho, desde que o
+  formulário caiba no enchimento que o recurso já tinha.
+- **Código**: cada texto constante é passado por `mov di, endereço; push cs`
+  (ou `push ds`) `; push di`, com uma só referência.
+  - Uma tradução do mesmo tamanho ou menor fica no lugar.
+  - Uma maior vai para o fim do segmento, se houver espaço no arquivo.
+  - Sem espaço, um bloco de textos seguidos (cada um com a sua referência) é
+    reescrito junto. Foi o caso das linhas do Balanço, no `seg11`, que tinha só
+    5 bytes livres.
+- **Tabelas do segmento de dados** (posições, comportamentos, mensagens): têm
+  tamanho fixo. A tradução tem de caber até o texto seguinte. Por isso a
+  mensagem de lesão foi traduzida com o mesmo tamanho.
+- Depois de traduzir, a soma da autoverificação é recalculada (`gravar`). Sem
+  isso o jogo fica na tela verde.
+
+**Comprovado** no Linux e no Android: menus, janelas, Balanço (Temporada,
+Bilheteria, Arquibancadas…) e mensagens em pt-BR, e as rodadas correm
+normalmente.
+
 ## Autoverificação do executável (`seg12:39D9` → `seg12:3825`)
 
 **Validado.** Ao abrir, o jogo lê o próprio `ELIFOOT.EXE` e compara os **4

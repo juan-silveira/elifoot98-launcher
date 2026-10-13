@@ -36,6 +36,7 @@ from lances import lances
 from larguras import larguras
 from ficha import ficha
 from procura import procura
+from ingressos import ingressos
 
 
 def real10(x):
@@ -202,6 +203,7 @@ def main(n, entrada, saida):
         larguras(b)
         ficha(b)
         procura(ne, b)
+        ingressos(ne, b)
         gravar(b, saida)
         print('ok: 8 equipas/divisao (original), ate %d jogadores' % MAXJOG)
         return
@@ -302,6 +304,7 @@ def main(n, entrada, saida):
         larguras(b)
         ficha(b)
         procura(ne, b)
+        ingressos(ne, b)
         print('paginas:', {k: '%04X' % v for k, v in paginas.paginar(ne, b, N).items()})
         gravar(b, saida)
         return
@@ -312,6 +315,7 @@ def main(n, entrada, saida):
     larguras(b)
     ficha(b)
     procura(ne, b)
+    ingressos(ne, b)
     gravar(b, saida)
     print('ok: %d equipas/divisao, %d jornadas; rotinas seg03 %s, ajudante seg11:%04X'
           % (N, R, {k: '%04X' % v for k, v in rot.items()}, aj_off))

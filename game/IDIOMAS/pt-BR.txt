@@ -84,7 +84,7 @@ Propôr = Propor
 Prémios = Prêmios
 Aquisições... = Contratações...
 Jogadores adquiridos = Jogadores contratados
-Preço dos bilhetes = Preço dos ingressos
+Preço dos bilhetes = Preço do ingresso
 As novas bancadas só estarão disponíveis para o próximo jogo = As novas arquibancadas só estarão disponíveis no próximo jogo
 Utilize os dois botões do rato para escolher a cor para o texto (T) e para o fundo (F). Veja neste texto o efeito. = Utilize os dois botões do mouse para escolher a cor do texto (T) e do fundo (F). Veja neste texto o efeito.
 Os juros a pagar pelo empréstimo são de 5% do capital em dívida por cada jogo efectuado = Os juros a pagar pelo empréstimo são de 5% do capital em dívida por cada jogo realizado
@@ -162,3 +162,23 @@ Registo para grande amigo dos autores = Registro para grande amigo dos autores
 Cópia registada para experimentadores = Cópia registrada para testadores
 Registo para experimentador especial = Registro para testador especial
 Registo para autor = Registro para autor
+
+# --- Textos com TAB ou quebra de linha (entre aspas: \t, \r, \x00) ---
+# Balanco
+"Época\t" = "Temporada\t"
+"Bilhetes\t" = "Bilheteria\t"
+"Despesas\t" = "Gastos\t"
+"Total de receitas\t" = "Receita total\t"
+"Total de despesas\t" = "Gasto total\t"
+"Prémios\t" = "Prêmios\t"
+"Bancadas\t" = "Arquibancadas\t"
+# Estadio
+"Preço de uma bancada com\r" = "Preço de uma arquibancada com\r"
+# Historico do time
+"\x00VENCEDOR DA TAÇA\t" = "\x00VENCEDOR DA COPA\t"
+"PTaça\t" = "PCopa\t"
+# Mensagens
+" equipas para poder jogar.\r" = " times para poder jogar.\r"
+" equipas.\r" = " times.\r"
+") lesionou-se e tem de ser substituído.\rEscolha o jogador a entrar." = ") se lesionou e tem de ser substituído.\rEscolha o jogador a entrar."
+"Há transferências por realizar.\rSe sair do programa, essas transferências não serão executadas e os jogadores correspondentes serão removidos.\rTem a certeza que quer sair?\x00" = "Há transferências pendentes.\rSe sair do programa, essas transferências não serão feitas e os jogadores correspondentes serão removidos.\rTem certeza de que quer sair?\x00"

@@ -67,6 +67,8 @@ Source: "..\vendor\vcredist\vc_redist.x86.exe"; DestDir: "{tmp}"; Flags: deletea
 ; Arquivos do jogo (ficam em ..\game\). O CRACK.EXE nao vai: a contra-senha
 ; do "Ativar todos os recursos" e calculada pelo proprio launcher.
 Source: "..\game\*"; DestDir: "{app}\game"; Flags: ignoreversion recursesubdirs createallsubdirs; Excludes: "CRACK.EXE"
+; Copia intocada (sem os saves) para a biblioteca de patches voltar aos times originais
+Source: "..\game\*"; DestDir: "{app}\original"; Flags: ignoreversion recursesubdirs createallsubdirs; Excludes: "CRACK.EXE,JOGOS\*"
 
 ; Documentacao
 Source: "..\README.md"; DestDir: "{app}"; Flags: ignoreversion

@@ -192,14 +192,20 @@ namespace ElifootLauncher
 
             var confirm = MessageBox.Show(this,
                 $"Aplicar patch:\n\n{dlg.FileName}\n\n" +
-                "Todos os arquivos serão substituídos EXCETO a pasta EQUIPAS " +
-                "(será renomeada pra EQUIPAS_OLD antes) e JOGOS (nunca tocada).\n\nContinuar?",
+                "O patch fica guardado na lista de Times das Configurações, para voltar a ele " +
+                "(ou aos times originais) quando quiser. Equipes editadas e árbitros voltam ao " +
+                "original; os jogos salvos (JOGOS) ficam.\n\nContinuar?",
                 "Confirmar patch", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
             if (confirm != DialogResult.Yes) return;
 
             Cursor = Cursors.WaitCursor;
             PatchResult res;
-            try { res = PatchApplier.Apply(dlg.FileName, _launcher.GameDir); }
+            try
+            {
+                var nome = Patches.Adicionar(_launcher.BibliotecaDir, dlg.FileName);
+                res = Patches.Trocar(_launcher.GameDir, _launcher.OriginaisDir, _launcher.BibliotecaDir, nome);
+            }
+            catch (Exception ex) { res = new PatchResult { Error = ex.Message }; }
             finally { Cursor = Cursors.Default; }
 
             if (!res.Ok)
@@ -210,8 +216,6 @@ namespace ElifootLauncher
             }
 
             var msg = $"Patch aplicado com sucesso!\n\n{res.FilesReplaced} arquivos substituídos.";
-            if (res.EquipasBackupName != null)
-                msg += $"\nEQUIPAS antiga preservada em: {res.EquipasBackupName}";
             if (res.IgnoredEntries.Count > 0)
                 msg += $"\n\n{res.IgnoredEntries.Count} entradas em JOGOS/ foram ignoradas (saves preservados).";
             MessageBox.Show(this, msg, "Patch aplicado",

@@ -40,6 +40,8 @@ namespace ElifootLauncher
         // Pasta com game, vendor\otvdm, fontes-hd e ScreenHook.dll: a extracao do
         // pacote embutido no .exe ou, no zip, a pasta do .exe
         private static string? origem;
+        public static string OrigemDoPacote(LinuxGame g) => Origem(g);
+
         private static string Origem(LinuxGame g)
         {
             if (origem != null) return origem;

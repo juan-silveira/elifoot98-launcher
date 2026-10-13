@@ -8,6 +8,10 @@ import os, subprocess, tempfile
 AQUI = os.path.dirname(os.path.abspath(__file__))
 
 
+def _endereco(t):
+    return len(t) == 8 and all(ch in '0123456789ABCDEFabcdef' for ch in t)
+
+
 def montar(asm, org=0, **defs):
     with tempfile.TemporaryDirectory() as t:
         bin_, lst = os.path.join(t, 'a.bin'), os.path.join(t, 'a.lst')
@@ -19,11 +23,11 @@ def montar(asm, org=0, **defs):
         for l in open(lst, encoding='latin1'):
             c = l.split()
             # "  12 00000000 55   h3: push bp"  ou  "  12   h3:" sozinho (endereco na linha seguinte)
-            if len(c) >= 4 and len(c[1]) == 8 and c[3].endswith(':'):
+            if len(c) >= 4 and _endereco(c[1]) and c[3].endswith(':'):
                 rot[c[3][:-1]] = org + int(c[1], 16)
             elif len(c) == 2 and c[1].endswith(':'):
                 pendente = c[1][:-1]
-            elif pendente and len(c) >= 3 and len(c[1]) == 8:
+            elif pendente and len(c) >= 3 and _endereco(c[1]):
                 rot[pendente] = org + int(c[1], 16)
                 pendente = None
     return cod, rot

@@ -4,8 +4,9 @@ uso: traduzir.py IDIOMA.txt ENTRADA.EXE SAIDA.EXE
 
 O arquivo de idioma tem uma linha por texto: "original = traducao", com o texto
 inteiro, exatamente como esta no jogo. Espacos no comeco ou no fim contam: nesse
-caso o texto vai entre aspas ("A equipa " = "O time "). Linhas com # sao
-comentarios. So os textos listados mudam; nomes de arquivo, chaves do
+caso o texto vai entre aspas ("A equipa " = "O time "). Entre aspas valem \\t (TAB),
+\\r, \\n e \\xNN, para os textos que os tem ("Bilhetes\\t" = "Ingressos\\t"). Linhas
+com # sao comentarios. So os textos listados mudam; nomes de arquivo, chaves do
 elif98.ini e nomes de componentes nunca entram.
 
 Onde os textos ficam no EXE:
@@ -16,7 +17,9 @@ Onde os textos ficam no EXE:
   push di" (no segmento de dados, "push ds"). Cada um tem uma so referencia.
   Uma traducao do mesmo tamanho ou menor fica no lugar; uma maior vai para o
   fim do segmento (se houver espaco no arquivo) e a referencia passa a apontar
-  para ela;
+  para ela. Sem espaco, os textos colados (um bloco de textos seguidos, cada um
+  com a sua referencia, como as linhas do Balanco) sao reescritos juntos: as
+  traducoes podem crescer umas a custa das outras, se o bloco todo couber;
 - em tabelas do segmento de dados (posicoes, comportamentos, mensagens), com
   tamanho fixo: a traducao tem de caber no espaco ate o texto seguinte.
 
@@ -35,6 +38,14 @@ from paginas import ler_dfm, escrever_dfm                      # noqa: E402
 DADOS = 26                    # segmento de dados (DS)
 
 
+def _texto(t):
+    """Tira as aspas e, entre elas, troca \\t, \\r, \\n e \\xNN pelos caracteres."""
+    if len(t) >= 2 and t[0] == t[-1] == '"':
+        return re.sub(r'\\(t|r|n|x[0-9A-Fa-f]{2})', lambda m: {'t': '\t', 'r': '\r', 'n': '\n'}.get(
+            m.group(1), chr(int(m.group(1)[1:], 16)) if m.group(1)[0] == 'x' else ''), t[1:-1])
+    return t
+
+
 def ler_idioma(caminho):
     mapa = {}
     for n, linha in enumerate(open(caminho, encoding='utf-8'), 1):
@@ -45,10 +56,7 @@ def ler_idioma(caminho):
             sys.exit('%s:%d: falta " = "' % (caminho, n))
         a, b = linha.split(' = ', 1)
         a, b = a.strip(), b.strip()
-        if len(a) >= 2 and a[0] == a[-1] == '"':
-            a = a[1:-1]
-        if len(b) >= 2 and b[0] == b[-1] == '"':
-            b = b[1:-1]
+        a, b = _texto(a), _texto(b)
         mapa[a.encode('latin1')] = b.encode('latin1')
     return mapa
 
@@ -142,6 +150,8 @@ def _codigo(ne, b, mapa, usados, falhas):
             else:
                 novos.append((m.start() + 1, novo, t))
         if novos:
+            novos = _blocos(b, base, seg, refs_do_segmento(seg, ln), novos, mapa)
+        if novos:
             dados = b''.join(bytes([len(n)]) + n for _, n, _ in novos)
             proximo = min(o for o in (ne.seg(x)[0] for x in range(1, ne.nseg + 1)) if o > base)
             nrel = struct.unpack_from('<H', b, base + ln)[0]
@@ -170,6 +180,56 @@ def _codigo(ne, b, mapa, usados, falhas):
             i += 1 + n
             continue
         i += 1
+
+
+def refs_do_segmento(seg, ln):
+    """Endereco de cada texto do codigo -> posicoes das referencias (mov di, endereco)."""
+    refs = {}
+    for m in re.finditer(rb'\xbf(..)\x0e\x57', seg, re.S):
+        off = int.from_bytes(m.group(1), 'little')
+        if off < ln:
+            refs.setdefault(off, []).append(m.start() + 1)
+    return refs
+
+
+def _blocos(b, base, seg, refs, novos, mapa):
+    """Tenta acomodar as traducoes maiores reescrevendo o bloco de textos colados em
+    que cada uma esta. Devolve as que continuam sem lugar."""
+    sobram = []
+    feitos = set()
+    for ref, novo, original in novos:
+        off = int.from_bytes(seg[ref:ref + 2], 'little')
+        if off in feitos:
+            continue
+        # o bloco: textos seguidos, cada um com uma so referencia
+        ini = off
+        while True:
+            ant = [o for o in refs if o < ini and o + 1 + seg[o] == ini and len(refs[o]) == 1]
+            if not ant:
+                break
+            ini = ant[0]
+        textos, p = [], ini
+        while p in refs and len(refs[p]) == 1:
+            textos.append(p)
+            p += 1 + seg[p]
+        fim = p
+        if off not in textos:
+            sobram.append((ref, novo, original))
+            continue
+        trad = []
+        for o in textos:
+            t = bytes(seg[o + 1:o + 1 + seg[o]])
+            trad.append(mapa.get(t, t))
+        if sum(1 + len(t) for t in trad) > fim - ini:
+            sobram.append((ref, novo, original))
+            continue
+        p = ini
+        for o, t in zip(textos, trad):
+            b[base + p: base + p + 1 + len(t)] = bytes([len(t)]) + t
+            struct.pack_into('<H', b, base + refs[o][0], p)
+            p += 1 + len(t)
+        feitos.update(textos)
+    return sobram
 
 
 def traduzir(b, mapa):

@@ -26,22 +26,41 @@ namespace ElifootLauncher
             return contraSenha;
         }
 
+        // Registro escolhido nas Configuracoes, antes de abrir o jogo: registrado grava a
+        // contra-senha; nao registrado tira (copia de avaliacao). Sem o eli.cod (o jogo
+        // ainda nao abriu nenhuma vez), fica como esta.
+        public static void DefinirRegistro(GameLauncher launcher, bool registrado)
+        {
+            if (registrado)
+            {
+                if (FindEliCodDir(launcher) != null) Ativar(launcher);
+                return;
+            }
+            var real = launcher.OtvdmWindowsDir;
+            foreach (var dir in new[] { VirtualStore(real), real })
+            {
+                var ini = Path.Combine(dir, "elif98.ini");
+                if (File.Exists(ini)) WritePrivateProfileString("System", "secondCode", null, ini);
+            }
+        }
+
+        private static string VirtualStore(string real) => Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "VirtualStore",
+            real.Substring(Path.GetPathRoot(real)!.Length));
+
         // O otvdm (32-bit sem manifest) tem gravacao redirecionada pra VirtualStore
         // quando o usuario nao pode escrever na pasta de instalacao. Se houver copia
         // la, e ela que o jogo usa.
         private static string? FindEliCodDir(GameLauncher launcher)
         {
             var real = launcher.OtvdmWindowsDir;
-            var virtualStore = Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                "VirtualStore",
-                real.Substring(Path.GetPathRoot(real)!.Length));
-            foreach (var dir in new[] { virtualStore, real })
+            foreach (var dir in new[] { VirtualStore(real), real })
                 if (File.Exists(Path.Combine(dir, "eli.cod"))) return dir;
             return null;
         }
 
         [DllImport("kernel32.dll", CharSet = CharSet.Ansi, SetLastError = true)]
-        private static extern bool WritePrivateProfileString(string section, string key, string value, string fileName);
+        private static extern bool WritePrivateProfileString(string section, string key, string? value, string fileName);
     }
 }

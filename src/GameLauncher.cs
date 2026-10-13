@@ -29,6 +29,10 @@ namespace ElifootLauncher
         public string CrackExe => Path.Combine(GameDir, "CRACK.EXE");
         public string RefereeTxePath => Path.Combine(GameDir, "REFEREE.TXE");
         public string JogosDir => Path.Combine(GameDir, "JOGOS");
+        // Arquivos originais do jogo (o instalador copia a pasta game para ca) e a
+        // biblioteca de patches (Patches.cs)
+        public string OriginaisDir => Path.Combine(_appDir, "original");
+        public string BibliotecaDir => Path.Combine(_appDir, "patches");
         public string ScreenHookDll => Path.Combine(_appDir, "ScreenHook.dll");
 
         // otvdm emula Win 3.x com sua propria pasta WINDOWS.
@@ -49,7 +53,9 @@ namespace ElifootLauncher
         // ELIF08BR.EXE...); antes de abrir, a pasta JOGOS fica so com os saves desse numero
         public void LaunchElifoot(LauncherConfig cfg)
         {
-            SavesPorEquipes.Separar(JogosDir, cfg.EquipesPorDivisao);
+            SavesPorEquipes.Separar(JogosDir, cfg.EquipesDoJogo);
+            try { Ativador.DefinirRegistro(this, cfg.Registrado); }
+            catch { /* sem permissao no elif98.ini: abre como esta */ }
             LaunchWithOtvdm(cfg.ExeExistente(GameDir), cfg, "Elifoot 98");
         }
         public void LaunchEditor(LauncherConfig cfg) => LaunchWithOtvdm(EditeqExe, cfg, "Editeq");

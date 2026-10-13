@@ -38,10 +38,24 @@ namespace ElifootLauncher
         public static readonly string[] NomesIdioma = { "Original (Portugal)", "Português do Brasil" };
         public string Idioma { get; set; } = "";
 
-        // O EXE que existe na pasta do jogo: o do idioma, senao o original, senao o ELIFOOT.EXE
+        // Versao do jogo: a modificada (padrao: cartoes amarelos, Nota e Risco de lesao,
+        // equipes por divisao) ou a original (ELIFOOT.EXE, o 98.003; ELIF98BR.EXE traduzido),
+        // que so tem 8 equipes por divisao
+        public bool VersaoOriginal { get; set; } = false;
+        public int EquipesDoJogo => VersaoOriginal ? 8 : EquipesPorDivisao;
+
+        // Registro: o launcher grava a contra-senha (Registro para autor) no elif98.ini antes
+        // de abrir o jogo; nao registrado, tira (copia de avaliacao)
+        public bool Registrado { get; set; }
+
+        // O EXE que existe na pasta do jogo: o da versao e do idioma, senao o sem traducao,
+        // senao o ELIFOOT.EXE
         public string ExeExistente(string pastaDoJogo)
         {
-            foreach (var nome in new[] { ExeDoJogo, ExeOriginal })
+            var nomes = VersaoOriginal
+                ? new[] { Idioma.Length > 0 ? $"ELIF98{Idioma}.EXE" : "ELIFOOT.EXE", "ELIFOOT.EXE" }
+                : new[] { ExeDoJogo, ExeOriginal };
+            foreach (var nome in nomes)
                 if (File.Exists(Path.Combine(pastaDoJogo, nome))) return Path.Combine(pastaDoJogo, nome);
             return Path.Combine(pastaDoJogo, "ELIFOOT.EXE");
         }
@@ -91,6 +105,12 @@ namespace ElifootLauncher
                         case "janela":
                             cfg.JanelaLivre = val == "1";
                             break;
+                        case "versao":
+                            cfg.VersaoOriginal = val == "original";
+                            break;
+                        case "registrado":
+                            cfg.Registrado = val == "1";
+                            break;
                         case "idioma":
                             if (Array.IndexOf(OpcoesIdioma, val) >= 0) cfg.Idioma = val;
                             break;
@@ -116,6 +136,8 @@ namespace ElifootLauncher
                 "janela=" + (JanelaLivre ? "1" : "0"),
                 "equipes=" + EquipesPorDivisao,
                 "idioma=" + Idioma,
+                "versao=" + (VersaoOriginal ? "original" : "modificada"),
+                "registrado=" + (Registrado ? "1" : "0"),
             };
             File.WriteAllLines(ConfigPath, lines);
         }

@@ -11,7 +11,6 @@ namespace ElifootLauncher
         public bool Ok;
         public string Error = "";
         public int FilesReplaced;
-        public string? EquipasBackupName;
         public List<string> IgnoredEntries { get; } = new List<string>();
     }
 
@@ -20,9 +19,8 @@ namespace ElifootLauncher
     // Regras:
     // 1. Todos os arquivos e pastas do zip sao extraidos SUBSTITUINDO o
     //    conteudo atual da pasta game.
-    // 2. EXCECAO: a pasta EQUIPAS/ nao substitui a atual. Antes de extrair a
-    //    EQUIPAS do patch, a EQUIPAS atual eh RENOMEADA pra EQUIPAS_OLD.
-    //    Se ja existir EQUIPAS_OLD, tenta EQUIPAS_OLD_2, EQUIPAS_OLD_3, ...
+    // 2. Se o patch traz EQUIPAS/, ela substitui a atual inteira (os times
+    //    originais voltam pela biblioteca de patches, Patches.cs).
     // 3. Preserva JOGOS/ (saves do usuario) — nunca sobrescreve.
     public static class PatchApplier
     {
@@ -40,17 +38,12 @@ namespace ElifootLauncher
             {
                 using (var archive = ZipFile.OpenRead(zipPath))
                 {
-                    // 1) Se o patch traz EQUIPAS/, faz backup da atual antes
+                    // 1) Se o patch traz EQUIPAS/, ela substitui a atual inteira
                     bool patchHasEquipas = archive.Entries.Any(e =>
                         e.FullName.StartsWith("EQUIPAS/", StringComparison.OrdinalIgnoreCase));
                     var currentEquipas = Path.Combine(gameDir, "EQUIPAS");
                     if (patchHasEquipas && Directory.Exists(currentEquipas))
-                    {
-                        string backupName = FindNextEquipasBackupName(gameDir);
-                        var backupDir = Path.Combine(gameDir, backupName);
-                        Directory.Move(currentEquipas, backupDir);
-                        result.EquipasBackupName = backupName;
-                    }
+                        Directory.Delete(currentEquipas, recursive: true);
 
                     // 2) Extrai todas as entries do zip
                     foreach (var entry in archive.Entries)
@@ -85,20 +78,6 @@ namespace ElifootLauncher
                 result.Error = $"{ex.GetType().Name}: {ex.Message}";
             }
             return result;
-        }
-
-        private static string FindNextEquipasBackupName(string gameDir)
-        {
-            var candidate = "EQUIPAS_OLD";
-            if (!Directory.Exists(Path.Combine(gameDir, candidate))) return candidate;
-            int n = 2;
-            while (true)
-            {
-                candidate = $"EQUIPAS_OLD_{n}";
-                if (!Directory.Exists(Path.Combine(gameDir, candidate))) return candidate;
-                n++;
-                if (n > 999) throw new Exception("Muitos backups EQUIPAS_OLD_*.");
-            }
         }
 
         private static string SplitTop(string fullName)

@@ -1,6 +1,7 @@
 using System;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using System.Text;
 
 namespace ElifootLauncher
@@ -32,6 +33,12 @@ namespace ElifootLauncher
         public string JogosDir => Path.Combine(GameDir, "JOGOS");
         public string RefereeTxePath => Path.Combine(GameDir, "REFEREE.TXE");
         public string OtvdmWindowsDir => Path.Combine(DataDir, "vendor", "otvdm", "WINDOWS");
+        // Arquivos originais do jogo (a pasta game do pacote, somente leitura; no Windows,
+        // a do pacote extraido do .exe) e a biblioteca de patches (Patches.cs)
+        public string OriginaisDir => OperatingSystem.IsWindows()
+            ? Path.Combine(WindowsJogo.OrigemDoPacote(this), "game")
+            : Path.Combine(AppDir, "game");
+        public string BibliotecaDir => Path.Combine(DataDir, "patches");
 
         // Copia/atualiza os arquivos do jogo na pasta gravavel (sem abrir o Wine)
         public void Preparar()
@@ -52,11 +59,14 @@ namespace ElifootLauncher
             if (OperatingSystem.IsWindows())
             {
                 WindowsJogo.Sincronizar(this);
-                SavesPorEquipes.Separar(JogosDir, cfg.EquipesPorDivisao);
+                SavesPorEquipes.Separar(JogosDir, cfg.EquipesDoJogo);
+                DefinirRegistro(cfg.Registrado);
                 WindowsJogo.Abrir(this, cfg.ExeExistente(GameDir), cfg);
                 return;
             }
-            SavesPorEquipes.Separar(JogosDir, cfg.EquipesPorDivisao);
+            Preparar();
+            SavesPorEquipes.Separar(JogosDir, cfg.EquipesDoJogo);
+            DefinirRegistro(cfg.Registrado);
             StartScript("jogo", cfg);
         }
         public void LaunchEditor(LauncherConfig cfg)
@@ -105,6 +115,28 @@ namespace ElifootLauncher
             var contraSenha = Registro.ContraSenha(senha, Registro.TipoAutor2);
             GravarIni(Path.Combine(OtvdmWindowsDir, "elif98.ini"), "System", "secondCode", contraSenha);
             return contraSenha;
+        }
+
+        // Registro escolhido nas Configuracoes, antes de abrir o jogo: registrado grava a
+        // contra-senha; nao registrado tira (copia de avaliacao). Sem o eli.cod (no Windows
+        // o jogo o cria na 1a vez que abre), fica como esta.
+        private void DefinirRegistro(bool registrado)
+        {
+            try
+            {
+                var ini = Path.Combine(OtvdmWindowsDir, "elif98.ini");
+                var eliCod = Path.Combine(OtvdmWindowsDir, "eli.cod");
+                if (registrado && File.Exists(eliCod))
+                    GravarIni(ini, "System", "secondCode",
+                        Registro.ContraSenha(Registro.SenhaFromEliCod(File.ReadAllBytes(eliCod)), Registro.TipoAutor2));
+                else if (!registrado && File.Exists(ini))
+                {
+                    var linhas = File.ReadAllText(ini, Encoding.Latin1).Replace("\r\n", "\n").TrimEnd('\n').Split('\n')
+                        .Where(l => !l.TrimStart().StartsWith("secondCode=", StringComparison.OrdinalIgnoreCase));
+                    File.WriteAllText(ini, string.Join("\r\n", linhas) + "\r\n", Encoding.Latin1);
+                }
+            }
+            catch { /* sem permissao: abre como esta */ }
         }
 
         // Equivalente ao WritePrivateProfileString (o jogo usa CRLF)

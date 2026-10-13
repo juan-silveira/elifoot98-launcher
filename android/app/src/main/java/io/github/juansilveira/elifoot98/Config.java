@@ -44,7 +44,7 @@ final class Config {
 
     /** Registrado: o launcher grava a contra-senha (Registro para autor) antes de abrir o jogo. */
     static boolean registrado(Context c) {
-        return prefs(c).getBoolean("registrado", true);
+        return prefs(c).getBoolean("registrado", false);
     }
 
     /** Patch em uso (nome na biblioteca, Patches.java), ou "" para os times originais. */
