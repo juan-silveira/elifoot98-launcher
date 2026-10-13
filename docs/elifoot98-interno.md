@@ -1369,9 +1369,10 @@ e `filtros.asm`).
   - gramado verde RGB(76, 160, 60) e linhas brancas de 2 pontos: contorno,
     grande área (16% da largura, 56% da altura), pequena área (6% e 28%),
     círculo central e linha do meio;
-  - uma bolinha por titular nas cores do time (fundo `+0x46` e letra `+0x42`
-    do objeto `[time+4]`, as mesmas da Ajuda do Árbitro), com a letra do setor
-    em Arial 5;
+  - uma bolinha por titular nas cores do time, invertidas: a bolinha na cor da
+    letra (`+0x42` do objeto `[time+4]`) e a letra do setor, em Arial 6
+    negrito (`TFont.SetStyle` `seg19:1205`), na cor do fundo (`+0x46`). São as
+    mesmas cores da Ajuda do Árbitro;
   - as bolinhas ficam na coluna do setor (6%, 25%, 47% e 71% da largura),
     espalhadas na altura: `altura × k / (n + 1)`.
 - **Rotinas do Canvas** (`seg19`, pelas chamadas ao GDI e ao USER):

@@ -3,7 +3,8 @@
 ; ligando ou desligando o "Jogar" (OKBtn.SetEnabled, seg21:1CB8); essa chamada passa a
 ; ser campo: ela liga o botao como antes e redesenha o campo no TImage da aba (no
 ; campo +0x2D0 da janela): gramado verde com linhas brancas, sempre igual, e uma
-; bolinha nas cores do time para cada titular, com a letra do setor (G, D, M, A).
+; bolinha para cada titular na cor da letra do time, com a letra do setor (G, D, M,
+; A) em negrito na cor do fundo do time.
 ;
 ; -DORG: deslocamento no segmento.
 bits 16
@@ -185,13 +186,13 @@ desenhar:
         tela
         longe linha
 
-        ; jogadores: bolinhas nas cores do time, com a letra do setor
-        push word [bp+FUNDO+2]
-        push word [bp+FUNDO]
-        objeto 0xF
-        longe corpincel
+        ; jogadores: bolinha na cor da letra do time, letra (negrito) na cor do fundo
         push word [bp+LETRA+2]
         push word [bp+LETRA]
+        objeto 0xF
+        longe corpincel
+        push word [bp+FUNDO+2]
+        push word [bp+FUNDO]
         objeto 0xB
         longe corcaneta
         push byte 1
@@ -202,16 +203,19 @@ desenhar:
         push di
         objeto 7
         longe fontenome
-        push byte 5
+        push byte 6
         objeto 7
         longe fontetam
-        push word [bp+LETRA+2]
-        push word [bp+LETRA]
+        push byte 1                     ; [fsBold]
+        objeto 7
+        longe fonteestilo
+        push word [bp+FUNDO+2]
+        push word [bp+FUNDO]
         objeto 7
         longe fontecor
         mov ax, [bp+ALT]
         xor dx, dx
-        mov cx, 30
+        mov cx, 20
         div cx
         inc ax
         mov [bp+RAIO], ax
@@ -283,7 +287,7 @@ desenhar:
         add ax, [bp+X]
         push ax
         mov ax, [bp+Y]
-        sub ax, 5
+        sub ax, 6
         push ax
         lea ax, [di+letras]
         push cs
@@ -347,7 +351,7 @@ bola:   mov ax, [bp+X]
 
 ; setor (G, D, M, A) -> coluna em % da largura, meia largura da letra
 colunas:   db 6, 0, 25, 0, 47, 0, 71, 0
-meialetra: db 2, 0, 2, 0, 3, 0, 2, 0
+meialetra: db 3, 0, 3, 0, 4, 0, 3, 0
 letras:    db 1, 'G', 1, 'D', 1, 'M', 1, 'A'
 ARIAL:     db 5, 'Arial'
 
@@ -384,5 +388,7 @@ fontetam:   db 0xEA
 ..@fontetam: dw 0xFFFF, 0
 fontecor:   db 0xEA
 ..@fontecor: dw 0xFFFF, 0
+fonteestilo: db 0xEA
+..@fonteestilo: dw 0xFFFF, 0
 texto:      db 0xEA
 ..@texto:   dw 0xFFFF, 0

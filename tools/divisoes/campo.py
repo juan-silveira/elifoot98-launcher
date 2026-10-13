@@ -39,6 +39,7 @@ DESTINOS = {                           # rotulo do salto -> (segmento, deslocame
     'fontenome': (19, 0x1150),         # TFont.SetName
     'fontetam': (19, 0x11C7),          # TFont.SetSize
     'fontecor': (19, 0x0FDF),          # TFont.SetColor
+    'fonteestilo': (19, 0x1205),       # TFont.SetStyle
     'texto': (19, 0x1F22),             # TCanvas.TextOut
 }
 
