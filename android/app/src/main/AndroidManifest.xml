@@ -48,6 +48,11 @@
             android:configChanges="orientation|screenSize|screenLayout|keyboardHidden" />
 
         <activity
+            android:name=".ConfiguracoesActivity"
+            android:label="Configurações"
+            android:theme="@android:style/Theme.Material.NoActionBar"
+            android:exported="false" />
+        <activity
             android:name=".ScoutActivity"
             android:label="Scout"
             android:theme="@android:style/Theme.Material.NoActionBar"

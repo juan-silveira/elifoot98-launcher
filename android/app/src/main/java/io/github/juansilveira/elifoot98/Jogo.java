@@ -228,6 +228,58 @@ public final class Jogo {
     }
 
     /**
+     * Registro escolhido nas Configuracoes, antes de abrir o jogo: a contra-senha
+     * (Registro para autor) no elif98.ini, ou nenhuma (copia nao registada). Os dois
+     * elif98.ini (o do otvdm e o do Wine) sao igualados antes, para nao perder opcoes
+     * que o jogo gravou num deles.
+     */
+    public void definirRegistro(Context ctx, boolean registrado) throws IOException {
+        prepararWine(ctx);
+        String contra = null;
+        if (registrado) {
+            String senha = Registro.senhaDoEliCod(Files.readAllBytes(new File(windows, "eli.cod").toPath()));
+            contra = Registro.contraSenha(senha, Registro.TIPO_AUTOR_2);
+        }
+        for (File ini : new File[] {new File(windows, "elif98.ini"), new File(wine, "elif98.ini")}) {
+            if (registrado) gravarIni(ini, "System", "secondCode", contra);
+            else removerIni(ini, "System", "secondCode");
+        }
+        new File(wine, "system").setLastModified(DATA_FIXA);
+        wine.setLastModified(DATA_FIXA);
+        new File(windows, "SYSTEM").setLastModified(DATA_FIXA);
+        windows.setLastModified(DATA_FIXA);
+    }
+
+    /**
+     * O jogo aberto por ultimo ("lastGame" do elif98.ini, o nome do save sem o .e98), ou
+     * null. Com o jogo rodando, o ini do Wine e o que muda: vale o mais novo dos dois.
+     */
+    public String ultimoJogo() {
+        File iniWine = new File(wine, "elif98.ini"), iniOtvdm = new File(windows, "elif98.ini");
+        File ini = iniWine.lastModified() >= iniOtvdm.lastModified() ? iniWine : iniOtvdm;
+        try {
+            for (String linha : ler(ini).split("\r?\n"))
+                if (linha.trim().toLowerCase().startsWith("lastgame="))
+                    return linha.trim().substring(9).trim();
+        } catch (IOException ignorado) {
+        }
+        return null;
+    }
+
+    // Tira a chave da secao do ini (o jogo usa CRLF)
+    static void removerIni(File f, String secao, String chave) throws IOException {
+        if (!f.exists()) return;
+        List<String> linhas = new ArrayList<>(Arrays.asList(ler(f).replace("\r\n", "\n").split("\n", -1)));
+        boolean dentro = false, mudou = false;
+        for (int i = 0; i < linhas.size(); i++) {
+            String l = linhas.get(i).trim();
+            if (l.startsWith("[")) dentro = l.equalsIgnoreCase("[" + secao + "]");
+            else if (dentro && l.toLowerCase().startsWith(chave.toLowerCase() + "=")) { linhas.remove(i--); mudou = true; }
+        }
+        if (mudou) escrever(f, String.join("\r\n", linhas));
+    }
+
+    /**
      * Volta o jogo ao original do app: apaga tudo da pasta do jogo menos os saves
      * (JOGOS) e extrai de novo. Desfaz equipes editadas, patches, arbitros e a regra
      * de estrangeiros.

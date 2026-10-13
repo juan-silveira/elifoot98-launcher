@@ -16,6 +16,7 @@ import android.widget.LinearLayout;
 import android.widget.RelativeLayout;
 
 import org.libsdl.app.SDLActivity;
+import android.content.Intent;
 import org.libsdl.app.TecladoSDL;
 
 import java.io.File;
@@ -130,6 +131,7 @@ public class ElifootActivity extends SDLActivity {
         super.onCreate(savedInstanceState);
         if (mLayout == null) return;  // SDL recusou iniciar (ex.: biblioteca faltando)
         imersivo();
+        try { marcaAberto(this).createNewFile(); } catch (IOException ignorado) { }
 
         // Faixa esquerda (o jogo e 4:3): mesmos controles do elifoot98web
         esquerda = grade(RelativeLayout.ALIGN_PARENT_LEFT);
@@ -172,6 +174,17 @@ public class ElifootActivity extends SDLActivity {
         esquerda.addView(botao("M", v -> tecla(KeyEvent.KEYCODE_M)));          // Melhores
         esquerda.addView(botao("✱", v -> comando("*")));   // jogador selecionado: titular
         esquerda.addView(botao("—", v -> comando("-")));   // jogador selecionado: reserva
+        // Atalhos do menu Elifoot da janela do time: Sair (Alt+F4, disquete) e, registrado,
+        // Sair sem gravar (Shift+Ctrl+F4, disquete com X vermelho). Vao como teclas para a
+        // janela da frente
+        esquerda.addView(botaoIcone(new IconeDisquete(dp(2), false), "Sair", () -> confirmar("Sair do jogo",
+            "Sai como o \"Sair\" do menu Elifoot (Alt+F4) da janela do time.", "Sair",
+            () -> combinacao(KeyEvent.KEYCODE_ALT_LEFT, KeyEvent.KEYCODE_F4))));
+        if (Config.registrado(this))
+            esquerda.addView(botaoIcone(new IconeDisquete(dp(2), true), "Sair sem gravar", () -> confirmar("Sair sem gravar",
+                "Sai sem gravar o jogo, como o \"Sair sem gravar\" do menu Elifoot (Shift+Ctrl+F4) da janela do time: "
+                    + "o que aconteceu desde a última gravação se perde.", "Sair sem gravar",
+                () -> combinacao(KeyEvent.KEYCODE_SHIFT_LEFT, KeyEvent.KEYCODE_CTRL_LEFT, KeyEvent.KEYCODE_F4))));
 
         // Abas das janelas do jogo: faixa direita deitado, faixa que rola de lado em pe
         abas = new LinearLayout(this);
@@ -279,7 +292,7 @@ public class ElifootActivity extends SDLActivity {
         java.util.List<View> botoes = new java.util.ArrayList<>();
         for (int i = 0; i < esquerda.getChildCount(); i++) botoes.add(esquerda.getChildAt(i));
         esquerda.removeAllViews();
-        esquerda.setColumnCount(pe ? 4 : 2);
+        esquerda.setColumnCount(pe ? 5 : 2);
         for (View b : botoes) {
             android.widget.GridLayout.LayoutParams p = new android.widget.GridLayout.LayoutParams(
                 android.widget.GridLayout.spec(android.widget.GridLayout.UNDEFINED, android.widget.GridLayout.CENTER),
@@ -335,6 +348,7 @@ public class ElifootActivity extends SDLActivity {
     @Override
     protected void onDestroy() {
         handler.removeCallbacks(vigiarFoco);
+        marcaAberto(this).delete();
         super.onDestroy();
         // O Boxedwine nao reinicia no mesmo processo: encerra e o launcher segue
         android.os.Process.killProcess(android.os.Process.myPid());
@@ -466,30 +480,51 @@ public class ElifootActivity extends SDLActivity {
         return l;
     }
 
-    // Abas: janelas.txt traz "ativa<TAB>hwnd<TAB>titulo" por linha
+    // Abas do launcher: Jogo (este) e Scout. O Scout vem para a frente com o jogo
+    // aberto atras e volta pela aba Jogo dele; ele se recarrega quando o jogo salva.
+    // (As abas das janelas do jogo sairam: no modo rapido tocar nelas nao fazia nada.)
     private LinearLayout abas;
     private String ultimasJanelas = "";
 
     private void atualizarAbas() throws IOException {
-        File f = new File(jogo.jogo, "janelas.txt");
-        String agora = f.exists() ? Jogo.ler(f) : "";
+        String agora = emPe() ? "pe" : "deitado";
         if (agora.equals(ultimasJanelas)) return;
         ultimasJanelas = agora;
         abas.removeAllViews();
-        for (String linha : agora.split("\r?\n")) {
-            String[] c = linha.split("\t", 3);
-            if (c.length < 3) continue;
-            abas.addView(aba(c[2], c[0].equals("1"), c[1]));
-        }
+        abas.addView(aba("Jogo", true, null));
+        abas.addView(aba("Scout", false, () -> startActivity(new Intent(this, ScoutActivity.class)
+            .putExtra(ScoutActivity.EXTRA_DO_JOGO, true)
+            .addFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT))));
     }
 
-    private Button aba(String titulo, boolean ativa, String hwnd) {
+    private void confirmar(String titulo, String texto, String botao, Runnable acao) {
+        new android.app.AlertDialog.Builder(this)
+            .setTitle(titulo)
+            .setMessage(texto)
+            .setPositiveButton(botao, (d, w) -> acao.run())
+            .setNegativeButton("Cancelar", null)
+            .setOnDismissListener(d -> imersivo())
+            .show();
+    }
+
+    // Segura as teclas na ordem, solta na ordem inversa (como no teclado fisico)
+    private static void combinacao(int... teclas) {
+        for (int t : teclas) SDLActivity.onNativeKeyDown(t);
+        for (int i = teclas.length - 1; i >= 0; i--) SDLActivity.onNativeKeyUp(teclas[i]);
+    }
+
+    /** Marca de jogo aberto (files/jogo.aberto): o Scout so mostra a aba Jogo com ela. */
+    static File marcaAberto(android.content.Context c) {
+        return new File(c.getFilesDir(), "jogo.aberto");
+    }
+
+    private Button aba(String titulo, boolean ativa, Runnable acao) {
         Button b = new Button(this);
         b.setText(titulo);
         b.setAllCaps(false);
         b.setSingleLine(true);
         b.setEllipsize(android.text.TextUtils.TruncateAt.END);
-        b.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13);
+        b.setTextSize(TypedValue.COMPLEX_UNIT_SP, 15);
         b.setTextColor(ativa ? Color.BLACK : Color.WHITE);
         GradientDrawable fundo = new GradientDrawable();
         fundo.setCornerRadius(dp(8));
@@ -498,9 +533,9 @@ public class ElifootActivity extends SDLActivity {
         b.setBackground(fundo);
         b.setFocusable(false);
         b.setPadding(dp(8), 0, dp(8), 0);
-        b.setOnClickListener(v -> comando(hwnd));
+        if (acao != null) b.setOnClickListener(v -> acao.run());
         boolean pe = emPe();
-        if (pe) b.setMaxWidth(dp(180));
+        if (pe) b.setMinWidth(dp(110));
         LinearLayout.LayoutParams p = new LinearLayout.LayoutParams(
             pe ? LinearLayout.LayoutParams.WRAP_CONTENT : LinearLayout.LayoutParams.MATCH_PARENT, dp(44));
         if (pe) p.setMargins(dp(4), 0, dp(4), 0); else p.setMargins(0, dp(4), 0, dp(4));
@@ -920,6 +955,61 @@ public class ElifootActivity extends SDLActivity {
     }
 
     // Icone de Enter (seta que desce e vira pra esquerda), centrado no botao
+    // Botao redondo da grade com um icone desenhado no lugar do texto
+    private Button botaoIcone(android.graphics.drawable.Drawable icone, String descricao, Runnable acao) {
+        Button b = botao("", v -> acao.run());
+        b.setBackground(new android.graphics.drawable.LayerDrawable(new android.graphics.drawable.Drawable[] {
+            b.getBackground(), icone}));
+        b.setContentDescription(descricao);
+        return b;
+    }
+
+    // Disquete (o "gravar" de sempre); com X vermelho por cima, o "sair sem gravar"
+    private static final class IconeDisquete extends android.graphics.drawable.Drawable {
+        private final android.graphics.Paint tinta = new android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG);
+        private final android.graphics.Paint vermelho = new android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG);
+        private final android.graphics.Path corpo = new android.graphics.Path();
+        private final boolean comX;
+
+        IconeDisquete(float espessura, boolean comX) {
+            this.comX = comX;
+            tinta.setColor(Color.WHITE);
+            tinta.setStyle(android.graphics.Paint.Style.STROKE);
+            tinta.setStrokeWidth(espessura);
+            tinta.setStrokeJoin(android.graphics.Paint.Join.ROUND);
+            vermelho.setColor(Color.rgb(255, 60, 60));
+            vermelho.setStyle(android.graphics.Paint.Style.STROKE);
+            vermelho.setStrokeWidth(espessura * 1.6f);
+            vermelho.setStrokeCap(android.graphics.Paint.Cap.ROUND);
+        }
+
+        @Override
+        public void draw(android.graphics.Canvas c) {
+            android.graphics.Rect b = getBounds();
+            float l = Math.min(b.width(), b.height()) * 0.40f;  // lado do icone
+            float x0 = b.centerX() - l / 2, y0 = b.centerY() - l / 2;
+            corpo.reset();                                     // corpo com o canto cortado
+            corpo.moveTo(x0, y0);
+            corpo.lineTo(x0 + l * 0.8f, y0);
+            corpo.lineTo(x0 + l, y0 + l * 0.2f);
+            corpo.lineTo(x0 + l, y0 + l);
+            corpo.lineTo(x0, y0 + l);
+            corpo.close();
+            c.drawPath(corpo, tinta);
+            c.drawRect(x0 + l * 0.22f, y0, x0 + l * 0.68f, y0 + l * 0.32f, tinta);           // tampa de metal
+            c.drawRect(x0 + l * 0.18f, y0 + l * 0.56f, x0 + l * 0.82f, y0 + l, tinta);       // etiqueta
+            if (comX) {
+                float m = l * 0.12f;
+                c.drawLine(x0 - m, y0 - m, x0 + l + m, y0 + l + m, vermelho);
+                c.drawLine(x0 + l + m, y0 - m, x0 - m, y0 + l + m, vermelho);
+            }
+        }
+
+        @Override public void setAlpha(int a) { tinta.setAlpha(a); vermelho.setAlpha(a); }
+        @Override public void setColorFilter(android.graphics.ColorFilter f) { tinta.setColorFilter(f); vermelho.setColorFilter(f); }
+        @Override public int getOpacity() { return android.graphics.PixelFormat.TRANSLUCENT; }
+    }
+
     private static final class IconeEnter extends android.graphics.drawable.Drawable {
         private final android.graphics.Paint tinta = new android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG);
         private final android.graphics.Path seta = new android.graphics.Path();

@@ -53,7 +53,7 @@ public class LauncherActivity extends Activity {
         status.setGravity(Gravity.CENTER);
         col.addView(status);
 
-        col.addView(botao("Jogar Elifoot 98", v -> abrir(exeDoJogo())));
+        col.addView(botao("Jogar Elifoot 98", v -> abrir()));
         col.addView(botao("Editor de Equipes", v -> startActivity(new Intent(this, TeamEditorActivity.class))));
         col.addView(botao("Editor de Árbitros", v -> startActivity(new Intent(this, RefereeEditorActivity.class))));
         col.addView(botao("Editor de Save", v -> startActivity(new Intent(this, SaveEditorActivity.class))));
@@ -61,7 +61,7 @@ public class LauncherActivity extends Activity {
         col.addView(botao("Aplicar Patch", v -> escolherPatch()));
         View espaco = new View(this);
         col.addView(espaco, new LinearLayout.LayoutParams(1, Ui.dp(this, 16)));
-        col.addView(botao("Configurações", v -> configuracoes()));
+        col.addView(botao("Configurações", v -> startActivity(new Intent(this, ConfiguracoesActivity.class))));
         // Versao do app (versionName do build.gradle)
         try {
             TextView versao = new TextView(this);
@@ -106,178 +106,23 @@ public class LauncherActivity extends Activity {
         }).start();
     }
 
-    private void abrir(String exe) {
-        // A pasta JOGOS fica so com os saves do numero de equipes escolhido
-        SavesPorEquipes.separar(jogo.pastaJogos(), equipesPorDivisao());
-        startActivity(new Intent(this, ElifootActivity.class).putExtra(ElifootActivity.EXTRA_EXE, exe));
-    }
-
-    // Equipes por divisao: o pacote traz um EXE para cada opcao (ELIF08.EXE a ELIF20.EXE,
-    // gerados por tools/divisoes/patch_divisoes.py). Um jogo gravado so continua com o
-    // mesmo numero de equipes.
-    private static final int[] OPCOES_EQUIPES = {8, 10, 12, 14, 16, 18, 20};
-
-    private int equipesPorDivisao() {
-        return getSharedPreferences("config", MODE_PRIVATE).getInt("equipes", 8);
-    }
-
-    // Idioma do jogo: "" = o original (portugues de Portugal); "BR" = portugues do Brasil
-    // (ELIFnnBR.EXE, traduzidos por tools/idiomas a partir de game/IDIOMAS/pt-BR.txt)
-    private static final String[] OPCOES_IDIOMA = {"", "BR"};
-    private static final String[] NOMES_IDIOMA = {"Original (Portugal)", "Português do Brasil"};
-
-    private String idioma() {
-        String i = getSharedPreferences("config", MODE_PRIVATE).getString("idioma", "");
-        return java.util.Arrays.asList(OPCOES_IDIOMA).contains(i) ? i : "";
-    }
-
-    // O EXE do numero de equipes e do idioma; sem ele, o original; senao o ELIFOOT.EXE
-    private String exeDoJogo() {
-        String original = String.format(java.util.Locale.ROOT, "ELIF%02d", equipesPorDivisao());
-        for (String exe : new String[] {original + idioma() + ".EXE", original + ".EXE"})
-            if (new java.io.File(jogo.jogo, exe).exists()) return exe;
-        return "ELIFOOT.EXE";
-    }
-
-    private void idiomas() {
-        int atual = java.util.Arrays.asList(OPCOES_IDIOMA).indexOf(idioma());
-        new AlertDialog.Builder(this)
-            .setTitle("Idioma do jogo")
-            .setSingleChoiceItems(NOMES_IDIOMA, atual, (d, w) -> {
-                d.dismiss();
-                getSharedPreferences("config", MODE_PRIVATE).edit().putString("idioma", OPCOES_IDIOMA[w]).apply();
-                Ui.mensagem(this, "Pronto", "O jogo abre em " + NOMES_IDIOMA[w] + " a partir da próxima vez.");
-            })
-            .setNegativeButton("Cancelar", null)
-            .show();
-    }
-
-    // Minimo de equipes no jogo novo (4N + as que sobem do Distrital)
-    private static int minimoDeEquipes(int n) {
-        return 4 * n + (n >= 16 ? 4 : 2);
-    }
-
-    private void equipes() {
-        String[] opcoes = new String[OPCOES_EQUIPES.length];
-        int atual = 0;
-        for (int i = 0; i < opcoes.length; i++) {
-            int n = OPCOES_EQUIPES[i];
-            opcoes[i] = n == 8 ? "8 (original)" : n + " — " + 2 * (n - 1) + " jornadas, mínimo de " + minimoDeEquipes(n) + " equipes";
-            if (n == equipesPorDivisao()) atual = i;
-        }
-        new AlertDialog.Builder(this)
-            .setTitle("Equipes por divisão")
-            .setSingleChoiceItems(opcoes, atual, (d, w) -> {
-                d.dismiss();
-                getSharedPreferences("config", MODE_PRIVATE).edit().putInt("equipes", OPCOES_EQUIPES[w]).apply();
-                Ui.mensagem(this, "Pronto", OPCOES_EQUIPES[w] + " equipes por divisão a partir do próximo jogo novo.\n\n"
-                    + "Um jogo gravado só continua com o mesmo número de equipes em que foi começado.");
-            })
-            .setNegativeButton("Cancelar", null)
-            .show();
-    }
-
-    private void configuracoes() {
-        boolean liberado = TeamCodec.bosmanLiberado(jogo.jogo);
-        LinearLayout l = new LinearLayout(this);
-        l.setOrientation(LinearLayout.VERTICAL);
-        int pad = Ui.dp(this, 20);
-        l.setPadding(pad, Ui.dp(this, 8), pad, 0);
-        TextView t = new TextView(this);
-        t.setText("No Android o jogo abre em tela cheia.\n\n"
-            + "\"Ativar todos os recursos\" registra o jogo (Registro para autor).\n\n"
-            + "Equipes por divisão: " + equipesPorDivisao() + ".\n\n"
-            + "Idioma do jogo: " + NOMES_IDIOMA[java.util.Arrays.asList(OPCOES_IDIOMA).indexOf(idioma())] + ".\n\n"
-            + "Estrangeiros: " + (liberado ? "Liberado (sem limite)" : "Original (até 5 por equipe; Lei Bosman e língua portuguesa não contam)") + ".\n\n"
-            + "\"Restaurar times originais\" desfaz equipes editadas e patches aplicados.");
-        t.setTextSize(TypedValue.COMPLEX_UNIT_SP, 15);
-        l.addView(t);
-        AlertDialog[] d = new AlertDialog[1];
-        l.addView(botaoDialogo("Ativar todos os recursos", () -> { d[0].dismiss(); ativar(); }));
-        l.addView(botaoDialogo("Equipes por divisão…", () -> { d[0].dismiss(); equipes(); }));
-        l.addView(botaoDialogo("Idioma do jogo…", () -> { d[0].dismiss(); idiomas(); }));
-        l.addView(botaoDialogo("Estrangeiros…", () -> { d[0].dismiss(); estrangeiros(liberado); }));
-        l.addView(botaoDialogo("Restaurar times originais…", () -> { d[0].dismiss(); restaurar(); }));
-        ScrollView sv = new ScrollView(this);
-        sv.addView(l);
-        d[0] = new AlertDialog.Builder(this)
-            .setTitle("Configurações")
-            .setView(sv)
-            .setNegativeButton("Fechar", null)
-            .show();
-    }
-
-    private Button botaoDialogo(String texto, Runnable acao) {
-        Button b = Ui.botao(this, texto, v -> acao.run());
-        b.setLayoutParams(new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, Ui.dp(this, 48)));
-        ((LinearLayout.LayoutParams) b.getLayoutParams()).topMargin = Ui.dp(this, 10);
-        return b;
-    }
-
-    // Volta EQUIPAS, arbitros, estrangeiros e o que os patches trocaram ao original do
-    // app; os saves (JOGOS) ficam
-    private void restaurar() {
-        new AlertDialog.Builder(this)
-            .setTitle("Restaurar times originais")
-            .setMessage("Todas as equipes voltam a ser as originais do jogo: equipes editadas ou criadas, "
-                + "patches aplicados, árbitros e a regra de estrangeiros são desfeitos.\n\n"
-                + "Os jogos salvos (saves) não são apagados.\n\nRestaurar?")
-            .setPositiveButton("Restaurar", (dd, w) -> {
-                habilitar(false);
-                progresso.setVisibility(View.VISIBLE);
-                status.setText("Restaurando os arquivos originais...");
-                new Thread(() -> {
-                    String erro = null;
-                    try {
-                        jogo.restaurarOriginal(this);
-                    } catch (Exception e) {
-                        erro = e.getMessage();
-                    }
-                    String fim = erro;
-                    runOnUiThread(() -> {
-                        progresso.setVisibility(View.GONE);
-                        status.setText("");
-                        habilitar(true);
-                        if (fim == null) Ui.mensagem(this, "Pronto", "Times originais restaurados.");
-                        else Ui.mensagem(this, "Erro", "Não consegui restaurar:\n" + fim);
-                    });
-                }).start();
-            })
-            .setNegativeButton("Cancelar", null)
-            .show();
-    }
-
-    // Original: BOSMAN.TXE que vem com o launcher (a UE atual e o Reino Unido, como no
-    // patch do Turbo Elifoot). Liberado: todos os paises do COUNTRY.TXE, entao ninguem
-    // conta como estrangeiro (como fez o Turbo Score)
-    private void estrangeiros(boolean liberado) {
-        String[] opcoes = {
-            "Original — até 5 estrangeiros por equipe (Lei Bosman e língua portuguesa não contam)",
-            "Liberado — sem limite de estrangeiros (todos os países do jogo na lista Bosman)",
-        };
-        new AlertDialog.Builder(this)
-            .setTitle("Estrangeiros")
-            .setSingleChoiceItems(opcoes, liberado ? 1 : 0, (d, w) -> {
-                d.dismiss();
-                try {
-                    TeamCodec.definirBosman(jogo.jogo, w == 1);
-                    Ui.mensagem(this, "Pronto", w == 1 ? "Estrangeiros liberados (vale no jogo e no editor)." : "Regra original de estrangeiros restaurada.");
-                } catch (Exception e) {
-                    Ui.mensagem(this, "Erro", "Não consegui gravar o BOSMAN.TXE:\n" + e.getMessage());
-                }
-            })
-            .setNegativeButton("Cancelar", null)
-            .show();
-    }
-
-    private void ativar() {
+    // Antes de abrir: o registro escolhido nas Configuracoes vai para o elif98.ini, e a
+    // pasta JOGOS fica so com os saves do numero de equipes do jogo
+    private void abrir() {
         try {
-            jogo.ativar(this);
-            Ui.mensagem(this, "Pronto", "Recursos ativados! Abra o jogo para usar.");
+            jogo.definirRegistro(this, Config.registrado(this));
         } catch (Exception e) {
-            Ui.mensagem(this, "Não foi possível ativar", e.getMessage());
+            Ui.mensagem(this, "Erro", "Não consegui preparar o registro:\n" + e.getMessage());
+            return;
         }
+        SavesPorEquipes.separar(jogo.pastaJogos(), Config.equipesDoJogo(this));
+        startActivity(new Intent(this, ElifootActivity.class)
+            .putExtra(ElifootActivity.EXTRA_EXE, Config.exeDoJogo(this, jogo.jogo)));
     }
+
+
+
+
 
     private void escolherPatch() {
         Intent i = new Intent(Intent.ACTION_OPEN_DOCUMENT);
@@ -291,32 +136,55 @@ public class LauncherActivity extends Activity {
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
         if (requestCode != ESCOLHER_PATCH || resultCode != RESULT_OK || data == null || data.getData() == null) return;
-        Uri uri = data.getData();
+        String nome;
+        try {
+            nome = Patches.adicionar(this, data.getData(), nomeDoArquivo(data.getData()));
+        } catch (Exception e) {
+            Ui.mensagem(this, "Erro", "Não consegui guardar o patch:\n" + e.getMessage());
+            return;
+        }
         new AlertDialog.Builder(this)
-            .setTitle("Confirmar patch")
-            .setMessage("Todos os arquivos serão substituídos EXCETO a pasta EQUIPAS "
-                + "(será renomeada pra EQUIPAS_OLD antes) e JOGOS (nunca tocada).\n\nContinuar?")
-            .setPositiveButton("Sim", (d, w) -> aplicarPatch(uri))
-            .setNegativeButton("Não", null)
+            .setTitle("Aplicar " + nome)
+            .setMessage("O patch fica guardado na lista de Times das Configurações, para voltar a ele "
+                + "(ou aos times originais) quando quiser.\n\nAplicar agora? Equipes editadas e árbitros "
+                + "voltam ao original; os jogos salvos ficam.")
+            .setPositiveButton("Aplicar", (d, w) -> aplicarPatch(nome))
+            .setNegativeButton("Agora não", null)
             .show();
     }
 
-    private void aplicarPatch(Uri uri) {
-        File tmp = new File(getCacheDir(), "patch.zip");
-        try (InputStream in = getContentResolver().openInputStream(uri); OutputStream out = new FileOutputStream(tmp)) {
-            byte[] buf = new byte[1 << 16];
-            int n;
-            while ((n = in.read(buf)) > 0) out.write(buf, 0, n);
-            PatchApplier.Resultado r = PatchApplier.aplicar(tmp, jogo.jogo);
-            String msg = "Patch aplicado com sucesso!\n\n" + r.substituidos + " arquivos substituídos.";
-            if (r.backupEquipas != null) msg += "\nEQUIPAS antiga preservada em: " + r.backupEquipas;
-            if (r.ignorados > 0) msg += "\n\n" + r.ignorados + " entradas em JOGOS/ foram ignoradas (saves preservados).";
-            Ui.mensagem(this, "Patch aplicado", msg);
-        } catch (Exception e) {
-            Ui.mensagem(this, "Erro", "Erro ao aplicar patch:\n" + e.getMessage());
-        } finally {
-            tmp.delete();
+    private void aplicarPatch(String nome) {
+        habilitar(false);
+        progresso.setVisibility(View.VISIBLE);
+        status.setText("Aplicando " + nome + "...");
+        new Thread(() -> {
+            String erro = null;
+            int n = 0;
+            try {
+                PatchApplier.Resultado r = Patches.trocar(this, jogo, nome);
+                if (r != null) n = r.substituidos;
+            } catch (Exception e) {
+                erro = e.getMessage();
+            }
+            String fim = erro;
+            int arquivos = n;
+            runOnUiThread(() -> {
+                progresso.setVisibility(View.GONE);
+                status.setText("");
+                habilitar(true);
+                if (fim == null) Ui.mensagem(this, "Patch aplicado", nome + ": " + arquivos + " arquivos.");
+                else Ui.mensagem(this, "Erro", "Erro ao aplicar o patch:\n" + fim);
+            });
+        }).start();
+    }
+
+    private String nomeDoArquivo(Uri uri) {
+        try (android.database.Cursor c = getContentResolver().query(uri,
+                new String[] {android.provider.OpenableColumns.DISPLAY_NAME}, null, null, null)) {
+            if (c != null && c.moveToFirst()) return c.getString(0);
+        } catch (Exception ignorado) {
         }
+        return uri.getLastPathSegment();
     }
 
     private Button botao(String texto, View.OnClickListener acao) {

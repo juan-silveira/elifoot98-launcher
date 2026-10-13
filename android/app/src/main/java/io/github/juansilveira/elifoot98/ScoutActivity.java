@@ -29,6 +29,7 @@ import android.widget.ScrollView;
 import android.widget.Spinner;
 import android.widget.TextView;
 
+import android.content.Intent;
 import java.io.File;
 import java.text.Collator;
 import java.util.ArrayList;
@@ -47,6 +48,8 @@ import java.util.Set;
  * ordenacao para achar os melhores. So leitura.
  */
 public class ScoutActivity extends Activity {
+    // Aberto pela aba Scout do jogo: a aba Jogo volta para ele sem fechar nada
+    public static final String EXTRA_DO_JOGO = "doJogo";
     private static final int VERDE = 0xFF0B3D0B, VERDE_TOPO = 0xFF062606, VERDE_CARTAO = 0xFF145214, VERDE_LINHA = 0xFF114A11,
         AMARELO = 0xFFFCFE04, BRANCO = 0xFFFFFFFF, CINZA = 0xFFB8C9B8, CINZA_FAIXA = 0xFF8FA88F,
         ALERTA = 0xFFFF8A80, OK = 0xFF9CE29C, OURO = 0xFFFFD54F, DESLIGADO = 0xFF2A5C2A;
@@ -103,11 +106,17 @@ public class ScoutActivity extends Activity {
     private TextView conta;
     private LinearLayout cabecalho;
     private final LinhasAdapter adapter = new LinhasAdapter();
+    // Save mostrado e a data dele: ao voltar para a frente, se o jogo gravou, recarrega
+    private File arquivoCarregado;
+    private Jogo jogoApp;
+    private long dataCarregada;
+    private Button abaJogo;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         Jogo j = new Jogo(this);
+        jogoApp = j;
         jogo = j.jogo;
         pastaJogos = j.pastaJogos();
         List<TeamCodec.Pais> paises = new ArrayList<>();
@@ -123,6 +132,18 @@ public class ScoutActivity extends Activity {
         barra.setGravity(Gravity.CENTER_VERTICAL);
         barra.setBackgroundColor(VERDE_TOPO);
         barra.setPadding(dp(16), dp(8), dp(12), dp(8));
+        // Aba Jogo: com o jogo aberto, volta para ele (que continua de onde estava)
+        abaJogo = new Button(this);
+        abaJogo.setText("◂ Jogo");
+        abaJogo.setAllCaps(false);
+        abaJogo.setTextColor(Color.BLACK);
+        abaJogo.setTypeface(Typeface.DEFAULT_BOLD);
+        abaJogo.setBackground(SeletorCor.fundo(AMARELO, 0, 6));
+        abaJogo.setPadding(dp(14), 0, dp(14), 0);
+        abaJogo.setOnClickListener(v -> voltarAoJogo());
+        LinearLayout.LayoutParams pj = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, dp(40));
+        pj.rightMargin = dp(12);
+        barra.addView(abaJogo, pj);
         barra.addView(texto("Scout", 20, AMARELO, true));
         TextView sub = texto("os melhores jogadores do seu jogo", 13, CINZA_FAIXA, false);
         sub.setPadding(dp(12), 0, 0, 0);
@@ -536,7 +557,10 @@ public class ScoutActivity extends Activity {
         }
         ((ArrayAdapter<?>) spSave.getAdapter()).notifyDataSetChanged();
         if (saves.isEmpty()) conta.setText("Nenhum jogo gravado em JOGOS ainda.");
-        else carregarSave();
+        else {
+            selecionarJogoAtual();
+            carregarSave();
+        }
     }
 
     private static int ordemDivisao(String d) {
@@ -547,9 +571,86 @@ public class ScoutActivity extends Activity {
         return d.startsWith("Distrital") ? 5 : 9;
     }
 
+    @Override
+    protected void onResume() {
+        super.onResume();
+        boolean jogoAberto = ElifootActivity.marcaAberto(this).exists();
+        abaJogo.setVisibility(jogoAberto ? View.VISIBLE : View.GONE);
+        // O jogo gravou (ou criou um save) desde a ultima vez: recarrega mantendo os filtros.
+        // Se o jogador abriu outro jogo, o Scout passa para ele
+        File atual = saveDoJogoAtual();
+        if (atual != null && arquivoCarregado != null && !atual.equals(arquivoCarregado)) {
+            listarSavesSemCarregar();
+            selecionarJogoAtual();
+            carregarSave();
+        } else if (arquivoCarregado != null && arquivoCarregado.lastModified() != dataCarregada) recarregar();
+    }
+
+    private void voltarAoJogo() {
+        if (ElifootActivity.marcaAberto(this).exists())
+            startActivity(new Intent(this, ElifootActivity.class).addFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT));
+        else
+            finish();
+    }
+
+    // Le o save de novo e devolve pais, divisao e equipe escolhidos nos filtros
+    private void recarregar() {
+        int ip = spPais.getSelectedItemPosition(), id = spDivisao.getSelectedItemPosition(), ie = spEquipe.getSelectedItemPosition();
+        String pais = ip > 0 && ip < paisesFiltro.size() ? paisesFiltro.get(ip) : null;
+        String divisao = id > 0 && id < divisoesFiltro.size() ? divisoesFiltro.get(id) : null;
+        String equipe = ie > 0 && ie <= equipesFiltro.size() ? equipesFiltro.get(ie - 1).nomeCurto() : null;
+        File atual = arquivoCarregado;
+        listarSavesSemCarregar();
+        int i = arquivosSaves.indexOf(atual);
+        if (i >= 0 && i != spSave.getSelectedItemPosition()) {
+            montando = true;
+            spSave.setSelection(i, false);
+            montando = false;
+        }
+        carregarSave();
+        montando = true;
+        if (pais != null && paisesFiltro.contains(pais)) spPais.setSelection(paisesFiltro.indexOf(pais), false);
+        if (divisao != null && divisoesFiltro.contains(divisao)) spDivisao.setSelection(divisoesFiltro.indexOf(divisao), false);
+        if (equipe != null)
+            for (int k = 0; k < equipesFiltro.size(); k++)
+                if (equipesFiltro.get(k).nomeCurto().equals(equipe)) { spEquipe.setSelection(k + 1, false); break; }
+        montando = false;
+        filtrar();
+    }
+
+    // O save que o jogo abriu por ultimo (lastGame do elif98.ini), entre os da lista
+    private File saveDoJogoAtual() {
+        String nome = jogoApp.ultimoJogo();
+        if (nome == null || nome.isEmpty()) return null;
+        File noJogos = new File(pastaJogos, nome + ".e98");
+        for (File f : arquivosSaves) if (f.equals(noJogos)) return f;
+        for (File f : arquivosSaves) if (f.getName().equalsIgnoreCase(nome + ".e98")) return f;
+        return null;
+    }
+
+    private void selecionarJogoAtual() {
+        int i = arquivosSaves.indexOf(saveDoJogoAtual());
+        if (i < 0) return;
+        montando = true;
+        spSave.setSelection(i, false);
+        montando = false;
+    }
+
+    private void listarSavesSemCarregar() {
+        saves.clear();
+        arquivosSaves.clear();
+        for (SavesPorEquipes.Item it : SavesPorEquipes.listar(pastaJogos)) {
+            saves.add(it.rotulo());
+            arquivosSaves.add(it.arquivo);
+        }
+        ((ArrayAdapter<?>) spSave.getAdapter()).notifyDataSetChanged();
+    }
+
     private void carregarSave() {
         int i = spSave.getSelectedItemPosition();
         if (i < 0 || i >= saves.size()) return;
+        arquivoCarregado = arquivosSaves.get(i);
+        dataCarregada = arquivoCarregado.lastModified();
         SaveCodec.Save sf;
         try {
             sf = SaveCodec.ler(arquivosSaves.get(i));

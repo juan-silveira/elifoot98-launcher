@@ -10,14 +10,13 @@ import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 
 /**
- * Aplica um patch .zip na pasta do jogo (porte de src/PatchApplier.cs):
- * substitui tudo, mas renomeia a EQUIPAS atual pra EQUIPAS_OLD(_N) antes e
- * nunca mexe em JOGOS (saves).
+ * Aplica um patch .zip na pasta do jogo: substitui os arquivos, troca a pasta EQUIPAS
+ * inteira pela do patch (quando ele traz uma) e nunca mexe em JOGOS (saves). O
+ * original volta pelo APK (Patches.trocar), entao nao fica copia da EQUIPAS antiga.
  */
 public final class PatchApplier {
     public static final class Resultado {
         public int substituidos, ignorados;
-        public String backupEquipas;
     }
 
     private PatchApplier() {}
@@ -29,12 +28,7 @@ public final class PatchApplier {
             for (Enumeration<? extends ZipEntry> e = z.entries(); e.hasMoreElements(); )
                 if (e.nextElement().getName().toUpperCase().startsWith("EQUIPAS/")) temEquipas = true;
             File equipas = new File(jogo, "EQUIPAS");
-            if (temEquipas && equipas.isDirectory()) {
-                String nome = "EQUIPAS_OLD";
-                for (int n = 2; new File(jogo, nome).exists(); n++) nome = "EQUIPAS_OLD_" + n;
-                if (!equipas.renameTo(new File(jogo, nome))) throw new IOException("Não consegui renomear a pasta EQUIPAS.");
-                r.backupEquipas = nome;
-            }
+            if (temEquipas && equipas.isDirectory()) apagar(equipas);
             byte[] buf = new byte[1 << 16];
             for (Enumeration<? extends ZipEntry> e = z.entries(); e.hasMoreElements(); ) {
                 ZipEntry en = e.nextElement();
@@ -54,5 +48,11 @@ public final class PatchApplier {
             }
         }
         return r;
+    }
+
+    private static void apagar(File f) throws IOException {
+        File[] filhos = f.isDirectory() ? f.listFiles() : null;
+        if (filhos != null) for (File c : filhos) apagar(c);
+        if (!f.delete() && f.exists()) throw new IOException("Não consegui apagar " + f.getName());
     }
 }
