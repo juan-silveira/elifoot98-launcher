@@ -1,7 +1,7 @@
 ; Historial com os cartoes amarelos (ver historial.py). Os 4 blocos do original
 ; que poem golos, golos, vermelhos e lesoes nos textos do Historial (um IntToStr
 ; e um SetText cada) viram um laco por uma tabela de 5 linhas: a nova e a dos
-; amarelos na carreira (+0x21). Os numeros sao os 2 bytes de baixo (os de cima
+; amarelos acumulados (+0x25, um byte: voltam a 0 quando o 3o suspende). Os numeros sao os 2 bytes de baixo (os de cima
 ; das expulsoes e das lesoes guardam os amarelos; os golos nunca passam de 65.535).
 ; A mesma tabela poe a Nota (+0x2B) e o Risco de lesao (+0x2F) na ficha do
 ; jogador, ao lado do Comportamento (ficha.py).
@@ -41,7 +41,11 @@ org ORG
         jogador
         mov bx, [cs:si+tabela]
         push byte 0
-        push word [es:di+bx]
+        mov ax, [es:di+bx]
+        cmp bl, 0x25                    ; amarelos acumulados: so o byte (o de cima
+        jne .w                          ; e a marca do jogo)
+        xor ah, ah
+.w:     push ax
         db 0x9A                         ; IntToStr (seg24:07D0)
 ..@i:   dw 0xFFFF, 0
         mov bx, sp                      ; o si nao sobrevive as chamadas: volta
@@ -62,7 +66,7 @@ org ORG
         jmp FIM
 tabela: dw 0x17, F1                     ; golos
         dw 0x1B, F2                     ; golos (o outro)
-        dw 0x21, F3                     ; amarelos na carreira (novo)
+        dw 0x25, F3                     ; amarelos acumulados (novo; zeram na suspensao)
         dw 0x23, F4                     ; vermelhos
         dw 0x1F, F5                     ; lesoes
         dw 0x2B, F6                     ; Nota (ficha.py)

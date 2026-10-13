@@ -1062,8 +1062,10 @@ passam a ler só os 2 bytes de baixo.
   `seg04` (no fim da região do Historial, `seg04:251B`, onde o laço novo deixa
   espaço) a jornada roda. A causa exata no Wine não foi encontrada; o `seg03` e o
   `seg11` crescem sem problema.
-- O **Historial** ganha a linha "Cartões amarelos" (amarelos na carreira, `+0x21`)
-  acima de "Cartões vermelhos", nas 3 janelas que o mostram: venda
+- O **Historial** ganha a linha "Cartões amarelos" acima de "Cartões vermelhos".
+  Desde a 0.9.6 ela mostra os amarelos acumulados (`+0x25`, só o byte de baixo;
+  o de cima é a marca do jogo), que voltam a 0 quando o 3º suspende. Antes
+  mostrava os da carreira (`+0x21`), que o Scout continua mostrando. Ela aparece nas 3 janelas que o mostram: venda
   (`sellPlayerDlg`, `seg02:32BF`), aba Jogador (`prepareGameDlg`, `seg04:246F`) e
   plantel de outra equipa (`PlantelDlg`, `seg10:204C`). Em cada uma, os 4 blocos
   que punham golos, golos, vermelhos e lesões (IntToStr + SetText, 41 ou 53
