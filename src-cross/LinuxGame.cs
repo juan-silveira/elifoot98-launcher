@@ -40,25 +40,32 @@ namespace ElifootLauncher
             : Path.Combine(AppDir, "game");
         public string BibliotecaDir => Path.Combine(DataDir, "patches");
 
-        // Copia/atualiza os arquivos do jogo na pasta gravavel (sem abrir o Wine)
+        // Copia/atualiza os arquivos do jogo na pasta gravavel (sem abrir o Wine). Se a versao
+        // mudou (os arquivos do pacote foram copiados por cima), refaz o patch em uso; e deixa
+        // a regra de estrangeiros como a escolhida nas Configuracoes
         public void Preparar()
         {
+            var marca = Path.Combine(DataDir, ".versao");
+            string? antes = File.Exists(marca) ? File.ReadAllText(marca).Trim() : null;
             if (OperatingSystem.IsWindows())
-            {
                 WindowsJogo.Sincronizar(this);
-                return;
+            else
+            {
+                using var p = StartScript("preparar", null) ?? throw new IOException("Não consegui executar o elifoot98.sh.");
+                p.WaitForExit();
+                if (p.ExitCode != 0)
+                    throw new IOException("Não consegui preparar os arquivos do jogo em " + DataDir);
             }
-            using var p = StartScript("preparar", null) ?? throw new IOException("Não consegui executar o elifoot98.sh.");
-            p.WaitForExit();
-            if (p.ExitCode != 0)
-                throw new IOException("Não consegui preparar os arquivos do jogo em " + DataDir);
+            string? depois = File.Exists(marca) ? File.ReadAllText(marca).Trim() : null;
+            Patches.Manter(GameDir, OriginaisDir, BibliotecaDir, antes != null && antes != depois,
+                LauncherConfig.Load().Estrangeiros);
         }
 
         public void LaunchElifoot(LauncherConfig cfg)
         {
             if (OperatingSystem.IsWindows())
             {
-                WindowsJogo.Sincronizar(this);
+                Preparar();
                 SavesPorEquipes.Separar(JogosDir, cfg.EquipesDoJogo);
                 DefinirRegistro(cfg.Registrado);
                 WindowsJogo.Abrir(this, cfg.ExeExistente(GameDir), cfg);
@@ -71,6 +78,7 @@ namespace ElifootLauncher
         }
         public void LaunchEditor(LauncherConfig cfg)
         {
+            Preparar();
             if (OperatingSystem.IsWindows())
                 WindowsJogo.Abrir(this, Path.Combine(GameDir, "EDITEQ.EXE"), cfg);
             else

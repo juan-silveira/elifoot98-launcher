@@ -95,7 +95,7 @@ namespace ElifootLauncher
             }, "Vale no jogo e no Editor de Equipes.");
             bool liberadoAntes = false;
             try { liberadoAntes = TeamCodec.BosmanLiberado(_launcher.GameDir); } catch { estrangeiros.Enabled = false; }
-            estrangeiros.SelectedIndex = liberadoAntes ? 1 : 0;
+            estrangeiros.SelectedIndex = (Config.Estrangeiros ?? liberadoAntes) ? 1 : 0;
 
             _times = Seletor(coluna, "Times:", Array.Empty<string>(),
                 "Trocar os times volta o jogo aos arquivos originais e aplica o patch escolhido: equipes editadas e árbitros são desfeitos. Os jogos salvos ficam.");
@@ -123,6 +123,7 @@ namespace ElifootLauncher
             btnOk.Click += (s, e) =>
             {
                 bool liberado = estrangeiros.SelectedIndex == 1;
+                if (estrangeiros.Enabled) Config.Estrangeiros = liberado;
                 var patch = _times.SelectedIndex <= 0 ? "" : _patches[_times.SelectedIndex - 1];
                 if (patch != Patches.EmUso(_launcher.GameDir))
                 {
@@ -183,6 +184,8 @@ namespace ElifootLauncher
                 return;
             if (!TrocarTimes("")) return;
             try { TeamCodec.DefinirBosman(_launcher.GameDir, false); } catch { }
+            Config.Estrangeiros = false;
+            Config.Save();
             ListarPatches("");
             estrangeiros.SelectedIndex = 0;
             MessageBox.Show(this, "Arquivos originais restaurados.", "Pronto", MessageBoxButtons.OK, MessageBoxIcon.Information);

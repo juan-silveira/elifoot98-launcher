@@ -47,6 +47,15 @@ final class Config {
         return prefs(c).getBoolean("registrado", false);
     }
 
+    /**
+     * Jogadores estrangeiros: TRUE = Liberado, FALSE = Original, null = nunca escolhido
+     * (vale o BOSMAN.TXE). Guardado aqui porque uma atualizacao extrai o jogo de novo.
+     */
+    static Boolean estrangeiros(Context c) {
+        String v = prefs(c).getString("estrangeiros", "");
+        return v.equals("liberado") ? Boolean.TRUE : v.equals("original") ? Boolean.FALSE : null;
+    }
+
     /** Patch em uso (nome na biblioteca, Patches.java), ou "" para os times originais. */
     static String patch(Context c) {
         return prefs(c).getString("patch", "");

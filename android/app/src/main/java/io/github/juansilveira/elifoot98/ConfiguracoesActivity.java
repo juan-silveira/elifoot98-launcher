@@ -82,7 +82,8 @@ public class ConfiguracoesActivity extends Activity {
         estrangeiros = seletor(col, "Estrangeiros", new String[] {
             "Original — até 5 por equipe (Lei Bosman e língua portuguesa não contam)",
             "Liberado — sem limite de estrangeiros"}, "Vale no jogo e no Editor de Equipes.");
-        estrangeiros.setSelection(liberadoAntes ? 1 : 0);
+        Boolean escolhido = Config.estrangeiros(this);
+        estrangeiros.setSelection((escolhido != null ? escolhido : liberadoAntes) ? 1 : 0);
 
         times = seletor(col, "Times", new String[0],
             "Trocar os times volta o jogo aos arquivos originais e aplica o patch escolhido: equipes editadas e árbitros são desfeitos. Os jogos salvos ficam.");
@@ -144,6 +145,7 @@ public class ConfiguracoesActivity extends Activity {
             .putInt("equipes", Config.OPCOES_EQUIPES[equipes.getSelectedItemPosition()])
             .putString("idioma", Config.OPCOES_IDIOMA[idioma.getSelectedItemPosition()])
             .putBoolean("registrado", registro.getSelectedItemPosition() == 0)
+            .putString("estrangeiros", estrangeiros.getSelectedItemPosition() == 1 ? "liberado" : "original")
             .apply();
         boolean liberado = estrangeiros.getSelectedItemPosition() == 1;
         String patch = times.getSelectedItemPosition() == 0 ? "" : patches.get(times.getSelectedItemPosition() - 1);
@@ -196,6 +198,7 @@ public class ConfiguracoesActivity extends Activity {
                     try {
                         Patches.trocar(this, jogo, "");
                         TeamCodec.definirBosman(jogo.jogo, false);
+                        Config.prefs(this).edit().putString("estrangeiros", "original").apply();
                     } catch (Exception e) {
                         erro = e.getMessage();
                     }

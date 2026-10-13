@@ -76,6 +76,26 @@ namespace ElifootLauncher
             return resultado;
         }
 
+        /// Depois que uma atualizacao copiou os arquivos do pacote por cima da pasta do jogo
+        /// (versaoMudou), refaz o patch em uso; e deixa a regra de estrangeiros como a
+        /// escolhida nas Configuracoes (liberado: null = nunca escolhida, nao mexe).
+        public static void Manter(string gameDir, string originais, string biblioteca, bool versaoMudou, bool? liberado)
+        {
+            if (versaoMudou)
+            {
+                var nome = EmUso(gameDir);
+                if (!string.IsNullOrEmpty(nome) && File.Exists(Path.Combine(biblioteca, nome + ".zip")))
+                    try { Trocar(gameDir, originais, biblioteca, nome); } catch { }
+            }
+            if (liberado.HasValue)
+                try
+                {
+                    if (TeamCodec.BosmanLiberado(gameDir) != liberado.Value)
+                        TeamCodec.DefinirBosman(gameDir, liberado.Value);
+                }
+                catch { }
+        }
+
         private static void Copiar(string de, string para)
         {
             foreach (var arq in Directory.EnumerateFiles(de, "*", SearchOption.AllDirectories))

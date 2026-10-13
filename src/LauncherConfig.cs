@@ -48,6 +48,11 @@ namespace ElifootLauncher
         // de abrir o jogo; nao registrado, tira (copia de avaliacao)
         public bool Registrado { get; set; }
 
+        // Jogadores estrangeiros: true = Liberado (todos os paises no BOSMAN.TXE), false =
+        // Original, null = ainda nao escolhido (vale o arquivo). Guardado aqui porque uma
+        // atualizacao copia os arquivos do pacote por cima (Patches.Manter refaz a escolha)
+        public bool? Estrangeiros { get; set; }
+
         // O EXE que existe na pasta do jogo: o da versao e do idioma, senao o sem traducao,
         // senao o ELIFOOT.EXE
         public string ExeExistente(string pastaDoJogo)
@@ -111,6 +116,10 @@ namespace ElifootLauncher
                         case "registrado":
                             cfg.Registrado = val == "1";
                             break;
+                        case "estrangeiros":
+                            if (val == "liberado") cfg.Estrangeiros = true;
+                            else if (val == "original") cfg.Estrangeiros = false;
+                            break;
                         case "idioma":
                             if (Array.IndexOf(OpcoesIdioma, val) >= 0) cfg.Idioma = val;
                             break;
@@ -139,6 +148,7 @@ namespace ElifootLauncher
                 "versao=" + (VersaoOriginal ? "original" : "modificada"),
                 "registrado=" + (Registrado ? "1" : "0"),
             };
+            if (Estrangeiros.HasValue) lines.Add("estrangeiros=" + (Estrangeiros.Value ? "liberado" : "original"));
             File.WriteAllLines(ConfigPath, lines);
         }
     }

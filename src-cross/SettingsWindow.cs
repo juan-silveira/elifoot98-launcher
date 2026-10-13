@@ -93,7 +93,7 @@ namespace ElifootLauncher
             });
             bool liberadoAntes = false;
             try { liberadoAntes = TeamCodec.BosmanLiberado(game.GameDir); } catch { estrangeiros.IsEnabled = false; }
-            estrangeiros.SelectedIndex = liberadoAntes ? 1 : 0;
+            estrangeiros.SelectedIndex = (cfg.Estrangeiros ?? liberadoAntes) ? 1 : 0;
 
             var btnAdicionar = BotaoLargo("Adicionar patch…");
             _removerPatch = BotaoLargo("Remover da lista");
@@ -112,6 +112,8 @@ namespace ElifootLauncher
                     return;
                 if (!await TrocarTimes("")) return;
                 try { TeamCodec.DefinirBosman(game.GameDir, false); } catch { }
+                cfg.Estrangeiros = false;
+                cfg.Save();
                 ListarPatches("");
                 estrangeiros.SelectedIndex = 0;
                 liberadoAntes = false;
@@ -129,6 +131,7 @@ namespace ElifootLauncher
                     liberadoAntes = TeamCodec.BosmanLiberado(game.GameDir);
                 }
                 bool liberado = estrangeiros.SelectedIndex == 1;
+                if (estrangeiros.IsEnabled) cfg.Estrangeiros = liberado;
                 if (estrangeiros.IsEnabled && liberado != liberadoAntes)
                 {
                     try { TeamCodec.DefinirBosman(game.GameDir, liberado); }

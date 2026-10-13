@@ -69,7 +69,17 @@ public final class Jogo {
             if (velhos != null)
                 for (File f : velhos) if (!f.getName().equals("WINDOWS")) apagar(f);
             escrever(marca, versao);
+            // a extracao pos os arquivos do app por cima: refaz o patch em uso
+            String patch = Config.patch(ctx);
+            if (!patch.isEmpty() && Patches.existe(ctx, patch))
+                try { Patches.trocar(ctx, this, patch); } catch (IOException ignored) { }
         }
+        // a regra de estrangeiros escolhida nas Configuracoes
+        Boolean liberado = Config.estrangeiros(ctx);
+        if (liberado != null)
+            try {
+                if (TeamCodec.bosmanLiberado(jogo) != liberado) TeamCodec.definirBosman(jogo, liberado);
+            } catch (Exception ignored) { }
         equipasSemRepetidas();
         prepararWindows(ctx);
     }

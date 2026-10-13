@@ -53,12 +53,30 @@ namespace ElifootLauncher
         // ELIF08BR.EXE...); antes de abrir, a pasta JOGOS fica so com os saves desse numero
         public void LaunchElifoot(LauncherConfig cfg)
         {
+            Manter(cfg);
             SavesPorEquipes.Separar(JogosDir, cfg.EquipesDoJogo);
             try { Ativador.DefinirRegistro(this, cfg.Registrado); }
             catch { /* sem permissao no elif98.ini: abre como esta */ }
             LaunchWithOtvdm(cfg.ExeExistente(GameDir), cfg, "Elifoot 98");
         }
-        public void LaunchEditor(LauncherConfig cfg) => LaunchWithOtvdm(EditeqExe, cfg, "Editeq");
+        public void LaunchEditor(LauncherConfig cfg)
+        {
+            Manter(cfg);
+            LaunchWithOtvdm(EditeqExe, cfg, "Editeq");
+        }
+
+        // O instalador de uma versao nova copia os arquivos do jogo por cima: se a versao
+        // mudou (marca game\.versao), refaz o patch em uso; e deixa a regra de estrangeiros
+        // como a escolhida nas Configuracoes
+        private void Manter(LauncherConfig cfg)
+        {
+            var marca = Path.Combine(GameDir, ".versao");
+            var versao = typeof(GameLauncher).Assembly.GetName().Version?.ToString() ?? "";
+            string antes = null;
+            try { if (File.Exists(marca)) antes = File.ReadAllText(marca).Trim(); } catch { }
+            Patches.Manter(GameDir, OriginaisDir, BibliotecaDir, antes != versao, cfg.Estrangeiros);
+            try { File.WriteAllText(marca, versao); } catch { }
+        }
 
         private void LaunchWithOtvdm(string exePath, LauncherConfig cfg, string expectedTitleHint)
         {
