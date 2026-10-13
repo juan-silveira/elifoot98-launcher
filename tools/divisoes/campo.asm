@@ -350,7 +350,7 @@ bola:   mov ax, [bp+X]
         ret
 
 ; setor (G, D, M, A) -> coluna em % da largura, meia largura da letra
-colunas:   db 6, 0, 25, 0, 47, 0, 71, 0
+colunas:   db 6, 0, 25, 0, 55, 0, 82, 0
 meialetra: db 4, 0, 4, 0, 5, 0, 4, 0
 letras:    db 1, 'G', 1, 'D', 1, 'M', 1, 'A'
 ARIAL:     db 5, 'Arial'

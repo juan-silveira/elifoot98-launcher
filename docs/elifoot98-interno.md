@@ -1373,7 +1373,7 @@ e `filtros.asm`).
     letra (`+0x42` do objeto `[time+4]`) e a letra do setor, em Arial 8
     negrito (`TFont.SetStyle` `seg19:1205`), na cor do fundo (`+0x46`). São as
     mesmas cores da Ajuda do Árbitro;
-  - as bolinhas ficam na coluna do setor (6%, 25%, 47% e 71% da largura),
+  - as bolinhas ficam na coluna do setor (6%, 25%, 55% e 82% da largura),
     espalhadas na altura: `altura × k / (n + 1)`.
 - **Rotinas do Canvas** (`seg19`, pelas chamadas ao GDI e ao USER):
   - Ellipse `1C74`, FillRect `1CB7`, LineTo `1D4D`, MoveTo `1D8A`, Rectangle
