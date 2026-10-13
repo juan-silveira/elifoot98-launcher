@@ -121,9 +121,35 @@ public class LauncherActivity extends Activity {
         return getSharedPreferences("config", MODE_PRIVATE).getInt("equipes", 8);
     }
 
+    // Idioma do jogo: "" = o original (portugues de Portugal); "BR" = portugues do Brasil
+    // (ELIFnnBR.EXE, traduzidos por tools/idiomas a partir de game/IDIOMAS/pt-BR.txt)
+    private static final String[] OPCOES_IDIOMA = {"", "BR"};
+    private static final String[] NOMES_IDIOMA = {"Original (Portugal)", "Português do Brasil"};
+
+    private String idioma() {
+        String i = getSharedPreferences("config", MODE_PRIVATE).getString("idioma", "");
+        return java.util.Arrays.asList(OPCOES_IDIOMA).contains(i) ? i : "";
+    }
+
+    // O EXE do numero de equipes e do idioma; sem ele, o original; senao o ELIFOOT.EXE
     private String exeDoJogo() {
-        String exe = String.format(java.util.Locale.ROOT, "ELIF%02d.EXE", equipesPorDivisao());
-        return new java.io.File(jogo.jogo, exe).exists() ? exe : "ELIFOOT.EXE";
+        String original = String.format(java.util.Locale.ROOT, "ELIF%02d", equipesPorDivisao());
+        for (String exe : new String[] {original + idioma() + ".EXE", original + ".EXE"})
+            if (new java.io.File(jogo.jogo, exe).exists()) return exe;
+        return "ELIFOOT.EXE";
+    }
+
+    private void idiomas() {
+        int atual = java.util.Arrays.asList(OPCOES_IDIOMA).indexOf(idioma());
+        new AlertDialog.Builder(this)
+            .setTitle("Idioma do jogo")
+            .setSingleChoiceItems(NOMES_IDIOMA, atual, (d, w) -> {
+                d.dismiss();
+                getSharedPreferences("config", MODE_PRIVATE).edit().putString("idioma", OPCOES_IDIOMA[w]).apply();
+                Ui.mensagem(this, "Pronto", "O jogo abre em " + NOMES_IDIOMA[w] + " a partir da próxima vez.");
+            })
+            .setNegativeButton("Cancelar", null)
+            .show();
     }
 
     // Minimo de equipes no jogo novo (4N + as que sobem do Distrital)
@@ -161,6 +187,7 @@ public class LauncherActivity extends Activity {
         t.setText("No Android o jogo abre em tela cheia.\n\n"
             + "\"Ativar todos os recursos\" registra o jogo (Registro para autor).\n\n"
             + "Equipes por divisão: " + equipesPorDivisao() + ".\n\n"
+            + "Idioma do jogo: " + NOMES_IDIOMA[java.util.Arrays.asList(OPCOES_IDIOMA).indexOf(idioma())] + ".\n\n"
             + "Estrangeiros: " + (liberado ? "Liberado (sem limite)" : "Original (até 5 por equipe; Lei Bosman e língua portuguesa não contam)") + ".\n\n"
             + "\"Restaurar times originais\" desfaz equipes editadas e patches aplicados.");
         t.setTextSize(TypedValue.COMPLEX_UNIT_SP, 15);
@@ -168,6 +195,7 @@ public class LauncherActivity extends Activity {
         AlertDialog[] d = new AlertDialog[1];
         l.addView(botaoDialogo("Ativar todos os recursos", () -> { d[0].dismiss(); ativar(); }));
         l.addView(botaoDialogo("Equipes por divisão…", () -> { d[0].dismiss(); equipes(); }));
+        l.addView(botaoDialogo("Idioma do jogo…", () -> { d[0].dismiss(); idiomas(); }));
         l.addView(botaoDialogo("Estrangeiros…", () -> { d[0].dismiss(); estrangeiros(liberado); }));
         l.addView(botaoDialogo("Restaurar times originais…", () -> { d[0].dismiss(); restaurar(); }));
         ScrollView sv = new ScrollView(this);

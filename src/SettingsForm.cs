@@ -30,7 +30,7 @@ namespace ElifootLauncher
             Config = cfg;
 
             Text = "Configurações";
-            ClientSize = new Size(400, 440);
+            ClientSize = new Size(400, 495);
             FormBorderStyle = FormBorderStyle.FixedDialog;
             MaximizeBox = false;
             MinimizeBox = false;
@@ -143,18 +143,35 @@ namespace ElifootLauncher
                 ForeColor = Color.FromArgb(100, 100, 100),
             };
 
+            // Idioma do jogo: o original (Portugal) ou o portugues do Brasil (ELIFnnBR.EXE)
+            var lblIdioma = new Label
+            {
+                Text = "Idioma do jogo:",
+                Location = new Point(20, 388),
+                AutoSize = true,
+            };
+            var idioma = new ComboBox
+            {
+                Location = new Point(20, 410),
+                Width = 360,
+                DropDownStyle = ComboBoxStyle.DropDownList,
+            };
+            foreach (var nome in LauncherConfig.NomesIdioma)
+                idioma.Items.Add(nome);
+            idioma.SelectedIndex = Math.Max(0, Array.IndexOf(LauncherConfig.OpcoesIdioma, cfg.Idioma));
+
             var btnOk = new Button
             {
                 Text = "Salvar",
                 DialogResult = DialogResult.OK,
-                Location = new Point(220, 395),
+                Location = new Point(220, 450),
                 Size = new Size(80, 30),
             };
             var btnCancel = new Button
             {
                 Text = "Cancelar",
                 DialogResult = DialogResult.Cancel,
-                Location = new Point(310, 395),
+                Location = new Point(310, 450),
                 Size = new Size(80, 30),
             };
             AcceptButton = btnOk;
@@ -176,10 +193,11 @@ namespace ElifootLauncher
                 Config.ResolutionHeight = h;
                 Config.Fullscreen = _fullscreenBox.Checked;
                 Config.EquipesPorDivisao = LauncherConfig.OpcoesEquipes[equipes.SelectedIndex];
+                Config.Idioma = LauncherConfig.OpcoesIdioma[idioma.SelectedIndex];
                 Config.Save();
             };
 
-            Controls.AddRange(new Control[] { lblRes, _resolutionBox, _fullscreenBox, lblNota, btnExperiment, lblEstr, estrangeiros, lblEquipes, equipes, lblEquipesNota, btnOk, btnCancel });
+            Controls.AddRange(new Control[] { lblRes, _resolutionBox, _fullscreenBox, lblNota, btnExperiment, lblEstr, estrangeiros, lblEquipes, equipes, lblEquipesNota, lblIdioma, idioma, btnOk, btnCancel });
         }
 
         private static int FindResolutionIndex(int w, int h)

@@ -53,8 +53,7 @@ namespace ElifootLauncher
             {
                 WindowsJogo.Sincronizar(this);
                 SavesPorEquipes.Separar(JogosDir, cfg.EquipesPorDivisao);
-                var exe = Path.Combine(GameDir, cfg.ExeDoJogo);
-                WindowsJogo.Abrir(this, File.Exists(exe) ? exe : Path.Combine(GameDir, "ELIFOOT.EXE"), cfg);
+                WindowsJogo.Abrir(this, cfg.ExeExistente(GameDir), cfg);
                 return;
             }
             SavesPorEquipes.Separar(JogosDir, cfg.EquipesPorDivisao);
@@ -87,8 +86,8 @@ namespace ElifootLauncher
                 // Tamanho do jogo: escala em % (0 = o script escolhe a maior que cabe)
                 psi.Environment["ELIFOOT_ESCALA"] = cfg.Escala == 0 ? "auto" : cfg.Escala.ToString();
                 if (cfg.JanelaLivre) psi.Environment["ELIFOOT_JANELA_LIVRE"] = "1";
-                // EXE das equipes por divisao escolhidas nas Configuracoes
-                if (modo == "jogo") psi.Environment["ELIFOOT_EXE"] = cfg.ExeDoJogo;
+                // EXE das equipes por divisao e do idioma escolhidos nas Configuracoes
+                if (modo == "jogo") psi.Environment["ELIFOOT_EXE"] = Path.GetFileName(cfg.ExeExistente(GameDir));
             }
             return Process.Start(psi);
         }

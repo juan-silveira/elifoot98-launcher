@@ -45,13 +45,12 @@ namespace ElifootLauncher
             return true;
         }
 
-        // EXE das equipes por divisao escolhidas (ELIF08.EXE a ELIF20.EXE); antes de abrir,
-        // a pasta JOGOS fica so com os saves desse numero
+        // EXE das equipes por divisao e do idioma escolhidos (ELIF08.EXE a ELIF20.EXE, ou
+        // ELIF08BR.EXE...); antes de abrir, a pasta JOGOS fica so com os saves desse numero
         public void LaunchElifoot(LauncherConfig cfg)
         {
-            var exe = Path.Combine(GameDir, cfg.ExeDoJogo);
             SavesPorEquipes.Separar(JogosDir, cfg.EquipesPorDivisao);
-            LaunchWithOtvdm(File.Exists(exe) ? exe : ElifootExe, cfg, "Elifoot 98");
+            LaunchWithOtvdm(cfg.ExeExistente(GameDir), cfg, "Elifoot 98");
         }
         public void LaunchEditor(LauncherConfig cfg) => LaunchWithOtvdm(EditeqExe, cfg, "Editeq");
 

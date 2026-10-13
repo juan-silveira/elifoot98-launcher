@@ -40,9 +40,10 @@ JANELAS = [
      ['textPlayerBehaviour', 'textSeasonGoals']),
 ]
 
-# Colunas: o texto em x 0 e todos os valores em x 96, como o dos Golos esta epoca
-# (o do Comportamento, que ficava em 88, vem para ca)
-TEXTO_X, VALOR_X = 0, 96
+# Colunas: o texto em x 0 e todos os valores em x 104 (no original, o do
+# Comportamento ficava em 88 e o dos Golos esta epoca em 96; com 104 cabe o "Gols na
+# Temporada" da traducao, game/IDIOMAS/pt-BR.txt)
+TEXTO_X, VALOR_X = 0, 104
 
 
 def _rotulo(nome, x, y, largura, legenda=None):

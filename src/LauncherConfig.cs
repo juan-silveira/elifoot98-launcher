@@ -29,7 +29,22 @@ namespace ElifootLauncher
         // so continua com o mesmo numero de equipes.
         public static readonly int[] OpcoesEquipes = { 8, 10, 12, 14, 16, 18, 20 };
         public int EquipesPorDivisao { get; set; } = 8;
-        public string ExeDoJogo => $"ELIF{EquipesPorDivisao:00}.EXE";
+        public string ExeDoJogo => $"ELIF{EquipesPorDivisao:00}{Idioma}.EXE";
+        public string ExeOriginal => $"ELIF{EquipesPorDivisao:00}.EXE";
+
+        // Idioma do jogo: "" = o original (portugues de Portugal); "BR" = portugues do
+        // Brasil (ELIFnnBR.EXE, traduzidos por tools/idiomas a partir de game/IDIOMAS/pt-BR.txt)
+        public static readonly string[] OpcoesIdioma = { "", "BR" };
+        public static readonly string[] NomesIdioma = { "Original (Portugal)", "Português do Brasil" };
+        public string Idioma { get; set; } = "";
+
+        // O EXE que existe na pasta do jogo: o do idioma, senao o original, senao o ELIFOOT.EXE
+        public string ExeExistente(string pastaDoJogo)
+        {
+            foreach (var nome in new[] { ExeDoJogo, ExeOriginal })
+                if (File.Exists(Path.Combine(pastaDoJogo, nome))) return Path.Combine(pastaDoJogo, nome);
+            return Path.Combine(pastaDoJogo, "ELIFOOT.EXE");
+        }
         // Minimo de equipes no jogo novo (4N + as que sobem do Distrital)
         public static int MinimoDeEquipes(int n) => 4 * n + (n >= 16 ? 4 : 2);
 
@@ -76,6 +91,9 @@ namespace ElifootLauncher
                         case "janela":
                             cfg.JanelaLivre = val == "1";
                             break;
+                        case "idioma":
+                            if (Array.IndexOf(OpcoesIdioma, val) >= 0) cfg.Idioma = val;
+                            break;
                         case "escala":
                             if (int.TryParse(val, out var e) && Array.IndexOf(OpcoesEscala, e) >= 0) cfg.Escala = e;
                             break;
@@ -97,6 +115,7 @@ namespace ElifootLauncher
                 "escala=" + Escala,
                 "janela=" + (JanelaLivre ? "1" : "0"),
                 "equipes=" + EquipesPorDivisao,
+                "idioma=" + Idioma,
             };
             File.WriteAllLines(ConfigPath, lines);
         }

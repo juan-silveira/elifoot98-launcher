@@ -99,6 +99,12 @@ namespace ElifootLauncher
                 equipes.Items.Add(n == 8 ? "8 (original)" : $"{n} — {2 * (n - 1)} jornadas, mínimo de {LauncherConfig.MinimoDeEquipes(n)} equipes");
             equipes.SelectedIndex = Math.Max(0, Array.IndexOf(LauncherConfig.OpcoesEquipes, cfg.EquipesPorDivisao));
 
+            // Idioma do jogo: o original (Portugal) ou o portugues do Brasil (ELIFnnBR.EXE)
+            var idioma = new ComboBox { HorizontalAlignment = HorizontalAlignment.Stretch };
+            foreach (var nome in LauncherConfig.NomesIdioma)
+                idioma.Items.Add(nome);
+            idioma.SelectedIndex = Math.Max(0, Array.IndexOf(LauncherConfig.OpcoesIdioma, cfg.Idioma));
+
             var btnOk = new Button { Content = "Salvar", MinWidth = 80, HorizontalContentAlignment = HorizontalAlignment.Center, IsDefault = true };
             var btnCancel = new Button { Content = "Cancelar", MinWidth = 80, HorizontalContentAlignment = HorizontalAlignment.Center, IsCancel = true };
             btnOk.Click += async (_, _) =>
@@ -119,6 +125,7 @@ namespace ElifootLauncher
                 cfg.Escala = LauncherConfig.OpcoesEscala[escala.SelectedIndex];
                 cfg.JanelaLivre = janelaLivre.IsChecked == true;
                 cfg.EquipesPorDivisao = LauncherConfig.OpcoesEquipes[equipes.SelectedIndex];
+                cfg.Idioma = LauncherConfig.OpcoesIdioma[idioma.SelectedIndex];
                 cfg.Save();
                 Close(true);
             };
@@ -148,6 +155,8 @@ namespace ElifootLauncher
                         TextWrapping = TextWrapping.Wrap,
                         Foreground = new SolidColorBrush(Color.FromRgb(100, 100, 100)),
                     },
+                    new TextBlock { Text = "Idioma do jogo:", Margin = new Thickness(0, 6, 0, 0) },
+                    idioma,
                     new TextBlock { Text = "Jogadores estrangeiros (vale no jogo e no Editor de Equipes):", Margin = new Thickness(0, 6, 0, 0) },
                     estrangeiros,
                     btnAtivar,
