@@ -2,7 +2,8 @@
 ; A rotina que confere a escalacao (seg04:38B0, chamada sempre que ela muda) acaba
 ; ligando ou desligando o "Jogar" (OKBtn.SetEnabled, seg21:1CB8); essa chamada passa a
 ; ser campo: ela liga o botao como antes e redesenha o campo no TImage da aba (no
-; campo +0x2D0 da janela), com uma bolinha para cada titular, por setor.
+; campo +0x2D0 da janela): gramado verde com linhas brancas, sempre igual, e uma
+; bolinha nas cores do time para cada titular, com a letra do setor (G, D, M, A).
 ;
 ; -DORG: deslocamento no segmento.
 bits 16
@@ -18,11 +19,16 @@ POSI    equ -0x18                       ; quantos ja foram desenhados por setor
 LISTA   equ -0x1C                       ; ponteiro longe (o bitmap, depois a lista)
 I       equ -0x1E
 ULT     equ -0x20
-RETAN     equ -0x28                       ; TRect
+RETAN   equ -0x28                       ; TRect
 X       equ -0x2A
 Y       equ -0x2C
 RAIO    equ -0x2E
 PASSO   equ -0x30
+FUNDO   equ -0x34                       ; cores do time (TColor)
+LETRA   equ -0x38
+
+GRAMA_H equ 0x003C                      ; verde da grama, RGB(76, 160, 60)
+GRAMA_L equ 0xA04C
 
 %macro longe 1
         push cs
@@ -34,9 +40,26 @@ PASSO   equ -0x30
         push word [bp-4]
 %endmacro
 
-campo:  push bp
+%macro objeto 1                         ; Font (+7), Pen (+0xB) ou Brush (+0xF) na pilha
+        les di, [bp-4]
+        les di, [es:di+%1]
+        push es
+        push di
+%endmacro
+
+%macro ret4 5                           ; rotina do canvas com 4 coordenadas
+        push %1
+        push %2
+        push %3
+        push %4
+        tela
+        longe %5
+%endmacro
+
+campo:  cld                             ; o Delphi nao garante a direcao
+        push bp
         mov bp, sp
-        sub sp, 0x30
+        sub sp, 0x38
         push si
         push word [bp+0xA]
         push word [bp+8]
@@ -54,8 +77,9 @@ desenhar:
         les di, [es:di+IMAGEM]
         mov ax, es
         or ax, di
-        jz .fim
-        mov ax, [es:di+0x22]
+        jnz .tem
+        ret
+.tem:   mov ax, [es:di+0x22]
         mov [bp+LARG], ax
         mov ax, [es:di+0x24]
         mov [bp+ALT], ax
@@ -63,7 +87,9 @@ desenhar:
         les di, [es:di+4]               ; Graphic (o TBitmap do DFM)
         mov ax, es
         or ax, di
-        jz .fim
+        jnz .bitmap
+        ret
+.bitmap:
         mov [bp+LISTA], di
         mov [bp+LISTA+2], es
         push word [bp+LARG]
@@ -80,10 +106,26 @@ desenhar:
         mov [bp-4], ax
         mov [bp-2], dx
 
-        ; fundo branco
-        mov dx, 0x00FF
-        mov ax, 0xFFFF
-        call pincel
+        ; cores do time: fundo (+0x46) e letra (+0x42), como na Ajuda do Arbitro
+        mov bx, [bp]
+        les di, [ss:bx+6]
+        les di, [es:di+TIME]
+        les di, [es:di]
+        les di, [es:di+4]
+        mov ax, [es:di+0x46]
+        mov [bp+FUNDO], ax
+        mov ax, [es:di+0x48]
+        mov [bp+FUNDO+2], ax
+        mov ax, [es:di+0x42]
+        mov [bp+LETRA], ax
+        mov ax, [es:di+0x44]
+        mov [bp+LETRA+2], ax
+
+        ; gramado
+        push word GRAMA_H
+        push word GRAMA_L
+        objeto 0xF
+        longe corpincel
         xor ax, ax
         mov [bp+RETAN], ax
         mov [bp+RETAN+2], ax
@@ -97,59 +139,27 @@ desenhar:
         tela
         longe preencher
 
-        ; linhas verdes
-        xor dx, dx
-        mov ax, 0xFF00                  ; clLime
-        call caneta
-        push byte 3
-        les di, [bp-4]
-        les di, [es:di+0xB]
-        push es
-        push di
+        ; linhas brancas (os retangulos e o circulo enchem de grama por dentro)
+        push word 0x00FF
+        push word 0xFFFF
+        objeto 0xB
+        longe corcaneta
+        push byte 2
+        objeto 0xB
         longe espessura
-        ; contorno
-        push byte 2
-        push byte 2
-        mov ax, [bp+LARG]
-        sub ax, 2
-        push ax
+        mov si, [bp+LARG]
+        sub si, 3                       ; borda direita
         mov ax, [bp+ALT]
-        sub ax, 2
-        push ax
-        tela
-        longe retangulo
-        ; grandes areas: 15% da largura, 60% da altura
-        mov ax, [bp+LARG]
-        mov cx, 15
-        call porc
-        mov [bp+RAIO], ax               ; largura da area (o Delphi nao guarda si)
-        mov ax, [bp+ALT]
-        mov cx, 20
-        call porc
-        mov [bp+Y], ax                  ; topo da area
-        push byte 2
-        push ax
-        mov ax, [bp+RAIO]
-        add ax, 2
-        push ax
-        mov ax, [bp+ALT]
-        sub ax, [bp+Y]
-        push ax
-        tela
-        longe retangulo
-        mov ax, [bp+LARG]
-        sub ax, 2
-        sub ax, [bp+RAIO]
-        push ax
-        push word [bp+Y]
-        mov ax, [bp+LARG]
-        sub ax, 2
-        push ax
-        mov ax, [bp+ALT]
-        sub ax, [bp+Y]
-        push ax
-        tela
-        longe retangulo
+        sub ax, 3
+        mov [bp+Y], ax                  ; borda de baixo
+        ret4 3, 3, si, word [bp+Y], retangulo
+        ; grande area: 16% da largura, 56% da altura; pequena: 6% e 28%
+        mov cx, 16
+        mov dx, 22
+        call areas
+        mov cx, 6
+        mov dx, 36
+        call areas
         ; circulo central: raio de 1/6 da altura
         mov ax, [bp+ALT]
         xor dx, dx
@@ -165,35 +175,46 @@ desenhar:
         call bola
         ; linha do meio
         push word [bp+X]
-        push byte 2
+        push byte 3
         tela
         longe mover
         push word [bp+X]
         mov ax, [bp+ALT]
-        sub ax, 2
+        sub ax, 3
         push ax
         tela
         longe linha
 
-        ; jogadores: bolinhas azuis
-        mov dx, 0x00FF
-        xor ax, ax                      ; clBlue
-        call pincel
-        mov dx, 0x00FF
-        xor ax, ax
-        call caneta
+        ; jogadores: bolinhas nas cores do time, com a letra do setor
+        push word [bp+FUNDO+2]
+        push word [bp+FUNDO]
+        objeto 0xF
+        longe corpincel
+        push word [bp+LETRA+2]
+        push word [bp+LETRA]
+        objeto 0xB
+        longe corcaneta
         push byte 1
-        les di, [bp-4]
-        les di, [es:di+0xB]
-        push es
-        push di
+        objeto 0xB
         longe espessura
+        mov di, ARIAL
+        push cs
+        push di
+        objeto 7
+        longe fontenome
+        push byte 7
+        objeto 7
+        longe fontetam
+        push word [bp+LETRA+2]
+        push word [bp+LETRA]
+        objeto 7
+        longe fontecor
         mov ax, [bp+ALT]
         xor dx, dx
-        mov cx, 24
+        mov cx, 11
         div cx
-        add ax, 2
         mov [bp+RAIO], ax
+
         lea di, [bp+POSI]               ; zera POSI e NUM
         push ss
         pop es
@@ -238,11 +259,11 @@ desenhar:
         inc word [bp+di+NUM]
         jmp .prox
 .desenha:
+        push di
         mov al, [cs:di+colunas]
         xor ah, ah
-        mov [bp+X], ax
+        mov cx, ax
         mov ax, [bp+LARG]
-        mov cx, [bp+X]
         call porc
         mov [bp+X], ax
         inc word [bp+di+POSI]           ; y = altura x k / (n + 1)
@@ -254,6 +275,20 @@ desenhar:
         mov [bp+Y], ax
         mov si, [bp+RAIO]
         call bola
+        pop di
+        mov al, [cs:di+meialetra]       ; a letra, mais ou menos no centro
+        xor ah, ah
+        neg ax
+        add ax, [bp+X]
+        push ax
+        mov ax, [bp+Y]
+        sub ax, 7
+        push ax
+        lea ax, [di+letras]
+        push cs
+        push ax
+        tela
+        longe texto
 .prox:  inc word [bp+I]
         jmp .jog
 .fimlista:
@@ -262,6 +297,29 @@ desenhar:
         mov byte [bp+PASSO], 1
         jmp .lista
 .fim:   ret
+
+; as 2 areas (esquerda e direita): cx = % da largura, dx = % da altura do topo
+areas:  push dx
+        mov ax, [bp+LARG]
+        call porc
+        mov [bp+X], ax                  ; largura da area
+        pop cx
+        mov ax, [bp+ALT]
+        call porc
+        mov [bp+Y], ax                  ; topo da area
+        mov ax, [bp+X]
+        add ax, 3
+        mov si, [bp+ALT]
+        sub si, [bp+Y]
+        ret4 3, word [bp+Y], ax, si, retangulo
+        mov si, [bp+LARG]
+        sub si, 3
+        mov ax, si
+        sub ax, [bp+X]
+        mov dx, [bp+ALT]
+        sub dx, [bp+Y]
+        ret4 ax, word [bp+Y], si, dx, retangulo
+        ret
 
 ; ax = ax x cx / 100
 porc:   mul cx
@@ -286,26 +344,11 @@ bola:   mov ax, [bp+X]
         longe elipse
         ret
 
-; dx:ax = cor
-pincel: push dx
-        push ax
-        les di, [bp-4]
-        les di, [es:di+0xF]             ; Brush
-        push es
-        push di
-        longe corpincel
-        ret
-caneta: push dx
-        push ax
-        les di, [bp-4]
-        les di, [es:di+0xB]             ; Pen
-        push es
-        push di
-        longe corcaneta
-        ret
-
-; setor (G, D, M, A) -> coluna em % da largura
-colunas: db 5, 0, 24, 0, 47, 0, 72, 0
+; setor (G, D, M, A) -> coluna em % da largura, meia largura da letra
+colunas:   db 6, 0, 25, 0, 47, 0, 71, 0
+meialetra: db 3, 0, 3, 0, 4, 0, 3, 0
+letras:    db 1, 'G', 1, 'D', 1, 'M', 1, 'A'
+ARIAL:     db 5, 'Arial'
 
 ; saltos longe (um registro de relocacao para cada destino)
 habilitar:  db 0xEA
@@ -334,3 +377,11 @@ linha:      db 0xEA
 ..@linha:   dw 0xFFFF, 0
 item:       db 0xEA
 ..@item:    dw 0xFFFF, 0
+fontenome:  db 0xEA
+..@fontenome: dw 0xFFFF, 0
+fontetam:   db 0xEA
+..@fontetam: dw 0xFFFF, 0
+fontecor:   db 0xEA
+..@fontecor: dw 0xFFFF, 0
+texto:      db 0xEA
+..@texto:   dw 0xFFFF, 0

@@ -16,6 +16,7 @@ TEXTO   equ 0x18C                       ; textHomeTeam; textAwayTeam em +4
 JOGO    equ 0x194                       ; ponteiro para o jogo
 
 mostrar:
+        cld                             ; o Delphi nao garante a direcao
         mov ax, bp
         push bp
         mov bp, sp
@@ -98,7 +99,8 @@ jogo:   call janela
         ret
 
 ; acrescenta ao texto a string (ponteiro longe na pilha)
-anexar: mov bx, sp
+anexar: cld
+        mov bx, sp
         push ds
         lds si, [ss:bx+2]
         push ss
@@ -113,7 +115,8 @@ anexar: mov bx, sp
         ret 4
 
 ; al (0 a 99) em decimal, mais "%"
-numero: push ss
+numero: cld
+        push ss
         pop es
         mov di, [bp-0x108]
         aam                             ; ah = dezenas, al = unidades

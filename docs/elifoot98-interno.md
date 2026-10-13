@@ -1365,19 +1365,25 @@ e `filtros.asm`).
     avisa a imagem, que se redesenha.
   - O `TImage.GetCanvas` não existe no EXE: o linker do Delphi tira os métodos
     que o jogo não usa.
-- **O desenho.**
-  - Fundo branco, linhas verdes de 3 pontos: contorno, grandes áreas (15% da
-    largura, 60% da altura), círculo central e linha do meio.
-  - Uma bolinha azul por titular, na coluna do setor (5%, 24%, 47% e 72% da
-    largura), espalhadas na altura: `altura × k / (n + 1)`.
+- **O desenho.** Sempre igual, para servir a qualquer time:
+  - gramado verde RGB(76, 160, 60) e linhas brancas de 2 pontos: contorno,
+    grande área (16% da largura, 56% da altura), pequena área (6% e 28%),
+    círculo central e linha do meio;
+  - uma bolinha por titular nas cores do time (fundo `+0x46` e letra `+0x42`
+    do objeto `[time+4]`, as mesmas da Ajuda do Árbitro), com a letra do setor
+    em Arial 7;
+  - as bolinhas ficam na coluna do setor (6%, 25%, 47% e 71% da largura),
+    espalhadas na altura: `altura × k / (n + 1)`.
 - **Rotinas do Canvas** (`seg19`, pelas chamadas ao GDI e ao USER):
   - Ellipse `1C74`, FillRect `1CB7`, LineTo `1D4D`, MoveTo `1D8A`, Rectangle
     `1E84`;
   - `TPen.SetColor` `13AC` e `SetWidth` `14C7` (a caneta fica em `+0xB` do
     canvas);
   - `TBrush.SetColor` `1656` (o pincel fica em `+0xF`);
-  - `TFont.SetColor` `0FDF` (a fonte fica em `+0x7`).
-  - As funções do Delphi não preservam o SI.
+  - `TFont.SetColor` `0FDF`, `SetName` `1150` e `SetSize` `11C7` (a fonte
+    fica em `+0x7`); `TCanvas.TextOut` `1F22`.
+  - As funções do Delphi não preservam o SI, e o Delphi não garante a direção
+    (DF): o código novo usa `cld` antes de `movs`/`stos`.
 - **Comprovado** no Linux e no Android:
   - o 4-3-3 aparece 1-4-3-3 e o 5-2-3 (F7) aparece 1-5-2-3;
   - o "Melhores" mostra a escolha do jogo;

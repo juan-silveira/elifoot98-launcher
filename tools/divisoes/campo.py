@@ -4,8 +4,9 @@ A rotina que confere a escalacao (seg04:38B0) e chamada de 17 lugares, sempre qu
 ela muda (clique na lista, menu Seleccionar, F-teclas, ao abrir a janela), e acaba
 com OKBtn.SetEnabled (seg04:3A55 -> seg21:1CB8). Essa chamada passa a ser campo.asm
 (no seg25, que arbitro.py ja levou para o fim do arquivo), que liga o botao e desenha
-no TImage novo da aba: fundo branco, linhas verdes, e uma bolinha azul por titular,
-na coluna do setor (G, D, M, A) e espalhadas na altura.
+no TImage novo da aba: gramado verde com linhas brancas (sempre igual, para servir a
+qualquer time) e uma bolinha nas cores do time por titular, com a letra do setor (G, D,
+M, A), na coluna do setor e espalhadas na altura.
 
 O TImage usa o campo do Label13 (+0x2D0, texto fixo que o codigo nao le) e vem do DFM
 com um TBitmap de 8x8; o codigo poe o bitmap no tamanho da imagem (SetWidth/SetHeight
@@ -35,6 +36,10 @@ DESTINOS = {                           # rotulo do salto -> (segmento, deslocame
     'mover': (19, 0x1D8A),             # TCanvas.MoveTo
     'linha': (19, 0x1D4D),             # TCanvas.LineTo
     'item': (3, 0x0EF0),               # jogador i da lista do time
+    'fontenome': (19, 0x1150),         # TFont.SetName
+    'fontetam': (19, 0x11C7),          # TFont.SetSize
+    'fontecor': (19, 0x0FDF),          # TFont.SetColor
+    'texto': (19, 0x1F22),             # TCanvas.TextOut
 }
 
 
