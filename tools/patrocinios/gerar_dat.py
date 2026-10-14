@@ -1,11 +1,11 @@
-"""Converte PATROCIN/MARCAS.TXT (editavel a mao) em PATROCIN/MARCAS.DAT, a tabela
+"""Converte SPONSORS/MARCAS.TXT (editavel a mao) em SPONSORS/MARCAS.DAT, a tabela
 binaria que o jogo le (com as rotinas de arquivo do Delphi, sem interpretar texto).
 
 uso: gerar_dat.py [MARCAS.TXT] [MARCAS.DAT]
 
 MARCAS.TXT (Latin-1, uma marca por linha, # = comentario):
   nome;logo;tier;verba_anual;cota_minima;divisao_maxima;reserva_pontual_pct;paises;modo
-  - nome: ate 24 letras; logo: arquivo 8.3 na pasta PATROCIN (ex.: PETROBRA.BMP)
+  - nome: ate 24 letras; logo: arquivo 8.3 na pasta SPONSORS (ex.: PETROBRA.BMP)
   - tier: 1 (gigantes) a 5 (comercio local)
   - verba_anual, cota_minima: em reais do comeco do jogo (o jogo multiplica pela
     inflacao, como faz com salarios e premios)
@@ -77,7 +77,7 @@ def gerar(marcas):
 
 
 if __name__ == '__main__':
-    txt = sys.argv[1] if len(sys.argv) > 1 else 'PATROCIN/MARCAS.TXT'
+    txt = sys.argv[1] if len(sys.argv) > 1 else 'SPONSORS/MARCAS.TXT'
     dat = sys.argv[2] if len(sys.argv) > 2 else txt[:-4] + '.DAT'
     m = ler(txt)
     open(dat, 'wb').write(gerar(m))

@@ -2,7 +2,7 @@
 (patrocinio.asm, no fim do seg25, que arbitro.py leva para o fim do arquivo).
 
 - Inicio da epoca (seg05:11CE, no lugar de "call far NewSeason"): depois da NewSeason,
-  cada marca de PATROCIN\\MARCAS.DAT (na ordem do arquivo) calcula a verba da epoca
+  cada marca de SPONSORS\\MARCAS.DAT (na ordem do arquivo) calcula a verba da epoca
   (verba x inflacao / 2, menos os contratos que ja tem e a reserva dos patrocinios de
   jogo) e fecha contratos de 1 a 3 epocas com os times sem patrocinador, da 1a divisao
   ate a divisao maxima dela, respeitando o pais (modo exclusivo). Com o time do
@@ -88,7 +88,7 @@ def _dfm(b):
 
 
 def _dfm_dialogo(b):
-    """A janela de Sim/Nao ganha 2 TImage escondidos: o fundo (FControls[0], PATROCIN\\
+    """A janela de Sim/Nao ganha 2 TImage escondidos: o fundo (FControls[0], SPONSORS\\
     FUNDO.BMP esticado por cima do vermelho) e o logo da marca (FControls[3], depois dos 2
     rotulos, que ficam transparentes). A rotina perguntar mostra os dois e desce os botoes."""
     i = b.find(b'TPF0' + bytes([len(DIALOGO)]) + DIALOGO.encode())

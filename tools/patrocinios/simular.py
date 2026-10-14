@@ -88,7 +88,7 @@ def distribuir(marcas, divs):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument('txt', nargs='?', default=os.path.join(RAIZ, 'game', 'PATROCIN', 'MARCAS.TXT'))
+    ap.add_argument('txt', nargs='?', default=os.path.join(RAIZ, 'game', 'SPONSORS', 'MARCAS.TXT'))
     ap.add_argument('-n', type=int, default=20, help='equipes por divisao (8 a 20)')
     ap.add_argument('-r', type=int, default=2000, help='rodadas da simulacao')
     a = ap.parse_args()

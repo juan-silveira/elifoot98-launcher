@@ -6,12 +6,12 @@ using System.Text;
 
 namespace ElifootLauncher
 {
-    // Patrocinadores: PATROCIN/MARCAS.TXT (editavel a mao) vira PATROCIN/MARCAS.DAT, a
+    // Patrocinadores: SPONSORS/MARCAS.TXT (editavel a mao) vira SPONSORS/MARCAS.DAT, a
     // tabela binaria que o jogo le. Mesmo formato de tools/patrocinios/gerar_dat.py
     // (la esta a descricao dos campos); o launcher gera antes de abrir o jogo.
     public static class Patrocinadores
     {
-        public const string Pasta = "PATROCIN";
+        public const string Pasta = "SPONSORS";
         public const int Registro = 80;
         private static readonly Encoding Latin1 = Encoding.GetEncoding("ISO-8859-1");
 

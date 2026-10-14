@@ -94,7 +94,7 @@ namespace ElifootLauncher
                         TeamCodec.DefinirBosman(gameDir, liberado.Value);
                 }
                 catch { }
-            // a tabela dos patrocinadores que o jogo le (PATROCIN/MARCAS.TXT -> .DAT)
+            // a tabela dos patrocinadores que o jogo le (SPONSORS/MARCAS.TXT -> .DAT)
             try { Patrocinadores.Preparar(gameDir); } catch { }
         }
 

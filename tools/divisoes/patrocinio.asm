@@ -1,5 +1,5 @@
 ; Patrocinadores (ver patrocinio.py). No fim do seg25 (que arbitro.py leva para o fim do
-; arquivo). As marcas vem de <pasta do jogo>\PATROCIN\MARCAS.DAT (o launcher gera do
+; arquivo). As marcas vem de <pasta do jogo>\SPONSORS\MARCAS.DAT (o launcher gera do
 ; MARCAS.TXT; formato em tools/patrocinios/gerar_dat.py: cabecalho de 8 bytes e um
 ; registro de 80 por marca).
 ;
@@ -663,7 +663,7 @@ bloco:  les di, [bp+TIME]
         mov [bp+IMG+2], es
         jmp esconde_img
 
-; logo da marca de REG no TImage [bp+IMG]: <pasta>\PATROCIN\<arquivo>, se existir
+; logo da marca de REG no TImage [bp+IMG]: <pasta>\SPONSORS\<arquivo>, se existir
 logo_img:
         mov si, PASTA_PAT
         call caminho
@@ -708,7 +708,7 @@ img_dialogo:
         ret
 
 ; aparencia da janela de Sim/Nao: si = 1 proposta de patrocinio, 0 aumento de salario
-; (o original, vermelho com letras amarelas). O fundo e uma imagem (PATROCIN\FUNDO.BMP
+; (o original, vermelho com letras amarelas). O fundo e uma imagem (SPONSORS\FUNDO.BMP
 ; esticada) por cima do vermelho, sem mexer na cor da janela.
 estilo: mov [bp+MODO], si                ; (as rotinas do Delphi nao guardam o si)
         push si
@@ -1038,7 +1038,7 @@ cam_mais:
         pop si
         ret
 
-; abre <pasta>\PATROCIN\MARCAS.DAT; CF = 1 se nao deu
+; abre <pasta>\SPONSORS\MARCAS.DAT; CF = 1 se nao deu
 abrir:  push si
         mov si, NOME_ARQ
         call caminho
@@ -1150,11 +1150,11 @@ ALTURA:      dw 260, 320                ; ClientHeight
 
 meio:   dd 0.5
 mil:    dd 1000.0
-NOME_ARQ: db .f - NOME_ARQ - 1, '\PATROCIN\MARCAS.DAT'
+NOME_ARQ: db .f - NOME_ARQ - 1, '\SPONSORS\MARCAS.DAT'
 .f:
-PASTA_PAT: db .f - PASTA_PAT - 1, '\PATROCIN\'
+PASTA_PAT: db .f - PASTA_PAT - 1, '\SPONSORS\'
 .f:
-FUNDO_ARQ: db .f - FUNDO_ARQ - 1, '\PATROCIN\FUNDO.BMP'
+FUNDO_ARQ: db .f - FUNDO_ARQ - 1, '\SPONSORS\FUNDO.BMP'
 .f:
 
 ; textos (passados com "mov di; push cs; push di", como os do jogo: a traducao os acha)
