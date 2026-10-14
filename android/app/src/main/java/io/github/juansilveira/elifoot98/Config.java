@@ -56,14 +56,14 @@ final class Config {
         return v.equals("liberado") ? Boolean.TRUE : v.equals("original") ? Boolean.FALSE : null;
     }
 
-    /** Cartoes amarelos ligados (OpcoesDoJogo acerta o EXE antes de abrir). */
+    /** Cartoes amarelos ligados (OpcoesDoJogo acerta o EXE antes de abrir). Padrao: desligado, como o original. */
     static boolean cartoes(Context c) {
-        return prefs(c).getBoolean("cartoes", true);
+        return prefs(c).getBoolean("cartoes", false);
     }
 
-    /** Patrocinadores ligados (OpcoesDoJogo acerta o EXE antes de abrir). */
+    /** Patrocinadores ligados (OpcoesDoJogo acerta o EXE antes de abrir). Padrao: desligado, como o original. */
     static boolean patrocinios(Context c) {
-        return prefs(c).getBoolean("patrocinios", true);
+        return prefs(c).getBoolean("patrocinios", false);
     }
 
     /** Patch em uso (nome na biblioteca, Patches.java), ou "" para os times originais. */

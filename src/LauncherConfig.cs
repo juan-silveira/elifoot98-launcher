@@ -53,9 +53,10 @@ namespace ElifootLauncher
         // atualizacao copia os arquivos do pacote por cima (Patches.Manter refaz a escolha)
         public bool? Estrangeiros { get; set; }
 
-        // Adicoes do jogo que podem ser desligadas (OpcoesDoJogo acerta o EXE antes de abrir)
-        public bool Cartoes { get; set; } = true;
-        public bool Patrocinios { get; set; } = true;
+        // Adicoes do jogo (OpcoesDoJogo acerta o EXE antes de abrir). Por padrao desligadas:
+        // o jogo comeca como o original e o usuario liga nas Configuracoes
+        public bool Cartoes { get; set; }
+        public bool Patrocinios { get; set; }
 
         // O EXE que existe na pasta do jogo: o da versao e do idioma, senao o sem traducao,
         // senao o ELIFOOT.EXE
@@ -121,10 +122,10 @@ namespace ElifootLauncher
                             cfg.Registrado = val == "1";
                             break;
                         case "cartoes":
-                            cfg.Cartoes = val != "0";
+                            cfg.Cartoes = val == "1";
                             break;
                         case "patrocinios":
-                            cfg.Patrocinios = val != "0";
+                            cfg.Patrocinios = val == "1";
                             break;
                         case "estrangeiros":
                             if (val == "liberado") cfg.Estrangeiros = true;
