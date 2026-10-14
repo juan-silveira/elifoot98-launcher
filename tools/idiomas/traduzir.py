@@ -153,7 +153,7 @@ def _codigo(ne, b, mapa, usados, falhas):
             novos = _blocos(b, base, seg, refs_do_segmento(seg, ln), novos, mapa)
         if novos:
             dados = b''.join(bytes([len(n)]) + n for _, n, _ in novos)
-            proximo = min(o for o in (ne.seg(x)[0] for x in range(1, ne.nseg + 1)) if o > base)
+            proximo = ne.limite(base)     # segmento ou recurso seguinte, ou o fim do arquivo
             nrel = struct.unpack_from('<H', b, base + ln)[0]
             if base + ln + len(dados) + 2 + 8 * nrel > proximo:
                 for _, n, t in novos:

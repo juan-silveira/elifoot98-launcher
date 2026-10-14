@@ -40,6 +40,7 @@ from ingressos import ingressos
 from filtros import filtros
 from arbitro import arbitro
 from campo import campo
+from patrocinio import patrocinio
 import opcoes
 
 
@@ -241,6 +242,7 @@ def main(n, entrada, saida):
         filtros(ne, b)
         arbitro(ne, b)
         campo(ne, b)
+        patrocinio(ne, b)
         opcoes.gravar_tabela(ne, b)
         gravar(b, saida)
         print('ok: 8 equipas/divisao (original), ate %d jogadores' % MAXJOG)
@@ -347,6 +349,7 @@ def main(n, entrada, saida):
         filtros(ne, b)
         arbitro(ne, b)
         campo(ne, b)
+        patrocinio(ne, b)
         opcoes.gravar_tabela(ne, b)
         print('paginas:', {k: '%04X' % v for k, v in paginas.paginar(ne, b, N).items()})
         gravar(b, saida)
@@ -363,6 +366,7 @@ def main(n, entrada, saida):
     filtros(ne, b)
     arbitro(ne, b)
     campo(ne, b)
+    patrocinio(ne, b)
     opcoes.gravar_tabela(ne, b)
     gravar(b, saida)
     print('ok: %d equipas/divisao, %d jornadas; rotinas seg03 %s, ajudante seg11:%04X'

@@ -185,3 +185,9 @@ Registo para autor = Registro para autor
 
 # --- Ajuda do Arbitro (chances no nome de cada time, do launcher) ---
 "   Penálti: " = "   Pênalti: "
+
+# --- Patrocinadores (propostas, do launcher) ---
+" por época, durante " = " por temporada, durante "
+" época" = " temporada"
+" épocas" = " temporadas"
+", para ser o patrocinador principal da sua equipa." = ", para ser o patrocinador master do seu time."
