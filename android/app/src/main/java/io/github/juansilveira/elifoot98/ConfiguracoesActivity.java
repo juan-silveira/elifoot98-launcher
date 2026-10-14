@@ -37,6 +37,8 @@ public class ConfiguracoesActivity extends Activity {
 
     private Jogo jogo;
     private Spinner versao, equipes, cartoes, patrocinios, idioma, registro, estrangeiros, times;
+    // escolhas de cartoes/patrocinadores da versao modificada (na original ficam travadas)
+    private int cartoesMod, patrociniosMod;
     private final List<String> patches = new ArrayList<>();
     private Button removerPatch, salvar, cancelar;
     private ProgressBar progresso;
@@ -62,7 +64,7 @@ public class ConfiguracoesActivity extends Activity {
             opcoesEquipes.add(n == 8 ? "8 (original)" : n + " — " + 2 * (n - 1) + " rodadas, mínimo de " + Config.minimoDeEquipes(n) + " equipes");
 
         versao = seletor(col, "Versão do jogo", new String[] {
-            "Modificada — cartões amarelos, Nota e Risco de lesão, equipes por divisão",
+            "Modificada — Nota e Risco de lesão, equipes por divisão e as adições abaixo",
             "Original — o Elifoot 98 como era (98.003)"},
             "Na original só há 8 equipes por divisão. Um jogo gravado na modificada mostra números estranhos de lesões e cartões na original.");
         versao.setSelection(Config.versaoOriginal(this) ? 1 : 0);
@@ -76,8 +78,10 @@ public class ConfiguracoesActivity extends Activity {
             "Ligados — amarelos, 3 acumulados suspendem", "Desligados — só vermelhos, como no original"}, null);
         cartoes.setSelection(Config.cartoes(this) ? 0 : 1);
         patrocinios = seletor(col, "Patrocinadores", new String[] {
-            "Ligados — contratos, naming rights e patrocínio de jogo", "Desligados"}, "Valem na versão modificada.");
+            "Ligados — propostas e contratos de patrocínio master", "Desligados"}, "Valem na versão modificada.");
         patrocinios.setSelection(Config.patrocinios(this) ? 0 : 1);
+        cartoesMod = cartoes.getSelectedItemPosition();
+        patrociniosMod = patrocinios.getSelectedItemPosition();
 
         idioma = seletor(col, "Idioma do jogo", Config.NOMES_IDIOMA, null);
         idioma.setSelection(Math.max(0, java.util.Arrays.asList(Config.OPCOES_IDIOMA).indexOf(Config.idioma(this))));
@@ -113,6 +117,7 @@ public class ConfiguracoesActivity extends Activity {
             @Override public void onItemSelected(AdapterView<?> p, View v, int pos, long id) {
                 equipes.setEnabled(pos == 0);
                 equipes.setAlpha(pos == 0 ? 1f : 0.5f);
+                adicoes(pos == 0);
             }
             @Override public void onNothingSelected(AdapterView<?> p) { }
         });
@@ -146,6 +151,21 @@ public class ConfiguracoesActivity extends Activity {
         Ui.areaSegura(this, VERDE);
     }
 
+    // Na versao original as adicoes nao existem: aparecem desligadas e travadas, e a escolha
+    // da modificada volta quando ela e selecionada de novo
+    private void adicoes(boolean modificada) {
+        if (!modificada && cartoes.isEnabled()) {
+            cartoesMod = cartoes.getSelectedItemPosition();
+            patrociniosMod = patrocinios.getSelectedItemPosition();
+        }
+        for (Spinner s : new Spinner[] {cartoes, patrocinios}) {
+            s.setEnabled(modificada);
+            s.setAlpha(modificada ? 1f : 0.5f);
+        }
+        cartoes.setSelection(modificada ? cartoesMod : 1);
+        patrocinios.setSelection(modificada ? patrociniosMod : 1);
+    }
+
     private void salvar() {
         boolean original = versao.getSelectedItemPosition() == 1;
         Config.prefs(this).edit()
@@ -153,8 +173,8 @@ public class ConfiguracoesActivity extends Activity {
             .putInt("equipes", Config.OPCOES_EQUIPES[equipes.getSelectedItemPosition()])
             .putString("idioma", Config.OPCOES_IDIOMA[idioma.getSelectedItemPosition()])
             .putBoolean("registrado", registro.getSelectedItemPosition() == 0)
-            .putBoolean("cartoes", cartoes.getSelectedItemPosition() == 0)
-            .putBoolean("patrocinios", patrocinios.getSelectedItemPosition() == 0)
+            .putBoolean("cartoes", (cartoes.isEnabled() ? cartoes.getSelectedItemPosition() : cartoesMod) == 0)
+            .putBoolean("patrocinios", (patrocinios.isEnabled() ? patrocinios.getSelectedItemPosition() : patrociniosMod) == 0)
             .putString("estrangeiros", estrangeiros.getSelectedItemPosition() == 1 ? "liberado" : "original")
             .apply();
         boolean liberado = estrangeiros.getSelectedItemPosition() == 1;

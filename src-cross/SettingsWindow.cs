@@ -60,7 +60,7 @@ namespace ElifootLauncher
 
             var versao = Seletor(new[]
             {
-                "Modificada — cartões amarelos, Nota e Risco de lesão, equipes por divisão",
+                "Modificada — Nota e Risco de lesão, equipes por divisão e as adições abaixo",
                 "Original — o Elifoot 98 como era (98.003)",
             });
             versao.SelectedIndex = cfg.VersaoOriginal ? 1 : 0;
@@ -82,10 +82,27 @@ namespace ElifootLauncher
             cartoes.SelectedIndex = cfg.Cartoes ? 0 : 1;
             var patrocinios = Seletor(new[]
             {
-                "Ligados — contratos, naming rights e patrocínio de jogo",
+                "Ligados — propostas e contratos de patrocínio master",
                 "Desligados",
             });
             patrocinios.SelectedIndex = cfg.Patrocinios ? 0 : 1;
+            // Na versao original as adicoes nao existem: aparecem desligadas e travadas, e a
+            // escolha da modificada volta quando ela e selecionada de novo
+            int cartoesMod = cartoes.SelectedIndex, patrociniosMod = patrocinios.SelectedIndex;
+            void Adicoes()
+            {
+                bool modificada = versao.SelectedIndex == 0;
+                if (!modificada && cartoes.IsEnabled)
+                {
+                    cartoesMod = cartoes.SelectedIndex;
+                    patrociniosMod = patrocinios.SelectedIndex;
+                }
+                cartoes.IsEnabled = patrocinios.IsEnabled = modificada;
+                cartoes.SelectedIndex = modificada ? cartoesMod : 1;
+                patrocinios.SelectedIndex = modificada ? patrociniosMod : 1;
+            }
+            Adicoes();
+            versao.SelectionChanged += (_, _) => Adicoes();
 
             var idioma = Seletor(LauncherConfig.NomesIdioma);
             idioma.SelectedIndex = Math.Max(0, Array.IndexOf(LauncherConfig.OpcoesIdioma, cfg.Idioma));
@@ -164,8 +181,8 @@ namespace ElifootLauncher
                 cfg.EquipesPorDivisao = LauncherConfig.OpcoesEquipes[equipes.SelectedIndex];
                 cfg.Idioma = LauncherConfig.OpcoesIdioma[idioma.SelectedIndex];
                 cfg.Registrado = registro.SelectedIndex == 0;
-                cfg.Cartoes = cartoes.SelectedIndex == 0;
-                cfg.Patrocinios = patrocinios.SelectedIndex == 0;
+                cfg.Cartoes = (cartoes.IsEnabled ? cartoes.SelectedIndex : cartoesMod) == 0;
+                cfg.Patrocinios = (patrocinios.IsEnabled ? patrocinios.SelectedIndex : patrociniosMod) == 0;
                 cfg.Save();
                 Close(true);
             };

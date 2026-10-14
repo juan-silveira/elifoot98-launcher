@@ -63,7 +63,7 @@ namespace ElifootLauncher
 
             var versao = Seletor(coluna, "Versão do jogo:", new[]
             {
-                "Modificada — cartões amarelos, Nota e Risco de lesão, equipes por divisão",
+                "Modificada — Nota e Risco de lesão, equipes por divisão e as adições abaixo",
                 "Original — o Elifoot 98 como era (98.003)",
             }, "Na original só há 8 equipes por divisão. Um jogo gravado na modificada mostra números estranhos de lesões e cartões na original.");
             versao.SelectedIndex = cfg.VersaoOriginal ? 1 : 0;
@@ -84,10 +84,27 @@ namespace ElifootLauncher
             cartoes.SelectedIndex = cfg.Cartoes ? 0 : 1;
             var patrocinios = Seletor(coluna, "Patrocinadores:", new[]
             {
-                "Ligados — contratos, naming rights e patrocínio de jogo",
+                "Ligados — propostas e contratos de patrocínio master",
                 "Desligados",
             }, "Valem na versão modificada.");
             patrocinios.SelectedIndex = cfg.Patrocinios ? 0 : 1;
+            // Na versao original as adicoes nao existem: aparecem desligadas e travadas, e a
+            // escolha da modificada volta quando ela e selecionada de novo
+            int cartoesMod = cartoes.SelectedIndex, patrociniosMod = patrocinios.SelectedIndex;
+            void Adicoes()
+            {
+                bool modificada = versao.SelectedIndex == 0;
+                if (!modificada && cartoes.Enabled)
+                {
+                    cartoesMod = cartoes.SelectedIndex;
+                    patrociniosMod = patrocinios.SelectedIndex;
+                }
+                cartoes.Enabled = patrocinios.Enabled = modificada;
+                cartoes.SelectedIndex = modificada ? cartoesMod : 1;
+                patrocinios.SelectedIndex = modificada ? patrociniosMod : 1;
+            }
+            Adicoes();
+            versao.SelectedIndexChanged += (s, e) => Adicoes();
             var idioma = Seletor(coluna, "Idioma do jogo:", LauncherConfig.NomesIdioma, null);
             idioma.SelectedIndex = Math.Max(0, Array.IndexOf(LauncherConfig.OpcoesIdioma, cfg.Idioma));
 
@@ -159,8 +176,8 @@ namespace ElifootLauncher
                 Config.EquipesPorDivisao = LauncherConfig.OpcoesEquipes[equipes.SelectedIndex];
                 Config.Idioma = LauncherConfig.OpcoesIdioma[idioma.SelectedIndex];
                 Config.Registrado = registro.SelectedIndex == 0;
-                Config.Cartoes = cartoes.SelectedIndex == 0;
-                Config.Patrocinios = patrocinios.SelectedIndex == 0;
+                Config.Cartoes = (cartoes.Enabled ? cartoes.SelectedIndex : cartoesMod) == 0;
+                Config.Patrocinios = (patrocinios.Enabled ? patrocinios.SelectedIndex : patrociniosMod) == 0;
                 Config.Save();
                 DialogResult = DialogResult.OK;
                 Close();
