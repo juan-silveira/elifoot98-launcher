@@ -204,6 +204,22 @@ Os valores em MARCAS.TXT sao preliminares (serao recalibrados por simulacao). A 
 | LMT | LMT.BMP | 5 | LET exclusivo | Nome da liga letã (LMT Virsliga, 2010) |  | https://commons.wikimedia.org/wiki/File:Latvijas_Mobilais_Telefons_logo_2013.png |
 | PRIVATBANK | PRIVAT.BMP | 5 | UCR exclusivo | Master: Dinamo Kiev (2007-2013) |  | https://commons.wikimedia.org/wiki/File:PrivatBank-corporate-logo-latina.png |
 | ICA | ICA.BMP | 5 | SUE,NOR exclusivo | IFK Goteborg (patrocinadora por 28 anos) |  | https://commons.wikimedia.org/wiki/File:ICA_logo.svg |
+| BYD | BYD.BMP | 2 | * | Master: Corinthians e Bahia (2025-), Vila Nova; parceira da UEFA Euro 2024 |  | https://commons.wikimedia.org/wiki/File:BYD_Auto_Logo.svg |
+| OMODA & JAECOO | OMODA.BMP | 2 | BRA exclusivo | Master: Gremio (2026-) |  | https://commons.wikimedia.org/wiki/File:Omoda_wordmark.svg |
+| LEAPMOTOR | LEAPMOTO.BMP | 2 | BRA exclusivo | Palmeiras (manga/costas, 2026-2028) |  | https://commons.wikimedia.org/wiki/File:Leapmotor_logo_en.svg |
+| MIDEA | MIDEA.BMP | 2 | BRA exclusivo | Corinthians (2020-); arbitros da CBF; Copa Sul-Americana |  | https://commons.wikimedia.org/wiki/File:Midea.svg |
+| TCL | TCL.BMP | 2 | * | Copa Libertadores (2023-2026); arbitros do Brasileirao e selecoes da CBF |  | https://commons.wikimedia.org/wiki/File:Logo_of_the_TCL_Corporation.svg |
+| HISENSE | HISENSE.BMP | 2 | * | Mundial de Clubes FIFA 2025; UEFA Euro |  | https://commons.wikimedia.org/wiki/File:Hisense.svg |
+| GAC | GAC.BMP | 3 | BRA exclusivo | Flamengo (2026-2029) |  | https://commons.wikimedia.org/wiki/File:GAC_Group_Logo.png |
+| GWM | GWM.BMP | 4 | BRA exclusivo | Chapecoense (GWM Tozzo, 2026-2027) |  | https://commons.wikimedia.org/wiki/File:Great_Wall_Motor_2025_logo.png |
+| GEELY | GEELY.BMP | 5 | BRA exclusivo | Master: Rio Branco-ES (Orvel Geely, 2026) |  | https://commons.wikimedia.org/wiki/File:Geely_Automobile_Holdings_Limited_logo.svg |
+| SUVINIL | SUVINIL.BMP | 3 | BRA exclusivo | Master: Corinthians (1995-1996) |  | https://commons.wikimedia.org/wiki/File:Logotipo_da_Suvinil.svg |
+| VOTORANTIM CIMENTOS | VOTORANT.BMP | 3 | BRA exclusivo | Futsal do Santos (2009-2010) | so futsal; sem patrocinio de camisa no futebol | https://commons.wikimedia.org/wiki/File:Logotipo_da_Votorantim_Cimentos.svg |
+| TINTAS CORAL | CORAL.BMP | 3 | BRA exclusivo | Master: Vitoria (1995) |  | https://logodownload.org/coral-logo/ |
+| TIGRE | TIGRE.BMP | 4 | BRA exclusivo | Joinville (camisa de 1985) |  | https://commons.wikimedia.org/wiki/File:Logotipo_da_Tigre.svg |
+| TINTAS RENNER | RENNER.BMP | 4 | BRA exclusivo | Sport e Bahia |  | https://commons.wikimedia.org/wiki/File:Tintas_Renner_logo.jpg |
+| AMANCO | AMANCO.BMP | 4 | BRA exclusivo | Marca brasileira de tubos e conexoes; incluida a pedido | sem patrocinio de futebol encontrado | https://commons.wikimedia.org/wiki/File:Logo_Amanco_Wavin.png |
+| KRONA | KRONA.BMP | 5 | BRA exclusivo | Joinville (2022-2023) |  | https://commons.wikimedia.org/wiki/File:Krona_Tubos_e_Conex%C3%B5es.png |
 
 ## Mudancas de 2026-10-14
 
@@ -215,3 +231,7 @@ Os valores em MARCAS.TXT sao preliminares (serao recalibrados por simulacao). A 
 - Calibrado com tools/patrocinios/simular.py: 4a divisao com 100% e Distrital com
   77-81% de times patrocinados; total pago por temporada de 44 para 56 milhoes (20
   equipes por divisao).
+- Marcas chinesas que patrocinam clubes brasileiros: BYD, Omoda & Jaecoo, Leapmotor,
+  GAC, GWM, Geely (carros), Midea, TCL e Hisense (eletronicos).
+- Materiais de construcao (so times brasileiros): Suvinil, Votorantim Cimentos,
+  Tintas Coral, Tigre, Tintas Renner, Amanco e Krona.
