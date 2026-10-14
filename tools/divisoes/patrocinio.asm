@@ -7,7 +7,7 @@
 ;   +0xCC byte  marca do patrocinador master (1..N; 0 = nenhum)
 ;   +0xCD byte  epocas que faltam do contrato (contando a atual)
 ;   +0xCE dword valor por epoca (reais, ja com a inflacao da assinatura)
-;   +0xD2 byte  marca do naming rights do estadio, +0xD3 epocas, +0xD4 dword valor
+;   +0xD2..+0xD7 reservados (eram do naming rights, que saiu)
 ;   +0xD8 dword patrocinio de jogos recebido na epoca, +0xDC byte a ultima marca dele
 ;
 ; -DORG: deslocamento no segmento.
@@ -17,9 +17,6 @@ org ORG
 M_MARCA equ 0xCC
 M_ANOS  equ 0xCD
 M_VALOR equ 0xCE
-N_MARCA equ 0xD2
-N_ANOS  equ 0xD3
-N_VALOR equ 0xD4
 
 DIVISOES equ 0x26FA                     ; TList das 5 TDivision (4 = Distrital)
 INFLACAO equ 0x2B46                     ; real de 10 bytes (comeca em 2,0)
@@ -53,14 +50,13 @@ DV      equ -0x342                      ; divisao
 K       equ -0x344                      ; time na lista
 OFS     equ -0x3A4                      ; 3 propostas de master x 32 bytes
 NOF     equ -0x3A6
-OFN     equ -0x3C6                      ; 1 proposta de naming (32 bytes)
-NNOF    equ -0x3C8
+IMG     equ -0x3C6                      ; TImage do logo (far)
+MODO    equ -0x3C2                      ; estilo da janela de Sim/Nao (0 ou 1)
 FM      equ -0x3CA
 TIME    equ -0x3CE                      ; o time da vez (far)
 LISTA   equ -0x3D2
 QUADRO  equ 0x3D4
-; proposta (32 bytes): +0 nome (string[24]), +25 epocas, +26 valor (dword), +30 tipo
-; (0 master, 1 naming), +31 marca
+; proposta (32 bytes): +0 nome (string[24]), +25 epocas, +26 valor (dword), +31 marca
 
 %macro longe 1
         push cs
@@ -111,9 +107,6 @@ pagar:  push bp
         mov [bp-0xA], es
         mov bx, M_MARCA
         call paga1
-        les di, [bp-0xC]
-        mov bx, N_MARCA
-        call paga1
         inc word [bp-8]
         jmp .time
 .proxdiv:
@@ -124,7 +117,7 @@ pagar:  push bp
         pop bp
         ret
 
-; es:di = time, bx = M_MARCA ou N_MARCA (o campo das epocas vem logo depois e o valor 2
+; es:di = time, bx = M_MARCA (o campo das epocas vem logo depois e o valor 2
 ; depois)
 paga1:  cmp byte [es:di+bx], 0
         je .nada
@@ -154,7 +147,6 @@ distribuir:
         sub sp, QUADRO
         push si
         mov word [bp+NOF], 0
-        mov word [bp+NNOF], 0
         call abrir
         jc .sai
         mov cx, 8                       ; cabecalho: "PAT1", versao, quantidade
@@ -223,33 +215,15 @@ distribuir:
         ; master
         les di, [bp+TIME]
         cmp byte [es:di+M_MARCA], 0
-        jne .naming
+        jne .time
         call humano                     ; o humano sempre recebe a proposta
         jc .master
         push word 100
         longe random
         cmp ax, 60
-        jae .naming
+        jae .time
 .master:
         mov bx, M_MARCA
-        xor cl, cl
-        call contratar
-        jmp .time
-.naming:
-        cmp byte [bp+REG+R_TIER], 3
-        ja .time
-        les di, [bp+TIME]
-        cmp byte [es:di+N_MARCA], 0
-        jne .time
-        call humano
-        jc .nomear
-        push word 100
-        longe random
-        cmp ax, 20
-        jae .time
-.nomear:
-        mov bx, N_MARCA
-        mov cl, 1
         call contratar
         jmp .time
 .proxdiv:
@@ -262,25 +236,19 @@ distribuir:
         pop bp
         ret
 
-; um contrato da marca B com o time TIME: bx = campo (M_MARCA/N_MARCA), cl = tipo da
-; proposta (0 master, 1 naming). Para o humano so guarda a proposta.
+; um contrato da marca B com o time TIME: bx = M_MARCA. Para o humano so guarda a
+; proposta.
 contratar:
         push bx
-        push cx
         push word 3
         longe random
         inc ax
         mov [bp-4], ax                  ; epocas: 1 a 3 (bp-4: fora do quadro usado)
-        pop cx
         pop bx
-        ; valor: a quota (naming: metade)
+        ; valor: a quota
         mov ax, [bp+QUOTA]
         mov dx, [bp+QUOTA+2]
-        or cl, cl
-        jz .valor
-        shr dx, 1
-        rcr ax, 1
-.valor: les di, [bp+TIME]
+        les di, [bp+TIME]
         push ax
         call humano                     ; (usa o ax)
         pop ax
@@ -295,25 +263,16 @@ contratar:
         sbb [bp+DISP+2], dx
         ret
 .proposta:
-        ; ate 3 de master, 1 de naming
+        ; ate 3 propostas
         push si
-        or cl, cl
-        jnz .pn
         mov si, [bp+NOF]
         cmp si, 3
         jae .cheia
         inc word [bp+NOF]
         shl si, 5
         lea si, [bp+si+OFS]
-        jmp .guarda
-.pn:    cmp word [bp+NNOF], 0
-        jne .cheia
-        inc word [bp+NNOF]
-        lea si, [bp+OFN]
-.guarda:
         mov [ss:si+26], ax
         mov [ss:si+28], dx
-        mov [ss:si+30], cl
         mov al, [bp+B]
         mov [ss:si+31], al
         mov al, [bp-4]
@@ -356,11 +315,7 @@ propostas:
         jnc .n                          ; aceitou uma: as outras ficam de fora
         inc si
         jmp .m
-.n:     cmp word [bp+NNOF], 0
-        je .fim
-        lea si, [bp+OFN]
-        call perguntar
-.fim:   ret
+.n:     ret
 
 ; ss:si = proposta. Monta o texto, abre a janela de Sim/Nao. Aceitou: assina e CF = 0;
 ; recusou: CF = 1.
@@ -409,19 +364,10 @@ perguntar:
         push di
 .epocas:
         call anexar
-        pop si
-        push si
-        cmp byte [ss:si+30], 0
-        jne .naming
         mov di, T_MASTER
         push cs
         push di
-        jmp .tipo
-.naming:
-        mov di, T_NAMING
-        push cs
-        push di
-.tipo:  call anexar
+        call anexar
         mov di, T_ACEITA
         push cs
         push di
@@ -475,10 +421,38 @@ perguntar:
         push es
         push di
         longe visivel
+        ; fundo de janela normal, o logo da marca e os botoes mais abaixo
+        pop si
+        push si
+        mov al, [ss:si+31]
+        xor ah, ah
+        mov [bp+B], ax
+        mov si, 1
+        call estilo
+        mov ax, 3
+        call img_dialogo
+        mov [bp+IMG], di
+        mov [bp+IMG+2], es
+        call ler_marca
+        jc .semlogo
+        call logo_img
+        jmp .mostra
+.semlogo:
+        call esconde_img
+.mostra:
         les di, [DIALOGO]
         push es
         push di
         longe showmodal
+        push ax
+        mov ax, 3                       ; a janela volta a ser a do aumento de salario
+        call img_dialogo
+        mov [bp+IMG], di
+        mov [bp+IMG+2], es
+        call esconde_img
+        xor si, si
+        call estilo
+        pop ax
         pop si
         cmp ax, 6
         jne .nao
@@ -486,10 +460,7 @@ perguntar:
         call time_humano                ; es:di = TTeam do humano
         jc .nao
         mov bx, M_MARCA
-        cmp byte [ss:si+30], 0
-        je .campo
-        mov bx, N_MARCA
-.campo: mov al, [ss:si+31]
+        mov al, [ss:si+31]
         mov [es:di+bx], al
         mov al, [ss:si+25]
         mov [es:di+bx+1], al
@@ -504,9 +475,8 @@ perguntar:
 
 ; ---------------------------------------------------------------- aba Patrocinio
 ; Chamada pelo TabSetClick (abas.asm) quando a aba 5 abre: preenche a pagina 5 do
-; Notebook. Os controles graficos da pagina, na ordem do DFM (patrocinio.py): 0 e 1 os
-; logos (master, naming), 2 a 4 nome/valor/prazo do master, 5 a 7 os do naming, 8 e 9
-; os titulos.
+; Notebook. Os controles graficos da pagina, na ordem do DFM (patrocinio.py): 0 o logo,
+; 1 a 3 nome/valor/prazo e 4 o titulo.
 aba:    push bp
         mov bp, sp
         sub sp, QUADRO
@@ -533,12 +503,12 @@ aba:    push bp
         mov ax, es
         or ax, di
         jz .sai
-        cmp word [es:di+8], 10
+        cmp word [es:di+8], 5
         jb .sai
         mov [bp+LISTA], di
         mov [bp+LISTA+2], es
         ; rotulos na cor da letra do time (o fundo da pagina e o do time)
-        mov word [bp-4], 2
+        mov word [bp-4], 1
 .cor:   mov ax, [bp-4]
         call controle
         les di, [es:di+0x34]            ; Font
@@ -558,15 +528,11 @@ aba:    push bp
         push di
         longe corfonte
         inc word [bp-4]
-        cmp word [bp-4], 10
+        cmp word [bp-4], 5
         jb .cor
         mov word [bp-2], 0
-        mov word [bp-4], 2
+        mov word [bp-4], 1
         mov bx, M_MARCA
-        call bloco
-        mov word [bp-2], 1
-        mov word [bp-4], 5
-        mov bx, N_MARCA
         call bloco
 .sai:   pop si
         mov sp, bp
@@ -601,7 +567,7 @@ settext_perto:
         push cx
         jmp settext
 
-; um bloco: bx = M_MARCA ou N_MARCA; [bp-2] = logo, [bp-4] = primeiro rotulo
+; o bloco do contrato: bx = M_MARCA; [bp-2] = logo, [bp-4] = primeiro rotulo
 bloco:  les di, [bp+TIME]
         mov al, [es:di+bx]
         or al, al
@@ -671,45 +637,15 @@ bloco:  les di, [bp+TIME]
         mov dx, 2
         call rotulo
         pop bx
-        ; logo: <pasta>\PATROCIN\<arquivo>, se existir
-        mov si, PASTA_PAT
-        call caminho
-        jc .semlogo
-        lea si, [bp+REG+25]
-        call cam_mais
-        call abrir_cam
-        jc .semlogo
-        call fechar
         mov ax, [bp-2]
         call controle
-        lea ax, [bp+CAM]
-        push ss
-        push ax
-        les di, [es:di+0x8E]            ; Picture
-        push es
-        push di
-        longe carregaimg
-        push word 1
-        jmp .mostra
-.semlogo:
-        push word 0
-.mostra:
-        mov ax, [bp-2]
-        call controle
-        push es
-        push di
-        longe visivel
-        ret
-.vazio: cmp bx, M_MARCA
-        jne .vn
-        mov di, T_SEM
+        mov [bp+IMG], di
+        mov [bp+IMG+2], es
+        jmp logo_img
+.vazio: mov di, T_SEM
         push cs
         push di
-        jmp .vs
-.vn:    mov di, T_SEMN
-        push cs
-        push di
-.vs:    xor dx, dx
+        xor dx, dx
         call rotulo
         mov di, T_NADA
         push cs
@@ -721,8 +657,118 @@ bloco:  les di, [bp+TIME]
         push di
         mov dx, 2
         call rotulo
+        mov ax, [bp-2]
+        call controle
+        mov [bp+IMG], di
+        mov [bp+IMG+2], es
+        jmp esconde_img
+
+; logo da marca de REG no TImage [bp+IMG]: <pasta>\PATROCIN\<arquivo>, se existir
+logo_img:
+        mov si, PASTA_PAT
+        call caminho
+        jc esconde_img
+        lea si, [bp+REG+25]
+        call cam_mais
+; o BMP de CAM no TImage [bp+IMG], que aparece; sem o arquivo, ele some
+img_cam:
+        call abrir_cam
+        jc esconde_img
+        call fechar
+        lea ax, [bp+CAM]
+        push ss
+        push ax
+        les di, [bp+IMG]
+        les di, [es:di+0x8E]            ; Picture
+        push es
+        push di
+        longe carregaimg
+        push word 1
+        jmp mostra_img
+esconde_img:
         push word 0
-        jmp .mostra
+mostra_img:
+        les di, [bp+IMG]
+        push es
+        push di
+        longe visivel
+        ret
+
+; es:di = o controle grafico ax da janela de Sim/Nao (FControls, na ordem do DFM:
+; 0 o fundo, 1 e 2 os rotulos, 3 o logo; patrocinio.py)
+img_dialogo:
+        push ax
+        les di, [DIALOGO]
+        les di, [es:di+0x92]            ; FControls
+        les di, [es:di+4]
+        pop ax
+        shl ax, 2
+        add di, ax
+        les di, [es:di]
+        ret
+
+; aparencia da janela de Sim/Nao: si = 1 proposta de patrocinio, 0 aumento de salario
+; (o original, vermelho com letras amarelas). O fundo e uma imagem (PATROCIN\FUNDO.BMP
+; esticada) por cima do vermelho, sem mexer na cor da janela.
+estilo: mov [bp+MODO], si                ; (as rotinas do Delphi nao guardam o si)
+        push si
+        xor ax, ax
+        call img_dialogo
+        mov [bp+IMG], di
+        mov [bp+IMG+2], es
+        cmp word [bp+MODO], 0
+        je .sem
+        mov si, FUNDO_ARQ
+        call caminho
+        jc .sem
+        call img_cam
+        jmp .cores
+.sem:   call esconde_img
+.cores: mov bx, [bp+MODO]
+        shl bx, 2
+        push word [cs:bx+COR_TITULO+2]
+        push word [cs:bx+COR_TITULO]
+        les di, [DIALOGO]
+        les di, [es:di+0x184]           ; textCoachName
+        les di, [es:di+0x34]            ; Font
+        push es
+        push di
+        longe corfonte
+        mov bx, [bp+MODO]
+        shl bx, 2
+        push word [cs:bx+COR_TEXTO+2]
+        push word [cs:bx+COR_TEXTO]
+        les di, [DIALOGO]
+        les di, [es:di+0x188]           ; textMessage
+        les di, [es:di+0x34]
+        push es
+        push di
+        longe corfonte
+        mov bx, [bp+MODO]
+        shl bx, 1
+        push word [cs:bx+TOPO_BOTOES]
+        les di, [DIALOGO]
+        les di, [es:di+0x17C]           ; YesBtn
+        push es
+        push di
+        longe settop
+        mov bx, [bp+MODO]
+        shl bx, 1
+        push word [cs:bx+TOPO_BOTOES]
+        les di, [DIALOGO]
+        les di, [es:di+0x180]           ; NoBtn
+        push es
+        push di
+        longe settop
+        mov bx, [bp+MODO]
+        shl bx, 1
+        push word [cs:bx+ALTURA]
+        les di, [DIALOGO]
+        push es
+        push di
+        longe altura
+        pop si
+        ret
 
 ; le o registro da marca [bp+B] em REG; CF = 1 se nao deu
 ler_marca:
@@ -791,14 +837,7 @@ orcamento:
         mov dx, [es:di+M_VALOR+2]
         sub [bp+DISP], ax
         sbb [bp+DISP+2], dx
-.n:     mov al, [bp+B]
-        cmp [es:di+N_MARCA], al
-        jne .time
-        mov ax, [es:di+N_VALOR]
-        mov dx, [es:di+N_VALOR+2]
-        sub [bp+DISP], ax
-        sbb [bp+DISP+2], dx
-        jmp .time
+.n:     jmp .time
 .prox:  inc word [bp-2]
         cmp word [bp-2], 5
         jb .div
@@ -1094,11 +1133,19 @@ poe:    push di
 .fim:   pop di
         ret
 
+; estilo da janela de Sim/Nao: [0] aumento de salario (o original), [1] patrocinio
+COR_TITULO:  dd 0x0000FFFF, 0x00800000  ; clYellow, clNavy
+COR_TEXTO:   dd 0x0000FFFF, 0x00000000  ; clYellow, clBlack
+TOPO_BOTOES: dw 188, 248                ; Sim e Nao (o logo fica no Top 176)
+ALTURA:      dw 260, 320                ; ClientHeight
+
 meio:   dd 0.5
 mil:    dd 1000.0
 NOME_ARQ: db .f - NOME_ARQ - 1, '\PATROCIN\MARCAS.DAT'
 .f:
 PASTA_PAT: db .f - PASTA_PAT - 1, '\PATROCIN\'
+.f:
+FUNDO_ARQ: db .f - FUNDO_ARQ - 1, '\PATROCIN\FUNDO.BMP'
 .f:
 
 ; textos (passados com "mov di; push cs; push di", como os do jogo: a traducao os acha)
@@ -1112,8 +1159,6 @@ T_EPOCAS:  db .f - T_EPOCAS - 1, ` \xe9pocas`
 .f:
 T_MASTER:  db .f - T_MASTER - 1, `,`, 13, `para ser o patrocinador principal da sua equipa.`
 .f:
-T_NAMING:  db .f - T_NAMING - 1, `,`, 13, `para dar o nome ao seu est\xe1dio.`
-.f:
 T_ACEITA:  db .f - T_ACEITA - 1, 13, 13, `Aceita?`
 .f:
 T_PORTEMP: db .f - T_PORTEMP - 1, ` por \xe9poca`
@@ -1123,8 +1168,6 @@ T_RESTA1:  db .f - T_RESTA1 - 1, ` \xe9poca restante`
 T_RESTAN:  db .f - T_RESTAN - 1, ` \xe9pocas restantes`
 .f:
 T_SEM:     db .f - T_SEM - 1, `Sem patrocinador`
-.f:
-T_SEMN:    db .f - T_SEMN - 1, `Sem naming rights`
 .f:
 T_NADA:    db 0
 T_TITULO:  db .f - T_TITULO - 1, `Patroc\xednio`
@@ -1163,3 +1206,7 @@ carregaimg: db 0xEA
 ..@carregaimg: dw 0xFFFF, 0
 showmodal: db 0xEA
 ..@showmodal: dw 0xFFFF, 0
+settop:    db 0xEA
+..@settop: dw 0xFFFF, 0
+altura:    db 0xEA
+..@altura: dw 0xFFFF, 0

@@ -1543,6 +1543,29 @@ vai para o `OrdenarTList` (`seg14:0e0d`). **Validado**: com o segmento em 0, abr
 at 000E:0E1F"; sem esse ponto a janela abre. Os outros seis pontos convertem
 contadores em texto (`IntToStr`).
 
+## Patrocinadores e a janela de Sim/Não
+
+**Validado** (jogo novo com 20 equipes, Linux): o patch `tools/divisoes/patrocinio.py`
+oferece ao humano, no início da temporada, até 3 propostas de patrocínio master na
+janela do aumento de salário (`askMoreSalaryDlg`, `DS:0x2880`); aceitar grava o contrato
+no time (`+0xCC` marca, `+0xCD` temporadas, `+0xCE` valor), e a aba Patrocínio da
+janela do time mostra o logo, o valor e as temporadas restantes.
+
+Fatos do Delphi 1 que o patch precisou (**Código** e **Validado**):
+
+- Um componente do DFM só é criado se a classe dele estiver na tabela de classes dos
+  campos da janela (ponteiro perto no fim da tabela de campos, no VMT) ou registrada;
+  a da `askMoreSalaryDlg` (seg07) só tinha TBitBtn e TLabel, e um TImage a mais no DFM
+  dava "EClassNotFound: Class TImage not found" ao abrir o jogo. Os campos apontam a
+  classe pelo deslocamento na tabela (0, 4, 8...).
+- VMTs: TImage `seg17:0365`, TLabel `seg18:0617`, TBitBtn `seg16:0E47`, TPanel
+  `seg17:0AAD`, TPaintBox `seg17:0022`. TShape não está no EXE.
+- Setters (tirados das informações de propriedade): `TControl.SetColor` `seg21:1ED5`,
+  `TControl.SetTop` `seg21:179D`, `TForm.SetClientHeight` `seg22:2E48`.
+- As cores do sistema são negativas: `clBtnFace = −16` (0xFFFFFFF0), não 0x8000000F.
+- As rotinas do Delphi não preservam o SI: um valor guardado em SI entre duas chamadas
+  vira lixo, e uma cor de fonte com lixo derruba o jogo dentro de `seg19:3255`.
+
 ## Ainda não comprovado (fora deste documento)
 
 - O "valor do clube" que entra no salário (real de 10 bytes passado a
