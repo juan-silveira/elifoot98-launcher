@@ -84,6 +84,7 @@ QUADRO  equ 0x3D4
 ; No lugar de "call far seg05:0002" (NewSeason) em seg05:11CE
 inicio:
         longe novaepoca
+        call zerar_amarelos             ; vale com ou sem a opcao PATROC
 ..@opc1: jmp short inicio_ligado        ; opcao PATROC: desligada, salta para inicio_fim
 inicio_ligado:
         call distribuir
@@ -121,6 +122,9 @@ rodada: push bp
         push di
 ..@opc3: jmp short rodada_ligado        ; opcao PATROC: desligada, salta para rodada_desl
 rodada_ligado:
+%if TESTE
+        call zerar_amarelos
+%endif
         call time_humano
         jnc .tem
         jmp rodada_fim
@@ -374,6 +378,45 @@ nome_proposta:
         pop si
         mov al, [bp+B]
         mov [ss:si+31], al
+        ret
+
+; Cartoes (cartoes.asm): os amarelos acumulados (+0x25) e a marca do jogo do ultimo
+; (+0x26) de todos os jogadores voltam a 0 no comeco de cada epoca.
+zerar_amarelos:
+        push bp
+        mov bp, sp
+        sub sp, 0x10
+        mov word [bp-2], 0
+.div:   call lista_div
+        mov [bp-6], di
+        mov [bp-4], es
+        mov word [bp-8], 0
+.time:  les di, [bp-6]
+        mov ax, [bp-8]
+        cmp ax, [es:di+8]
+        jae .prox
+        call time_k                     ; es:di = TTeam
+        les di, [es:di+0xA]             ; celula
+        les di, [es:di]                 ; TList do elenco
+        mov cx, [es:di+8]
+        jcxz .outro
+        les di, [es:di+4]               ; FList
+.j:     push es
+        push di
+        les di, [es:di]                 ; item -> jogador
+        les di, [es:di]
+        mov word [es:di+0x25], 0
+        pop di
+        pop es
+        add di, 4
+        loop .j
+.outro: inc word [bp-8]
+        jmp .time
+.prox:  inc word [bp-2]
+        cmp word [bp-2], 5
+        jb .div
+        mov sp, bp
+        pop bp
         ret
 
 ; paga a epoca dos contratos (como os Premios) e desconta uma epoca deles

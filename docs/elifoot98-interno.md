@@ -1570,6 +1570,11 @@ propostas em toda rodada):
   divisão e 50% nas outras. O valor por jogo é a quota da marca na divisão ÷ 8, e o
   acordo vale de 1 a 5 jogos. Cada jornada paga um jogo, na linha de Prémios. Os campos
   ficam no TTeam: `+0xD8` valor, `+0xDC` marca, `+0xDD` jogos que faltam.
+- **Amarelos acumulados zeram a cada época.** No mesmo gancho do início da época,
+  com ou sem a opção dos patrocinadores, o byte `+0x25` (amarelos acumulados) e o
+  `+0x26` (marca do jogo do último) de todos os jogadores voltam a 0. Validado com a
+  versão de teste, que zera em toda jornada: os "A" do plantel somem na jornada
+  seguinte.
 - **Renovação.** Quando o contrato do humano acaba, a marca fica em `+0xD2`, e no
   início da época seguinte a proposta dela vem primeiro, como renovação. Ainda não foi
   validado numa virada de época.
