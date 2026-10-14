@@ -12,7 +12,8 @@ MARCAS.TXT (Latin-1, uma marca por linha, # = comentario):
   - divisao_maxima: 1 a 4, ou 5 = aceita o Distrital
   - reserva_pontual_pct: parte da verba guardada para patrocinios de um jogo (Copa)
   - paises: codigos de 3 letras separados por virgula (BRA,POR), ou * = qualquer
-  - modo: exclusivo (so esses paises) ou preferido (esses primeiro); vazio com *
+  - modo: exclusivo (so esses paises), preferido (aceita qualquer um; so informativo)
+    ou exceto (todos menos esses: casas de apostas, proibidas no Brasil); vazio com *
 
 MARCAS.DAT: cabecalho de 8 bytes ("PAT1", versao word = 1, quantidade word) e um
 registro de 80 bytes por marca, na ordem do arquivo (o indice da marca, 1..N, e o
@@ -24,7 +25,7 @@ que vai no save):
   40  longint     verba anual (reais)
   44  longint     cota minima (reais)
   48  byte        reserva pontual (%)
-  49  byte        modo: 0 qualquer pais, 1 exclusivo, 2 preferido
+  49  byte        modo: 0 qualquer pais, 1 exclusivo, 2 preferido, 3 exceto
   50  byte        quantidade de paises (0..8)
   51  8 x 3 bytes codigos dos paises
   75  5 bytes     zero (reserva)
@@ -33,7 +34,7 @@ import struct
 import sys
 
 REG = 80
-MODOS = {'': 0, 'exclusivo': 1, 'preferido': 2}
+MODOS = {'': 0, 'exclusivo': 1, 'preferido': 2, 'exceto': 3}
 
 
 def _pstr(s, n):
@@ -53,7 +54,7 @@ def ler(caminho):
         paises = [] if paises in ('', '*') else [p.strip().upper() for p in paises.split(',') if p.strip()]
         modo = modo.lower() if paises else ''
         if modo not in MODOS:
-            sys.exit('%s:%d: modo "%s" (use exclusivo ou preferido)' % (caminho, n, modo))
+            sys.exit('%s:%d: modo "%s" (use exclusivo, preferido ou exceto)' % (caminho, n, modo))
         if paises and not modo:
             modo = 'exclusivo'
         if len(paises) > 8 or any(len(p) != 3 for p in paises):

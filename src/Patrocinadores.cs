@@ -39,8 +39,8 @@ namespace ElifootLauncher
                     : c[7].Split(',').Select(p => p.Trim().ToUpperInvariant()).Where(p => p.Length > 0).ToList();
                 var modo = paises.Count == 0 ? "" : c[8].ToLowerInvariant();
                 if (paises.Count > 0 && modo == "") modo = "exclusivo";
-                if (modo != "" && modo != "exclusivo" && modo != "preferido")
-                    throw new FormatException($"MARCAS.TXT linha {n}: modo \"{c[8]}\" (use exclusivo ou preferido)");
+                if (modo != "" && modo != "exclusivo" && modo != "preferido" && modo != "exceto")
+                    throw new FormatException($"MARCAS.TXT linha {n}: modo \"{c[8]}\" (use exclusivo, preferido ou exceto)");
                 if (paises.Count > 8 || paises.Any(p => p.Length != 3))
                     throw new FormatException($"MARCAS.TXT linha {n}: até 8 países de 3 letras");
                 lista.Add(new Marca
@@ -48,7 +48,7 @@ namespace ElifootLauncher
                     Nome = c[0].ToUpperInvariant(), Logo = c[1].ToUpperInvariant(),
                     Tier = int.Parse(c[2]), Verba = int.Parse(c[3]), CotaMinima = int.Parse(c[4]),
                     DivisaoMaxima = int.Parse(c[5]), ReservaPct = c[6] == "" ? 0 : int.Parse(c[6]),
-                    Paises = paises, Modo = modo == "exclusivo" ? 1 : modo == "preferido" ? 2 : 0,
+                    Paises = paises, Modo = modo == "exclusivo" ? 1 : modo == "preferido" ? 2 : modo == "exceto" ? 3 : 0,
                 });
             }
             return lista;

@@ -953,10 +953,15 @@ time_humano:
         ret
 
 ; CF = 1 se o time TIME pode ter a marca do registro (pais)
+; modo 0 qualquer e 2 preferido: sempre; 1 exclusivo: so os paises da lista; 3 exceto:
+; todos menos os da lista
 pais_ok:
-        cmp byte [bp+REG+R_MODO], 1
-        jne .sim                        ; qualquer pais ou preferido
-        les di, [bp+TIME]
+        mov bl, [bp+REG+R_MODO]
+        cmp bl, 1
+        je .lista
+        cmp bl, 3
+        jne .sim
+.lista: les di, [bp+TIME]
         les di, [es:di+4]
         mov ax, [es:di+0x4B]            ; pais do time (string[3] em +0x4A)
         mov dl, [es:di+0x4D]
@@ -967,11 +972,15 @@ pais_ok:
 .laco:  cmp ax, [ss:si]
         jne .prox
         cmp dl, [ss:si+2]
-        je .sim
+        je .achou
 .prox:  add si, 3
         loop .laco
+        cmp bl, 3                       ; nao esta na lista
+        je .sim
 .nao:   clc
         ret
+.achou: cmp bl, 3
+        je .nao
 .sim:   stc
         ret
 
