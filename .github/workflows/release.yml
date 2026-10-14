@@ -159,6 +159,7 @@ jobs:
             - **Editor de Equipes** — abre o EDITEQ.EXE original
             - **Editor de Árbitros** — edita a lista de juízes (nome + país) diretamente no `REFEREE.TXE`
             - **Editor de Save** — edita **verba** do clube + **força** e **salário** dos jogadores em qualquer `.e98`
+              - Não deixa passar dos limites de 16 bits do jogo: a força máxima de cada jogador é calculada pelo elenco (peso de gol, soma do elenco e escalação mais forte)
               - Lista todos os times do save (funciona com patches da comunidade de 42 a 128+ times)
               - Aceita saves single-coach e multi-coach (até 6 técnicos)
               - Backup `.bak` automático na primeira gravação
@@ -169,12 +170,19 @@ jobs:
               - **Versão do jogo**: original ou modificada (a modificada traz tudo o que está em "No jogo")
               - **Idioma do jogo**: o original de Portugal (padrão) ou **português do Brasil** (time, temporada, rodada, gols, Copa, escalação, bilheteria...)
               - **Registro**: jogar registrado (Registro para autor) ou não registrado (padrão)
+              - **Cartões amarelos** e **Patrocinadores**: ligue as adições que quiser (por padrão o jogo começa como o original; na versão original elas ficam desligadas)
               - **Equipes por divisão**: de 8 (original) a 20. Com mais equipes, a temporada tem mais jornadas (2 × (N − 1)), a Classificação e a tela da jornada mostram 2 divisões por página, e com 16 ou mais sobem e descem 4 equipes por divisão. Um jogo gravado só continua com o mesmo número em que foi começado: o launcher deixa na lista do jogo só os saves desse número (os outros ficam em `JOGOS/<N> equipes`)
               - Em todas as opções: até **30 jogadores** por equipe (o jogo tinha 24 nas compras e leilões, 20 no editor)
 
             ## No jogo
 
-            - **Cartões amarelos** (o original só tinha o vermelho): uns 4 por jogo; o 2º no mesmo jogo vira vermelho 1 vez em 4; 3 acumulados = 1 jogo de suspensão. Aparecem na jornada, nos detalhes da partida, no plantel (**A**), na aba Jogador e no Historial. O Scout mostra os da carreira e o Editor de Save edita os acumulados.
+            - **Patrocinadores** (opção nas Configurações): 227 marcas reais com logo (pasta `SPONSORS`, editável em `MARCAS.TXT`)
+              - Propostas de patrocínio master no início da temporada e em 1/4, 1/2 e 3/4 dela (menos chance para quem já tem); contratos de 1 a 3 temporadas, pagos no fim de cada uma
+              - Trocar de patrocinador custa uma multa de tudo o que falta do contrato; no fim do contrato, a mesma marca vem primeiro com a renovação
+              - Patrocínios pontuais de 1 a 5 jogos na Taça (a partir das oitavas) e na reta final do campeonato para quem está entre os 3 primeiros, com mais chance fora da 1ª divisão
+              - Aba **Patrocínio** na janela do time, com o logo, o valor e as temporadas restantes
+              - Marcas exclusivas de países (bancos, supermercados, cervejas, montadoras chinesas no Brasil...); casas de apostas não patrocinam times brasileiros
+            - **Cartões amarelos** (opção nas Configurações; o original só tinha o vermelho): uns 4 por jogo; o 2º no mesmo jogo vira vermelho 1 vez em 4; 3 acumulados = 1 jogo de suspensão. Aparecem na jornada, nos detalhes da partida, no plantel (**A**), na aba Jogador e no Historial. O Scout mostra os da carreira e o Editor de Save edita os acumulados.
             - Equipes por divisão de 8 a 20, até 30 jogadores por equipe, tática 5-0-5 (tecla T) e os 258 países do Turbo Elifoot.
             - **Nota e Risco de lesão** de cada jogador no leilão, na aba Jogador, no plantel dos adversários e na Lista de Jogadores (colunas Nota e RL).
             - **Lista de Jogadores** com filtros de Comportamento, Nota mínima e Risco de lesão máximo.
