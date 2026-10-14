@@ -223,6 +223,9 @@ Os valores em MARCAS.TXT sao preliminares (serao recalibrados por simulacao). A 
 | SAMSUNG | SAMSUNG.BMP | 1 | * | Master: Chelsea (2008-2015), Palmeiras (2008-2010) |  | https://commons.wikimedia.org/wiki/File:Samsung_old_logo_before_year_2015.svg |
 | SONY | SONY.BMP | 1 | * | Master: Juventus (1995-1998); patrocinadora da UEFA Champions League |  | https://commons.wikimedia.org/wiki/File:Sony_logo.svg |
 | LG | LG.BMP | 2 | * | Master: Sao Paulo (2001-2009) |  | https://commons.wikimedia.org/wiki/File:LG_logo_(2014).svg |
+| PHILCO | PHILCO.BMP | 3 | BRA exclusivo | Santos (costas, 2018-2020); master da Ponte Preta (2019) |  | https://commons.wikimedia.org/wiki/File:Philco_logo.svg |
+| POSITIVO | POSITIVO.BMP | 3 | BRA exclusivo | Corinthians (barra traseira, 2018-2021) |  | https://commons.wikimedia.org/wiki/File:PositivoTec_Logo_2025.png |
+| MULTILASER | MULTILAS.BMP | 3 | BRA exclusivo | Marca brasileira de eletronicos (hoje Multi); incluida a pedido | sem patrocinio de futebol encontrado; logo atual "Multi" | https://commons.wikimedia.org/wiki/File:Logo-roxo-multi.svg |
 
 ## Mudancas de 2026-10-14
 
@@ -239,3 +242,4 @@ Os valores em MARCAS.TXT sao preliminares (serao recalibrados por simulacao). A 
 - Materiais de construcao (so times brasileiros): Suvinil, Votorantim Cimentos,
   Tintas Coral, Tigre, Tintas Renner, Amanco e Krona.
 - Eletronicos: Samsung, Sony e LG.
+- Eletronicos brasileiros: Philco, Positivo e Multilaser.
