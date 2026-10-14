@@ -53,6 +53,10 @@ namespace ElifootLauncher
         // atualizacao copia os arquivos do pacote por cima (Patches.Manter refaz a escolha)
         public bool? Estrangeiros { get; set; }
 
+        // Adicoes do jogo que podem ser desligadas (OpcoesDoJogo acerta o EXE antes de abrir)
+        public bool Cartoes { get; set; } = true;
+        public bool Patrocinios { get; set; } = true;
+
         // O EXE que existe na pasta do jogo: o da versao e do idioma, senao o sem traducao,
         // senao o ELIFOOT.EXE
         public string ExeExistente(string pastaDoJogo)
@@ -116,6 +120,12 @@ namespace ElifootLauncher
                         case "registrado":
                             cfg.Registrado = val == "1";
                             break;
+                        case "cartoes":
+                            cfg.Cartoes = val != "0";
+                            break;
+                        case "patrocinios":
+                            cfg.Patrocinios = val != "0";
+                            break;
                         case "estrangeiros":
                             if (val == "liberado") cfg.Estrangeiros = true;
                             else if (val == "original") cfg.Estrangeiros = false;
@@ -147,6 +157,8 @@ namespace ElifootLauncher
                 "idioma=" + Idioma,
                 "versao=" + (VersaoOriginal ? "original" : "modificada"),
                 "registrado=" + (Registrado ? "1" : "0"),
+                "cartoes=" + (Cartoes ? "1" : "0"),
+                "patrocinios=" + (Patrocinios ? "1" : "0"),
             };
             if (Estrangeiros.HasValue) lines.Add("estrangeiros=" + (Estrangeiros.Value ? "liberado" : "original"));
             File.WriteAllLines(ConfigPath, lines);

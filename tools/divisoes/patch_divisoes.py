@@ -40,6 +40,7 @@ from ingressos import ingressos
 from filtros import filtros
 from arbitro import arbitro
 from campo import campo
+import opcoes
 
 
 def real10(x):
@@ -229,6 +230,7 @@ def main(n, entrada, saida):
     limite_jogadores(ne)
     if N == 8:                # o jogo original, so com o limite de jogadores e os amarelos
         classificacao(b)
+        opcoes.limpar()
         cartoes(ne, b)
         historial(ne, b)
         lances(ne, b)
@@ -239,6 +241,7 @@ def main(n, entrada, saida):
         filtros(ne, b)
         arbitro(ne, b)
         campo(ne, b)
+        opcoes.gravar_tabela(ne, b)
         gravar(b, saida)
         print('ok: 8 equipas/divisao (original), ate %d jogadores' % MAXJOG)
         return
@@ -333,6 +336,7 @@ def main(n, entrada, saida):
     if N > 14:
         # Classificacao em 2 paginas (1a+2a / 3a+4a) com setas: paginas.py
         import paginas
+        opcoes.limpar()
         cartoes(ne, b)
         historial(ne, b)
         lances(ne, b)
@@ -343,10 +347,12 @@ def main(n, entrada, saida):
         filtros(ne, b)
         arbitro(ne, b)
         campo(ne, b)
+        opcoes.gravar_tabela(ne, b)
         print('paginas:', {k: '%04X' % v for k, v in paginas.paginar(ne, b, N).items()})
         gravar(b, saida)
         return
     classificacao(b)
+    opcoes.limpar()
     cartoes(ne, b)
     historial(ne, b)
     lances(ne, b)
@@ -357,6 +363,7 @@ def main(n, entrada, saida):
     filtros(ne, b)
     arbitro(ne, b)
     campo(ne, b)
+    opcoes.gravar_tabela(ne, b)
     gravar(b, saida)
     print('ok: %d equipas/divisao, %d jornadas; rotinas seg03 %s, ajudante seg11:%04X'
           % (N, R, {k: '%04X' % v for k, v in rot.items()}, aj_off))

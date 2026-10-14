@@ -31,7 +31,7 @@ org 0xAA40
         les di, [bp+6]
         mov bx, [bp-8]
         shl bx, 1
-        cmp ax, LIMITE
+..@lim: cmp ax, byte LIMITE             ; opcao CARTOES: desligada, 10 (so vermelho)
         jge .prox
         cmp ax, [es:di+bx+0x4C]         ; influencia do arbitro sobre o lado
         jle .prox
@@ -98,7 +98,7 @@ org 0x48BE
         cmp word [es:di+0x2D], 0        ; comportamento
         jle nada
         mov bx, [bp]                    ; quadro do aa11
-        cmp word [ss:bx-0xE], VERM
+..@verm: cmp word [ss:bx-0xE], byte VERM ; opcao CARTOES: desligada, 10
         jl vermelho
         jmp AMARELO                     ; parte 5
 vermelho:

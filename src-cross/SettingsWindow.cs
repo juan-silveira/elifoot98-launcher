@@ -73,6 +73,20 @@ namespace ElifootLauncher
             versao.SelectionChanged += (_, _) => equipes.IsEnabled = versao.SelectedIndex == 0;
 
             // Idioma do jogo: o original (Portugal) ou o portugues do Brasil (ELIFnnBR.EXE)
+            // Adicoes que podem ser desligadas (OpcoesDoJogo acerta o EXE antes de abrir)
+            var cartoes = Seletor(new[]
+            {
+                "Ligados — amarelos, 3 acumulados suspendem",
+                "Desligados — só vermelhos, como no original",
+            });
+            cartoes.SelectedIndex = cfg.Cartoes ? 0 : 1;
+            var patrocinios = Seletor(new[]
+            {
+                "Ligados — contratos, naming rights e patrocínio de jogo",
+                "Desligados",
+            });
+            patrocinios.SelectedIndex = cfg.Patrocinios ? 0 : 1;
+
             var idioma = Seletor(LauncherConfig.NomesIdioma);
             idioma.SelectedIndex = Math.Max(0, Array.IndexOf(LauncherConfig.OpcoesIdioma, cfg.Idioma));
 
@@ -150,6 +164,8 @@ namespace ElifootLauncher
                 cfg.EquipesPorDivisao = LauncherConfig.OpcoesEquipes[equipes.SelectedIndex];
                 cfg.Idioma = LauncherConfig.OpcoesIdioma[idioma.SelectedIndex];
                 cfg.Registrado = registro.SelectedIndex == 0;
+                cfg.Cartoes = cartoes.SelectedIndex == 0;
+                cfg.Patrocinios = patrocinios.SelectedIndex == 0;
                 cfg.Save();
                 Close(true);
             };
@@ -166,6 +182,8 @@ namespace ElifootLauncher
                     Nota("Na original só há 8 equipes por divisão. Um jogo gravado na modificada mostra números estranhos de lesões e cartões na original."),
                     Rotulo("Equipes por divisão"), equipes,
                     Nota("Vale para o próximo jogo novo: um jogo gravado só continua com o mesmo número de equipes em que foi começado."),
+                    Rotulo("Cartões amarelos"), cartoes,
+                    Rotulo("Patrocinadores"), patrocinios, Nota("Valem na versão modificada."),
                     Rotulo("Idioma do jogo"), idioma,
                     Rotulo("Registro"), registro,
                     Nota("Vale a partir da próxima vez que o jogo abrir."),

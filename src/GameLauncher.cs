@@ -57,6 +57,8 @@ namespace ElifootLauncher
             SavesPorEquipes.Separar(JogosDir, cfg.EquipesDoJogo);
             try { Ativador.DefinirRegistro(this, cfg.Registrado); }
             catch { /* sem permissao no elif98.ini: abre como esta */ }
+            try { OpcoesDoJogo.Aplicar(cfg.ExeExistente(GameDir), OpcoesDoJogo.DaConfig(cfg)); }
+            catch { /* sem permissao no EXE: abre como esta */ }
             LaunchWithOtvdm(cfg.ExeExistente(GameDir), cfg, "Elifoot 98");
         }
         public void LaunchEditor(LauncherConfig cfg)

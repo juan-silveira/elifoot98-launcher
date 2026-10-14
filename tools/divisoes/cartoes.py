@@ -14,6 +14,7 @@
 """
 import struct
 from montar import montar
+import opcoes
 from paginas import _tabela, _gravar_tabela
 
 # Random(1000) por minuto e por lado: < VERM vermelho direto, VERM..LIMITE-1 amarelo
@@ -94,6 +95,10 @@ def cartoes(ne, b):
     _regiao(b, base, 0xC3FA, 0xC41A, c3, bytes.fromhex('8b46f0050300'))
     _regiao(b, base, 0x7B5A, 0x7BC8, c4, bytes.fromhex('c47e06'))
     assert ne.append(3, c5) == org5
+    # opcao das Configuracoes: sem amarelos, os dois limites em 10 (o "Random(1000) < 10"
+    # do original: so vermelho)
+    opcoes.registrar('CARTOES', 3, r1['..@lim'] + 2, [LIMITE], [10])
+    opcoes.registrar('CARTOES', 3, r2['..@verm'] + 4, [VERM], [10])
 
     # --- seg04: aba Jogador (parte 6), textos no lugar do antigo (parte 7) e no fim (parte 8)
     base4 = ne.seg(4)[0]

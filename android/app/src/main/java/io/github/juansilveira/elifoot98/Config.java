@@ -56,6 +56,16 @@ final class Config {
         return v.equals("liberado") ? Boolean.TRUE : v.equals("original") ? Boolean.FALSE : null;
     }
 
+    /** Cartoes amarelos ligados (OpcoesDoJogo acerta o EXE antes de abrir). */
+    static boolean cartoes(Context c) {
+        return prefs(c).getBoolean("cartoes", true);
+    }
+
+    /** Patrocinadores ligados (OpcoesDoJogo acerta o EXE antes de abrir). */
+    static boolean patrocinios(Context c) {
+        return prefs(c).getBoolean("patrocinios", true);
+    }
+
     /** Patch em uso (nome na biblioteca, Patches.java), ou "" para os times originais. */
     static String patch(Context c) {
         return prefs(c).getString("patch", "");

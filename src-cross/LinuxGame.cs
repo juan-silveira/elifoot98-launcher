@@ -68,14 +68,23 @@ namespace ElifootLauncher
                 Preparar();
                 SavesPorEquipes.Separar(JogosDir, cfg.EquipesDoJogo);
                 DefinirRegistro(cfg.Registrado);
+                AplicarOpcoes(cfg);
                 WindowsJogo.Abrir(this, cfg.ExeExistente(GameDir), cfg);
                 return;
             }
             Preparar();
             SavesPorEquipes.Separar(JogosDir, cfg.EquipesDoJogo);
             DefinirRegistro(cfg.Registrado);
+            AplicarOpcoes(cfg);
             StartScript("jogo", cfg);
         }
+        // Cartoes amarelos, patrocinadores...: os bytes do EXE conforme as Configuracoes
+        private void AplicarOpcoes(LauncherConfig cfg)
+        {
+            try { OpcoesDoJogo.Aplicar(cfg.ExeExistente(GameDir), OpcoesDoJogo.DaConfig(cfg)); }
+            catch { /* abre como esta */ }
+        }
+
         public void LaunchEditor(LauncherConfig cfg)
         {
             Preparar();

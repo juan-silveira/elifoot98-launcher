@@ -27,6 +27,7 @@ from paginas import (_tabela, _gravar_tabela, ler_dfm, escrever_dfm, por, inteir
 
 CAB = 0x2AFE                       # cabecalho "EFa" do time no DS (seg11:395E)
 TAMANHO_TTEAM = 0x0215             # seg03: tamanho da instancia na VMT do TTeam
+TAMANHO_NOVO = 0xE0                # +0xCB ingressos, +0xCC..+0xDF patrocinios (patrocinio.py)
 PRECO = (0x93C4, 0x98A6, 0x98DB)   # seg03: fld tword [es:di+0x36] da renda
 ROUND_PUBLICO = 0xB1EC             # seg03: Round do publico
 LER = (0x284D, 0x2C33)             # seg03: TTeam.Load chamando a leitura do .EFT
@@ -124,7 +125,7 @@ def ingressos(ne, b):
                       [3, 0, rotb['..@grava'], 12, 0x1694]])
 
     # seg03
-    b[s3 + TAMANHO_TTEAM] = 0xCC
+    b[s3 + TAMANHO_TTEAM] = TAMANHO_NOVO
     _redirecionar(ne, 3, ROUND_PUBLICO + 1, PRECOS, rot['publico'], de=(25, 0x1241))
     for o in LER:
         _redirecionar(ne, 3, o + 1, BYTE, rotb['carregar'], de=(12, 0x15B8))
@@ -135,18 +136,15 @@ def ingressos(ne, b):
         b[s3 + o: s3 + o + 5] = b'\x9a' + struct.pack('<HH', prox, 0)
     _novos(ne, 3, [[3, 0, PRECO[0] + 1, PRECOS, rot['preco']]])
 
-    # seg12: depois de ler o cabecalho, o byte 4 dele vai para CAB+4
+    # seg12: depois de ler o cabecalho, o bloco do time (bytes 4...) vai para CAB+4
     s12 = ne.seg(12)[0]
     assert b[s12 + LEITURA_IO: s12 + LEITURA_IO + 5] == bytes.fromhex('9affff0000')
     org12 = ne.seg(12)[1]
-    ajudante = (bytes.fromhex('9affff0000')                       # o que estava no lugar
-                + bytes.fromhex('8a46d2')                         # mov al, [bp-0x2E]
-                + b'\xa2' + struct.pack('<H', CAB + 4)            # mov [CAB+4], al
-                + b'\xc3')
-    assert ne.append(12, ajudante) == org12
+    cod12, rot12 = montar('ingressos.asm', org12, ORG='0x%X' % org12, CAB='0x%X' % CAB, PARTE=3)
+    assert ne.append(12, cod12) == org12
     p, recs, i = _registro(ne, 12, LEITURA_IO + 1)
     assert (recs[i][3], recs[i][4]) == (25, 0x0408), recs[i]
-    recs[i][2] = org12 + 1
+    recs[i][2] = rot12['..@io']
     _gravar_tabela(ne, p, recs)
     b[s12 + LEITURA_IO: s12 + LEITURA_IO + 5] = (
         b'\xe8' + struct.pack('<h', org12 - (LEITURA_IO + 3)) + b'\x90\x90')

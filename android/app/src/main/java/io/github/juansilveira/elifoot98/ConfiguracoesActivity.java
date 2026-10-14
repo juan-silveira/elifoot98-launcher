@@ -36,7 +36,7 @@ public class ConfiguracoesActivity extends Activity {
         CINZA = 0xFFC8E6C8;
 
     private Jogo jogo;
-    private Spinner versao, equipes, idioma, registro, estrangeiros, times;
+    private Spinner versao, equipes, cartoes, patrocinios, idioma, registro, estrangeiros, times;
     private final List<String> patches = new ArrayList<>();
     private Button removerPatch, salvar, cancelar;
     private ProgressBar progresso;
@@ -70,6 +70,14 @@ public class ConfiguracoesActivity extends Activity {
         equipes = seletor(col, "Equipes por divisão", opcoesEquipes.toArray(new String[0]),
             "Vale para o próximo jogo novo: um jogo gravado só continua com o mesmo número de equipes em que foi começado.");
         equipes.setSelection(Math.max(0, indice(Config.OPCOES_EQUIPES, Config.equipes(this))));
+
+        // adicoes que podem ser desligadas (OpcoesDoJogo acerta o EXE antes de abrir)
+        cartoes = seletor(col, "Cartões amarelos", new String[] {
+            "Ligados — amarelos, 3 acumulados suspendem", "Desligados — só vermelhos, como no original"}, null);
+        cartoes.setSelection(Config.cartoes(this) ? 0 : 1);
+        patrocinios = seletor(col, "Patrocinadores", new String[] {
+            "Ligados — contratos, naming rights e patrocínio de jogo", "Desligados"}, "Valem na versão modificada.");
+        patrocinios.setSelection(Config.patrocinios(this) ? 0 : 1);
 
         idioma = seletor(col, "Idioma do jogo", Config.NOMES_IDIOMA, null);
         idioma.setSelection(Math.max(0, java.util.Arrays.asList(Config.OPCOES_IDIOMA).indexOf(Config.idioma(this))));
@@ -145,6 +153,8 @@ public class ConfiguracoesActivity extends Activity {
             .putInt("equipes", Config.OPCOES_EQUIPES[equipes.getSelectedItemPosition()])
             .putString("idioma", Config.OPCOES_IDIOMA[idioma.getSelectedItemPosition()])
             .putBoolean("registrado", registro.getSelectedItemPosition() == 0)
+            .putBoolean("cartoes", cartoes.getSelectedItemPosition() == 0)
+            .putBoolean("patrocinios", patrocinios.getSelectedItemPosition() == 0)
             .putString("estrangeiros", estrangeiros.getSelectedItemPosition() == 1 ? "liberado" : "original")
             .apply();
         boolean liberado = estrangeiros.getSelectedItemPosition() == 1;

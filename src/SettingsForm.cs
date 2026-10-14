@@ -75,6 +75,19 @@ namespace ElifootLauncher
             versao.SelectedIndexChanged += (s, e) => equipes.Enabled = versao.SelectedIndex == 0;
             equipes.Enabled = versao.SelectedIndex == 0;
 
+            // Adicoes que podem ser desligadas (OpcoesDoJogo acerta o EXE antes de abrir)
+            var cartoes = Seletor(coluna, "Cartões amarelos:", new[]
+            {
+                "Ligados — amarelos, 3 acumulados suspendem",
+                "Desligados — só vermelhos, como no original",
+            }, null);
+            cartoes.SelectedIndex = cfg.Cartoes ? 0 : 1;
+            var patrocinios = Seletor(coluna, "Patrocinadores:", new[]
+            {
+                "Ligados — contratos, naming rights e patrocínio de jogo",
+                "Desligados",
+            }, "Valem na versão modificada.");
+            patrocinios.SelectedIndex = cfg.Patrocinios ? 0 : 1;
             var idioma = Seletor(coluna, "Idioma do jogo:", LauncherConfig.NomesIdioma, null);
             idioma.SelectedIndex = Math.Max(0, Array.IndexOf(LauncherConfig.OpcoesIdioma, cfg.Idioma));
 
@@ -146,6 +159,8 @@ namespace ElifootLauncher
                 Config.EquipesPorDivisao = LauncherConfig.OpcoesEquipes[equipes.SelectedIndex];
                 Config.Idioma = LauncherConfig.OpcoesIdioma[idioma.SelectedIndex];
                 Config.Registrado = registro.SelectedIndex == 0;
+                Config.Cartoes = cartoes.SelectedIndex == 0;
+                Config.Patrocinios = patrocinios.SelectedIndex == 0;
                 Config.Save();
                 DialogResult = DialogResult.OK;
                 Close();
