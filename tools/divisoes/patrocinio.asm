@@ -173,7 +173,14 @@ distribuir:
         call ler
         jc .fecha
         call orcamento                  ; DISP e COTA
-        mov word [bp+DV], 0
+        ; a marca atua nas 2 divisoes do nivel dela: da (divisao maxima - 1) ate a maxima
+        mov al, [bp+REG+R_DIVMAX]
+        xor ah, ah
+        sub ax, 2
+        jge .comeco
+        xor ax, ax
+.comeco:
+        mov [bp+DV], ax
 .divisao:
         mov al, [bp+REG+R_DIVMAX]
         xor ah, ah
@@ -495,6 +502,248 @@ perguntar:
 .nao:   stc
         ret
 
+; ---------------------------------------------------------------- aba Patrocinio
+; Chamada pelo TabSetClick (abas.asm) quando a aba 5 abre: preenche a pagina 5 do
+; Notebook. Os controles graficos da pagina, na ordem do DFM (patrocinio.py): 0 e 1 os
+; logos (master, naming), 2 a 4 nome/valor/prazo do master, 5 a 7 os do naming, 8 e 9
+; os titulos.
+aba:    push bp
+        mov bp, sp
+        sub sp, QUADRO
+        push si
+        les di, [bp+6]
+        les di, [es:di+0x348]           ; time do tecnico
+        mov ax, es
+        or ax, di
+        jz .sai
+        les di, [es:di]
+        mov ax, es
+        or ax, di
+        jz .sai
+        mov [bp+TIME], di
+        mov [bp+TIME+2], es
+        les di, [bp+6]
+        les di, [es:di+0x1C4]           ; Notebook
+        les di, [es:di+0xDC]            ; as paginas
+        cmp word [es:di+8], 6
+        jb .sai
+        les di, [es:di+4]
+        les di, [es:di+20]              ; pagina 5
+        les di, [es:di+0x92]            ; FControls: os controles graficos dela
+        mov ax, es
+        or ax, di
+        jz .sai
+        cmp word [es:di+8], 10
+        jb .sai
+        mov [bp+LISTA], di
+        mov [bp+LISTA+2], es
+        ; rotulos na cor da letra do time (o fundo da pagina e o do time)
+        mov word [bp-4], 2
+.cor:   mov ax, [bp-4]
+        call controle
+        les di, [es:di+0x34]            ; Font
+        push es
+        push di
+        les di, [bp+TIME]
+        les di, [es:di+4]
+        push word [es:di+0x44]
+        push word [es:di+0x42]
+        pop ax
+        pop dx
+        pop di
+        pop es
+        push dx
+        push ax
+        push es
+        push di
+        longe corfonte
+        inc word [bp-4]
+        cmp word [bp-4], 10
+        jb .cor
+        mov word [bp-2], 0
+        mov word [bp-4], 2
+        mov bx, M_MARCA
+        call bloco
+        mov word [bp-2], 1
+        mov word [bp-4], 5
+        mov bx, N_MARCA
+        call bloco
+.sai:   pop si
+        mov sp, bp
+        pop bp
+        retf 4
+
+; es:di = controle grafico ax da pagina
+controle:
+        les di, [bp+LISTA]
+        les di, [es:di+4]
+        shl ax, 2
+        add di, ax
+        les di, [es:di]
+        ret
+
+; texto (ponteiro longe na pilha) no rotulo [bp-4] + dx
+rotulo: pop cx                          ; volta
+        mov ax, [bp-4]
+        add ax, dx
+        push cx
+        push ax
+        call controle
+        pop ax
+        pop cx
+        push es
+        push di
+        push cx
+        jmp settext_perto
+settext_perto:
+        pop cx                          ; volta (perto) de rotulo
+        push cs
+        push cx
+        jmp settext
+
+; um bloco: bx = M_MARCA ou N_MARCA; [bp-2] = logo, [bp-4] = primeiro rotulo
+bloco:  les di, [bp+TIME]
+        mov al, [es:di+bx]
+        or al, al
+        jnz .tem
+        jmp .vazio
+.tem:   push bx
+        xor ah, ah
+        mov [bp+B], ax
+        call ler_marca
+        pop bx
+        jnc .leu
+        jmp .vazio
+.leu:   push bx
+        lea ax, [bp+REG+R_NOME]         ; nome
+        push ss
+        push ax
+        xor dx, dx
+        call rotulo
+        pop bx
+        ; valor por epoca
+        push bx
+        mov byte [bp+TXT], 0
+        les di, [bp+TIME]
+        lea ax, [bp+DIN]
+        push ss
+        push ax
+        push word [es:di+bx+4]
+        push word [es:di+bx+2]
+        longe extenso
+        add sp, 4
+        lea di, [bp+DIN]
+        push ss
+        push di
+        call anexar
+        mov di, T_PORTEMP
+        push cs
+        push di
+        call anexar
+        lea ax, [bp+TXT]
+        push ss
+        push ax
+        mov dx, 1
+        call rotulo
+        pop bx
+        ; epocas que faltam
+        push bx
+        mov byte [bp+TXT], 0
+        les di, [bp+TIME]
+        mov al, [es:di+bx+1]
+        add al, '0'
+        call poe
+        les di, [bp+TIME]
+        cmp byte [es:di+bx+1], 1
+        jne .varias
+        mov di, T_RESTA1
+        push cs
+        push di
+        jmp .prazo
+.varias:
+        mov di, T_RESTAN
+        push cs
+        push di
+.prazo: call anexar
+        lea ax, [bp+TXT]
+        push ss
+        push ax
+        mov dx, 2
+        call rotulo
+        pop bx
+        ; logo: <pasta>\PATROCIN\<arquivo>, se existir
+        mov si, PASTA_PAT
+        call caminho
+        jc .semlogo
+        lea si, [bp+REG+25]
+        call cam_mais
+        call abrir_cam
+        jc .semlogo
+        call fechar
+        mov ax, [bp-2]
+        call controle
+        lea ax, [bp+CAM]
+        push ss
+        push ax
+        les di, [es:di+0x8E]            ; Picture
+        push es
+        push di
+        longe carregaimg
+        push word 1
+        jmp .mostra
+.semlogo:
+        push word 0
+.mostra:
+        mov ax, [bp-2]
+        call controle
+        push es
+        push di
+        longe visivel
+        ret
+.vazio: cmp bx, M_MARCA
+        jne .vn
+        mov di, T_SEM
+        push cs
+        push di
+        jmp .vs
+.vn:    mov di, T_SEMN
+        push cs
+        push di
+.vs:    xor dx, dx
+        call rotulo
+        mov di, T_NADA
+        push cs
+        push di
+        mov dx, 1
+        call rotulo
+        mov di, T_NADA
+        push cs
+        push di
+        mov dx, 2
+        call rotulo
+        push word 0
+        jmp .mostra
+
+; le o registro da marca [bp+B] em REG; CF = 1 se nao deu
+ler_marca:
+        call abrir
+        jc .fim
+        mov cx, 8
+        call ler
+        jc .fecha
+        mov si, [bp+B]
+.l:     mov cx, 80
+        call ler
+        jc .fecha
+        dec si
+        jnz .l
+        call fechar
+        clc
+        ret
+.fecha: call fechar
+        stc
+.fim:   ret
+
 ; ---------------------------------------------------------------- ajudantes
 ; DISP = verba x inflacao/2 - contratos da marca B - reserva; COTA = cota x inflacao/2
 orcamento:
@@ -688,31 +937,67 @@ pais_ok:
         ret
 
 ; ---------------------------------------------------------------- arquivo
-; abre <pasta>\PATROCIN\MARCAS.DAT; CF = 1 se nao deu
-abrir:  push si
-        push ds
+; CAM = <pasta do jogo> + a string em cs:si (CF = 1 se a pasta e comprida demais)
+caminho:
+        push si
+        push ss
         pop es
         lea di, [bp+CAM]
         mov si, PASTA
-        push ss
-        pop es
         mov cl, [si]
         xor ch, ch
         cmp cx, 40
         ja .erro
         cld
-        movsb                           ; tamanho (acertado abaixo)
+        movsb
         rep movsb
-        mov si, NOME_ARQ
+        pop si
+        push si
         mov cl, [cs:si]
+        xor ch, ch
+        add [bp+CAM], cl
         inc si
 .c:     mov al, [cs:si]
         stosb
         inc si
         loop .c
-        mov al, [cs:NOME_ARQ]
-        add [bp+CAM], al
         pop si
+        clc
+        ret
+.erro:  pop si
+        stc
+        ret
+; acrescenta a CAM a string em ss:si
+cam_mais:
+        push si
+        push ss
+        pop es
+        mov al, [bp+CAM]
+        xor ah, ah
+        lea di, [bp+CAM]
+        add di, ax
+        inc di
+        mov cl, [ss:si]
+        xor ch, ch
+        add [bp+CAM], cl
+        inc si
+        cld
+        push ds
+        push ss
+        pop ds
+        rep movsb
+        pop ds
+        pop si
+        ret
+
+; abre <pasta>\PATROCIN\MARCAS.DAT; CF = 1 se nao deu
+abrir:  push si
+        mov si, NOME_ARQ
+        call caminho
+        pop si
+        jc abrir_falhou
+; abre o arquivo de CAM (so leitura); CF = 1 se nao deu
+abrir_cam:
         lea ax, [bp+F]
         push ss
         push ax
@@ -732,11 +1017,10 @@ abrir:  push si
         mov [FILEMODE], al
         longe ioresult
         or ax, ax
-        jnz .falhou
+        jnz abrir_falhou
         clc
         ret
-.erro:  pop si
-.falhou:
+abrir_falhou:
         stc
         ret
 
@@ -814,6 +1098,8 @@ meio:   dd 0.5
 mil:    dd 1000.0
 NOME_ARQ: db .f - NOME_ARQ - 1, '\PATROCIN\MARCAS.DAT'
 .f:
+PASTA_PAT: db .f - PASTA_PAT - 1, '\PATROCIN\'
+.f:
 
 ; textos (passados com "mov di; push cs; push di", como os do jogo: a traducao os acha)
 T_OFERECE: db .f - T_OFERECE - 1, ` oferece `
@@ -824,12 +1110,23 @@ T_EPOCA1:  db .f - T_EPOCA1 - 1, ` \xe9poca`
 .f:
 T_EPOCAS:  db .f - T_EPOCAS - 1, ` \xe9pocas`
 .f:
-T_MASTER:  db .f - T_MASTER - 1, `, para ser o patrocinador principal da sua equipa.`
+T_MASTER:  db .f - T_MASTER - 1, `,`, 13, `para ser o patrocinador principal da sua equipa.`
 .f:
-T_NAMING:  db .f - T_NAMING - 1, `, para dar o nome ao seu est\xe1dio.`
+T_NAMING:  db .f - T_NAMING - 1, `,`, 13, `para dar o nome ao seu est\xe1dio.`
 .f:
 T_ACEITA:  db .f - T_ACEITA - 1, 13, 13, `Aceita?`
 .f:
+T_PORTEMP: db .f - T_PORTEMP - 1, ` por \xe9poca`
+.f:
+T_RESTA1:  db .f - T_RESTA1 - 1, ` \xe9poca restante`
+.f:
+T_RESTAN:  db .f - T_RESTAN - 1, ` \xe9pocas restantes`
+.f:
+T_SEM:     db .f - T_SEM - 1, `Sem patrocinador`
+.f:
+T_SEMN:    db .f - T_SEMN - 1, `Sem naming rights`
+.f:
+T_NADA:    db 0
 T_TITULO:  db .f - T_TITULO - 1, `Patroc\xednio`
 .f:
 T_PROPOSTA: db .f - T_PROPOSTA - 1, `Proposta de patroc\xednio`
@@ -860,5 +1157,9 @@ settext:   db 0xEA
 ..@settext: dw 0xFFFF, 0
 visivel:   db 0xEA
 ..@visivel: dw 0xFFFF, 0
+corfonte:  db 0xEA
+..@corfonte: dw 0xFFFF, 0
+carregaimg: db 0xEA
+..@carregaimg: dw 0xFFFF, 0
 showmodal: db 0xEA
 ..@showmodal: dw 0xFFFF, 0

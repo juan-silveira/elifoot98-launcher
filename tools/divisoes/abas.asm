@@ -21,6 +21,15 @@ abas:   push bp
         push di
         db 0x9A                         ; PageIndex := (seg17:3460)
 ..@pagina: dw 0xFFFF, 0
+        les di, [bp+6]                  ; aba 5 (Patrocinio): preenche (patrocinio.asm)
+        les di, [es:di+0x1C8]
+        cmp word [es:di+0xE4], 5
+        jne .seguir
+        push word [bp+8]
+        push word [bp+6]
+        db 0x9A                         ; aba (seg25, patrocinio.py poe a relocacao)
+..@aba: dw 0xFFFF, 0
+.seguir:
         les di, [bp+6]
         mov ax, [es:di+SELETOR]
         or ax, [es:di+SELETOR+2]

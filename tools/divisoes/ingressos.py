@@ -35,6 +35,7 @@ GRAVAR = 0x3093                    # seg03: TTeam.Store chamando a gravacao do .
 LEITURA_IO = 0x15DB                # seg12: verificacao de E/S depois de ler o cabecalho
 TABSETCLICK = 0x3215               # seg04
 WMPAINT = 0x4A8F                   # seg21: TWinControl.WMPaint, depois do prologo
+ABA_PATROCINIO = None
 SELETOR = 0x2CC                    # campo do Label12 (o "Golos" fixo do Historial)
 DICA = '% do pre\xe7o de tabela nos seus jogos em casa'
 
@@ -152,6 +153,8 @@ def ingressos(ne, b):
     # seg02 + seg04: o TabSetClick novo
     ABAS = 2
     rot22 = _anexar(ne, ABAS, 'abas.asm', SELETOR='0x%X' % SELETOR)
+    global ABA_PATROCINIO                # a chamada da aba Patrocinio (patrocinio.py)
+    ABA_PATROCINIO = (ABAS, rot22['..@aba'])
     _novos(ne, ABAS, [[3, 0, rot22['..@pagina'], 17, 0x3460],
                     [3, 0, rot22['..@ler'], 7, 0x1836],
                     [3, 0, rot22['..@escolher'], 7, 0x1899]])
