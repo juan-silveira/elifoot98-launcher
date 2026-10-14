@@ -157,6 +157,17 @@ namespace ElifootLauncher
         public const double MORAL_MAX = 2.0;
         public const int FORCA_MIN = 1;
         public const int FORCA_MAX = 9999;
+
+        // Maior forca que o jogo ainda usa direito: o peso do sorteio do autor do gol
+        // (seg03:0f69) e posicao^2 x forca x Nota em 16 bits com sinal. Acima de 32767 o
+        // peso fica negativo e o jogador nunca marca (e anula gols do time). Goleiro
+        // (posicao 0) tem peso 0: vale o FORCA_MAX.
+        public static int ForcaMaxima(string posicao, int nota)
+        {
+            int p = "GDMA".IndexOf(posicao ?? "G", StringComparison.Ordinal);
+            if (p <= 0) return FORCA_MAX;
+            return Math.Min(FORCA_MAX, 32767 / (p * p * Math.Max(1, Math.Min(10, nota))));
+        }
         public const int FORCA_WARN_ABOVE = 50;
         public const int SALARIO_MIN = 50;
         // O salario e um inteiro de 4 bytes (raw[sz-25..sz-22]); o jogo limita os

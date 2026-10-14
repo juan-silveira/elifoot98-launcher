@@ -59,6 +59,17 @@ public final class SaveCodec {
         return l;
     }
 
+    /**
+     * Maior forca que o jogo ainda usa direito: o peso do sorteio do autor do gol
+     * (seg03:0f69) e posicao^2 x forca x Nota em 16 bits com sinal; acima de 32767 o peso
+     * fica negativo e o jogador nunca marca. Goleiro tem peso 0: vale o FORCA_MAX.
+     */
+    public static int forcaMaxima(String posicao, int nota) {
+        int p = "GDMA".indexOf(posicao == null ? "G" : posicao);
+        if (p <= 0) return FORCA_MAX;
+        return Math.min(FORCA_MAX, 32767 / (p * p * Math.max(1, Math.min(10, nota))));
+    }
+
     public static boolean temEstrela(String posicao, int nota) {
         return nota >= 8 && ("M".equals(posicao) || "A".equals(posicao));
     }

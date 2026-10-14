@@ -699,7 +699,7 @@ namespace ElifootLauncher
                 grade.Children.Add(c);
                 celula += colunas;
             }
-            var forca = Campo("Força", $"1 a {SaveCodec.FORCA_MAX} (normal ≤ 50)", j.Forca);
+            var forca = Campo("Força", $"1 a {SaveCodec.ForcaMaxima(j.Posicao, j.Nota)} (normal ≤ 50)", j.Forca);
             var salario = Campo("Salário", "50 a 9.999.999", j.Salario);
             var nota = Campo("Nota", "1 a 10", j.Nota);
             var lesao = Campo("Lesão", "0 = nunca, 10 = muito", j.Lesao);
@@ -739,6 +739,8 @@ namespace ElifootLauncher
                     ?? LerInteiro(suspenso, "Suspenso", 0, SaveCodec.SUSPENSAO_MAX, out su)
                     ?? LerInteiro(amarelos, "Amarelos", 0, SaveCodec.AMARELOS_ACUMULADOS_MAX, out am)
                     ?? LerInteiro(lesionado, "Lesionado", 0, SaveCodec.JOGOS_LESIONADO_MAX, out le);
+                if (erro == null && f > SaveCodec.ForcaMaxima(j.Posicao, (int)n))
+                    erro = $"Força: o máximo para {(j.Posicao == "A" ? "atacante" : j.Posicao == "M" ? "meia" : "defensor")} com Nota {n} é {SaveCodec.ForcaMaxima(j.Posicao, (int)n)}. Acima disso o jogo calcula errado e ele nunca marca gol.";
                 if (erro != null) { await Dialogos.Mensagem(w, erro, "Valor fora do limite"); return; }
                 if (f > SaveCodec.FORCA_WARN_ABOVE && f != j.Forca &&
                     !await Dialogos.Confirmar(w, $"Força {f} é bem acima do normal (1-{SaveCodec.FORCA_WARN_ABOVE}).\nContinuar mesmo assim?", "Aviso"))

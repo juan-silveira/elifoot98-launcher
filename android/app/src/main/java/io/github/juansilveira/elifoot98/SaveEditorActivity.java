@@ -917,7 +917,7 @@ public class SaveEditorActivity extends Activity {
         GridLayout g = new GridLayout(this);
         g.setColumnCount(deitado ? 3 : 2);
         ficha.addView(g);
-        EditText forca = campoFicha(g, "Força", "1 a " + SaveCodec.FORCA_MAX + " (normal ≤ 50)", j.forca);
+        EditText forca = campoFicha(g, "Força", "1 a " + SaveCodec.forcaMaxima(j.posicao, j.nota) + " (normal ≤ 50)", j.forca);
         EditText salario = campoFicha(g, "Salário", "50 a 9.999.999", j.salario);
         EditText nota = campoFicha(g, "Nota", "1 a 10", j.nota);
         EditText lesao = campoFicha(g, "Lesão", "0 = nunca, 10 = muito", j.lesao);
@@ -962,6 +962,11 @@ public class SaveEditorActivity extends Activity {
                 int su = ler(suspenso, "Suspenso", 0, SaveCodec.SUSPENSAO_MAX);
                 int am = ler(amarelos, "Amarelos", 0, SaveCodec.AMARELOS_ACUMULADOS_MAX);
                 int le = ler(lesionado, "Lesionado", 0, SaveCodec.JOGOS_LESIONADO_MAX);
+                if (f > SaveCodec.forcaMaxima(j.posicao, n))
+                    throw new ForaDoLimite("Força: o máximo para "
+                        + ("A".equals(j.posicao) ? "atacante" : "M".equals(j.posicao) ? "meia" : "defensor")
+                        + " com Nota " + n + " é " + SaveCodec.forcaMaxima(j.posicao, n)
+                        + ". Acima disso o jogo calcula errado e ele nunca marca gol.");
                 if (n != j.nota) j.estrela = SaveCodec.temEstrela(j.posicao, n);
                 j.forca = f;
                 j.salario = s;
