@@ -1551,6 +1551,29 @@ janela do aumento de salário (`askMoreSalaryDlg`, `DS:0x2880`); aceitar grava o
 no time (`+0xCC` marca, `+0xCD` temporadas, `+0xCE` valor), e a aba Patrocínio da
 janela do time mostra o logo, o valor e as temporadas restantes.
 
+**Validado** (Linux, 8 equipes por divisão, com uma versão de teste que força as
+propostas em toda rodada):
+
+- **Gancho por rodada.** No laço das jornadas da época (`seg05:11B8`), a jornada do
+  campeonato é `call 0C41`, que inclui a janela da equipe. O patch troca esse `call` em
+  `seg05:11FF` por um trampolim no fim do seg05, que chama a rotina `rodada` e salta para
+  `0C41`. Assim as propostas aparecem antes da janela da equipe de cada jornada. A
+  jornada atual fica em `DS:0x2B40`. A Taça é jogada depois das jornadas pares
+  (`seg05:0ED4`), e as equipes ainda vivas ficam na lista `DS:0x26F6`, em que cada item
+  aponta a equipe.
+- **Master no meio da época.** Em 1/4, 1/2 e 3/4 das jornadas há 70% de chance de
+  proposta para quem está sem patrocinador e 25% para quem tem. Quem tem contrato só
+  recebe proposta maior, e a multa é tudo o que falta: temporadas restantes × valor.
+  Aceitar desconta a multa na linha de Prémios do balanço.
+- **Pontual.** Pode chegar quando a equipe está viva na Taça com 16 equipes ou menos, ou
+  nas 5 últimas jornadas entre os 3 primeiros. A chance é de 25% por jornada na 1ª
+  divisão e 50% nas outras. O valor por jogo é a quota da marca na divisão ÷ 8, e o
+  acordo vale de 1 a 5 jogos. Cada jornada paga um jogo, na linha de Prémios. Os campos
+  ficam no TTeam: `+0xD8` valor, `+0xDC` marca, `+0xDD` jogos que faltam.
+- **Renovação.** Quando o contrato do humano acaba, a marca fica em `+0xD2`, e no
+  início da época seguinte a proposta dela vem primeiro, como renovação. Ainda não foi
+  validado numa virada de época.
+
 Fatos do Delphi 1 que o patch precisou (**Código** e **Validado**):
 
 - Um componente do DFM só é criado se a classe dele estiver na tabela de classes dos

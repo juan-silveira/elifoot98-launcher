@@ -15,6 +15,7 @@
 O contrato fica no TTeam (+0xCC a +0xDF), que vai e volta do save pelo cabecalho de cada
 time (ingressos.py).
 """
+import os
 import struct
 from montar import montar
 from paginas import ler_dfm, escrever_dfm, inteiro, texto, ident, conjunto, FALSO, mover_dfm, por
@@ -50,7 +51,7 @@ def _dfm(b):
     """Pagina "Patrocinio" no Notebook da janela do time, na posicao 5 (antes das
     escondidas Vender/Contrato/Mensagem, que o codigo abre pelo nome): as abas copiam as
     paginas e apagam as 3 ultimas. Os controles graficos ficam na ordem que a rotina aba
-    espera: o logo, os 3 rotulos preenchidos e o titulo."""
+    espera: o logo, os 3 rotulos preenchidos, o titulo e o do patrocinio pontual."""
     i = b.find(b'TPF0' + bytes([len(CLASSE)]) + CLASSE.encode())
     assert i > 0
     form, fim = ler_dfm(b, i + 4)
@@ -78,6 +79,7 @@ def _dfm(b):
         logo(84),
         rotulo(160, 22, -18, True), rotulo(188, 16, -13), rotulo(206, 16, -13),
         rotulo(48, 20, -15, True, 'Patrocinador principal'),
+        rotulo(240, 16, -12),
     ], props=[['Left', inteiro(0)], ['Top', inteiro(0)], ['Caption', texto('Patroc\xednio')]])
     nb['filhos'].insert(5, pagina)
     # 6 abas: a fonte das abas fica Arial -10 (a MS Sans Serif -11 nao deixava caber)
@@ -130,9 +132,10 @@ def _classes_dialogo(ne, b):
 
 
 
-def patrocinio(ne, b):
+def patrocinio(ne, b, rodadas=14):
     org = ne.seg(SEG)[1]
-    cod, rot = montar('patrocinio.asm', org, ORG='0x%X' % org)
+    cod, rot = montar('patrocinio.asm', org, ORG='0x%X' % org, RODADAS=rodadas,
+                    TESTE=os.environ.get('PATROC_TESTE', '0'))   # 1: propostas em toda rodada (teste)
     assert ne.append(SEG, cod) == org
     _novos(ne, SEG, [[3, 0, rot['..@' + nome], s, alvo] for nome, (s, alvo) in DESTINOS.items()])
     _redirecionar(ne, 5, 0x11CE, SEG, rot['inicio'], de=(5, 0x0002))
@@ -143,7 +146,19 @@ def patrocinio(ne, b):
     _dfm(b)
     _dfm_dialogo(b)
     _classes_dialogo(ne, b)
-    for opc, destino in (('..@opc1', 'inicio_fim'), ('..@opc2', 'fim_premios')):
+    for opc, destino in (('..@opc1', 'inicio_fim'), ('..@opc2', 'fim_premios'), ('..@opc3', 'rodada_desl')):
         salto = rot[destino] - (rot[opc] + 2)
-        assert 0 < salto < 128
-        opcoes.registrar('PATROC', SEG, rot[opc] + 1, [0], [salto])
+        assert -128 <= salto < 128 and salto
+        opcoes.registrar('PATROC', SEG, rot[opc] + 1, [0], [salto & 0xFF])
+    _rodada(ne, rot)
+
+
+def _rodada(ne, rot):
+    """seg05:11FF, no laco das jornadas da epoca: "call 0C41" (a jornada do campeonato)
+    vira "call trampolim", no fim do seg05, que chama a rotina rodada (propostas
+    pontuais e de master no meio da epoca) e salta para 0C41."""
+    org5 = ne.seg(5)[1]
+    tramp = b'\x9a\xff\xff\x00\x00' + b'\xe9' + struct.pack('<h', 0x0C41 - (org5 + 8))
+    assert ne.append(5, tramp) == org5
+    _novos(ne, 5, [[3, 0, org5 + 1, SEG, rot['rodada']]])
+    ne.patch(5, 0x11FF, 'e83ffa', 'e8' + struct.pack('<h', org5 - 0x1202).hex())

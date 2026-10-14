@@ -1,3 +1,6 @@
+%ifndef TESTE
+%define TESTE 0
+%endif
 ; Patrocinadores (ver patrocinio.py). No fim do seg25 (que arbitro.py leva para o fim do
 ; arquivo). As marcas vem de <pasta do jogo>\SPONSORS\MARCAS.DAT (o launcher gera do
 ; MARCAS.TXT; formato em tools/patrocinios/gerar_dat.py: cabecalho de 8 bytes e um
@@ -7,8 +10,10 @@
 ;   +0xCC byte  marca do patrocinador master (1..N; 0 = nenhum)
 ;   +0xCD byte  epocas que faltam do contrato (contando a atual)
 ;   +0xCE dword valor por epoca (reais, ja com a inflacao da assinatura)
-;   +0xD2..+0xD7 reservados (eram do naming rights, que saiu)
-;   +0xD8 dword patrocinio de jogos recebido na epoca, +0xDC byte a ultima marca dele
+;   +0xD2 byte  marca do contrato do humano que acabou (vem como renovacao na proxima
+;               epoca); +0xD3..+0xD7 livres
+;   +0xD8 dword patrocinio pontual (de 1 a 5 jogos): valor por jogo, +0xDC byte a marca,
+;               +0xDD byte os jogos que faltam
 ;
 ; -DORG: deslocamento no segmento.
 bits 16
@@ -17,6 +22,10 @@ org ORG
 M_MARCA equ 0xCC
 M_ANOS  equ 0xCD
 M_VALOR equ 0xCE
+U_MARCA equ 0xD2
+P_VALOR equ 0xD8
+P_MARCA equ 0xDC
+P_JOGOS equ 0xDD
 
 DIVISOES equ 0x26FA                     ; TList das 5 TDivision (4 = Distrital)
 INFLACAO equ 0x2B46                     ; real de 10 bytes (comeca em 2,0)
@@ -52,11 +61,19 @@ OFS     equ -0x3A4                      ; 3 propostas de master x 32 bytes
 NOF     equ -0x3A6
 IMG     equ -0x3C6                      ; TImage do logo (far)
 MODO    equ -0x3C2                      ; estilo da janela de Sim/Nao (0 ou 1)
+MULTA   equ -0x3BE                      ; multa da troca de patrocinador (dword)
+DIVH    equ -0x3BA                      ; divisao do humano (0 = 1a)
+PH      equ -0x3B8                      ; lugar dele na classificacao (0 = lider)
+TENT    equ -0x3B6                      ; tentativas de sortear uma marca
+TENT2   equ -0x3B4
 FM      equ -0x3CA
 TIME    equ -0x3CE                      ; o time da vez (far)
 LISTA   equ -0x3D2
 QUADRO  equ 0x3D4
-; proposta (32 bytes): +0 nome (string[24]), +25 epocas, +26 valor (dword), +31 marca
+;
+; -DRODADAS: jornadas do campeonato (2 x (equipes por divisao - 1)).
+; proposta (32 bytes): +0 nome (string[24]), +25 epocas (ou jogos), +26 valor (dword),
+; +30 tipo (0 master, 1 renovacao, 2 pontual), +31 marca
 
 %macro longe 1
         push cs
@@ -88,6 +105,276 @@ fim_premios:
         longe premios
         pop bp
         retf 8
+
+; ---------------------------------------------------------------- cada rodada
+; Chamada antes de cada jornada do campeonato (seg05, no lugar de "call 0C41"): paga o
+; jogo do patrocinio pontual; senao, na Taca a partir das oitavas ou na reta final entre
+; os 3 primeiros, pode chegar uma proposta pontual (de 1 a 5 jogos). Em 1/4, 1/2 e 3/4
+; das jornadas pode chegar uma proposta de master (menos chance para quem ja tem).
+; opcao PATROC desligada: o salto de ..@opc3 vem para ca
+rodada_desl:
+        jmp rodada_fim
+rodada: push bp
+        mov bp, sp
+        sub sp, QUADRO
+        push si
+        push di
+..@opc3: jmp short rodada_ligado        ; opcao PATROC: desligada, salta para rodada_desl
+rodada_ligado:
+        call time_humano
+        jnc .tem
+        jmp rodada_fim
+.tem:   mov [bp+TIME], di
+        mov [bp+TIME+2], es
+        mov [bp+DIVH], ax
+        mov [bp+PH], dx
+        mov word [bp+NOF], 0
+        cmp byte [es:di+P_JOGOS], 0
+        je .sem
+        ; pontual em andamento: paga o jogo
+        push es
+        push di
+        push word 3
+        push word [es:di+P_VALOR+2]
+        push word [es:di+P_VALOR]
+        push es
+        push di
+        longe addmoney
+        pop di
+        pop es
+        dec byte [es:di+P_JOGOS]
+        jnz .master
+        mov byte [es:di+P_MARCA], 0
+        mov word [es:di+P_VALOR], 0
+        mov word [es:di+P_VALOR+2], 0
+        jmp .master
+.sem:   call momento_pontual
+        jnc .master
+        mov ax, 25                      ; fora da 1a divisao, o dobro da chance
+        cmp word [bp+DIVH], 0
+        je .ch
+        mov ax, 50
+.ch:
+%if TESTE
+        mov ax, 100
+%endif
+        push ax
+        push word 100
+        longe random
+        pop cx
+        cmp ax, cx
+        jae .master
+        mov ax, 2
+        call sorteia
+        jnc .master
+        lea si, [bp+OFS]
+        call nome_proposta
+        mov byte [ss:si+30], 2
+        push word 5
+        longe random
+        lea si, [bp+OFS]
+        inc ax
+        mov [ss:si+25], al
+        call cota_div                   ; por jogo: a quota da epoca / 8
+        mov cx, 8
+        call div32
+        lea si, [bp+OFS]
+        mov [ss:si+26], ax
+        mov [ss:si+28], dx
+        call perguntar
+.master:
+%if TESTE
+        jmp .janela
+%endif
+        mov ax, [0x2B40]
+        cmp ax, RODADAS / 4
+        je .janela
+        cmp ax, RODADAS / 2
+        je .janela
+        cmp ax, (3 * RODADAS) / 4
+        jne rodada_fim
+.janela:
+        les di, [bp+TIME]
+        mov ax, 70                      ; sem patrocinador: 70%; com: 25%
+        cmp byte [es:di+M_MARCA], 0
+        je .c2
+        mov ax, 25
+.c2:
+%if TESTE
+        mov ax, 100
+%endif
+        push ax
+        push word 100
+        longe random
+        pop cx
+        cmp ax, cx
+        jae rodada_fim
+        mov word [bp+TENT2], 3
+.m:     xor ax, ax
+        call sorteia
+        jnc .mprox
+        call cota_div                   ; dx:ax = valor por epoca
+        les di, [bp+TIME]
+        cmp byte [es:di+M_MARCA], 0
+        je .mok
+        cmp dx, [es:di+M_VALOR+2]       ; com contrato, so proposta maior
+        ja .mok
+        jb .mprox
+        cmp ax, [es:di+M_VALOR]
+        jbe .mprox
+.mok:   lea si, [bp+OFS]
+        mov [ss:si+26], ax
+        mov [ss:si+28], dx
+        call nome_proposta
+        mov byte [ss:si+30], 0
+        push word 3
+        longe random
+        lea si, [bp+OFS]
+        inc ax
+        mov [ss:si+25], al
+        call perguntar
+        jmp rodada_fim
+.mprox: dec word [bp+TENT2]
+        jnz .m
+rodada_fim:
+        pop di
+        pop si
+        mov sp, bp
+        pop bp
+        retf
+
+; CF = 1 na hora de uma proposta pontual: o humano vivo na Taca com 16 equipes ou menos,
+; ou nas 5 ultimas jornadas entre os 3 primeiros da divisao
+momento_pontual:
+%if TESTE
+        stc
+        ret
+%endif
+        cmp word [0x2B40], RODADAS - 4
+        jl .taca
+        cmp word [bp+PH], 2
+        jbe .sim
+.taca:  mov ax, [0x26F6]
+        or ax, [0x26F8]
+        jz .nao
+        les di, [0x26F6]
+        les di, [es:di]                 ; TList das equipes vivas na Taca
+        mov cx, [es:di+8]
+        cmp cx, 16
+        ja .nao
+        cmp cx, 2
+        jb .nao
+        les di, [es:di+4]               ; FList
+.l:     push es
+        push di
+        les di, [es:di]                 ; item -> equipa
+        les di, [es:di]
+        mov ax, es
+        cmp di, [bp+TIME]
+        jne .n
+        cmp ax, [bp+TIME+2]
+        jne .n
+        pop di
+        pop es
+.sim:   stc
+        ret
+.n:     pop di
+        pop es
+        add di, 4
+        loop .l
+.nao:   clc
+        ret
+
+; sorteia uma marca para o humano (TIME, divisao DIVH): ax = 0 master (atua na divisao
+; dele), 2 pontual (chega ate a divisao dele e tem reserva). CF = 1: REG e B com a marca.
+sorteia:
+        mov [bp+K], ax
+        call abrir
+        jc .falha
+        mov cx, 8
+        call ler
+        pushf
+        call fechar
+        popf
+        jc .falha
+        mov ax, [bp+REG+6]
+        mov [bp+N], ax
+        or ax, ax
+        jz .falha
+        mov word [bp+TENT], 12
+.tenta: push word [bp+N]
+        longe random
+        inc ax
+        mov [bp+B], ax
+        call ler_marca
+        jc .prox
+        call marca_serve
+        jc .ok
+.prox:  dec word [bp+TENT]
+        jnz .tenta
+.falha: clc
+        ret
+.ok:    stc
+        ret
+
+; CF = 1 se a marca de REG serve para o humano (modo em K)
+marca_serve:
+        mov al, [bp+REG+R_DIVMAX]
+        xor ah, ah
+        dec ax                          ; divisao mais baixa em que atua (0 = 1a)
+        cmp [bp+DIVH], ax
+        jg .nao
+        cmp word [bp+K], 2
+        je .pont
+        dec ax                          ; master: uma divisao acima dessa, no maximo
+        cmp [bp+DIVH], ax
+        jl .nao
+        jmp pais_ok
+.pont:  cmp byte [bp+REG+R_RESERVA], 0
+        je .nao
+        jmp pais_ok
+.nao:   clc
+        ret
+
+; dx:ax = quota da marca de REG na divisao DIVH: cota x inflacao/2 (no milhar) x (5 - d)/2
+cota_div:
+        fild dword [bp+REG+R_COTA]
+        fld tword [INFLACAO]
+        fmulp st1
+        fmul dword [cs:meio]
+        fdiv dword [cs:mil]
+        frndint
+        fmul dword [cs:mil]
+        fistp dword [bp+COTA]
+        fwait
+        mov ax, 5
+        sub ax, [bp+DIVH]
+        mov cx, ax
+        mov ax, [bp+COTA]
+        mov dx, [bp+COTA+2]
+        call mul32
+        shr dx, 1
+        rcr ax, 1
+        ret
+
+; ss:si = proposta: nome da marca de REG e o numero B
+nome_proposta:
+        push si
+        push ds
+        push ss
+        pop es
+        mov di, si
+        lea si, [bp+REG+R_NOME]
+        push ss
+        pop ds
+        mov cx, 25
+        cld
+        rep movsb
+        pop ds
+        pop si
+        mov al, [bp+B]
+        mov [ss:si+31], al
+        ret
 
 ; paga a epoca dos contratos (como os Premios) e desconta uma epoca deles
 pagar:  push bp
@@ -135,7 +422,11 @@ paga1:  cmp byte [es:di+bx], 0
         pop bx
         dec byte [es:di+bx+1]
         jnz .nada
-        mov byte [es:di+bx], 0
+        call humano                     ; o do humano acabou: vira renovacao na proxima epoca
+        jnc .limpa
+        mov al, [es:di+bx]
+        mov [es:di+U_MARCA], al
+.limpa: mov byte [es:di+bx], 0
         mov word [es:di+bx+2], 0
         mov word [es:di+bx+4], 0
 .nada:  ret
@@ -263,16 +554,26 @@ contratar:
         sbb [bp+DISP+2], dx
         ret
 .proposta:
-        ; ate 3 propostas
+        ; ate 3 propostas; a da marca do contrato que acabou (renovacao) vai na frente
         push si
-        mov si, [bp+NOF]
+        xor cl, cl                      ; tipo 0 master, 1 renovacao
+        mov bl, [bp+B]
+        cmp bl, [es:di+U_MARCA]
+        jne .slot
+        mov cl, 1
+.slot:  mov si, [bp+NOF]
         cmp si, 3
-        jae .cheia
-        inc word [bp+NOF]
-        shl si, 5
+        jb .vaga
+        or cl, cl
+        jz .cheia
+        mov si, 2                       ; cheia: a renovacao fica no lugar da ultima
+        jmp .grava
+.vaga:  inc word [bp+NOF]
+.grava: shl si, 5
         lea si, [bp+si+OFS]
         mov [ss:si+26], ax
         mov [ss:si+28], dx
+        mov [ss:si+30], cl
         mov al, [bp+B]
         mov [ss:si+31], al
         mov al, [bp-4]
@@ -299,7 +600,24 @@ contratar:
         mov dx, [ss:si+28]
         sub [bp+DISP], ax
         sbb [bp+DISP+2], dx
+        cmp byte [ss:si+30], 1          ; renovacao: troca de lugar com a primeira
+        jne .cheia
+        call primeira
 .cheia: pop si
+        ret
+
+; troca os 32 bytes da proposta ss:si com os da primeira (OFS)
+primeira:
+        push si
+        lea di, [bp+OFS]
+        mov cx, 16
+.t:     mov ax, [ss:si]
+        xchg ax, [ss:di]
+        mov [ss:si], ax
+        add si, 2
+        add di, 2
+        loop .t
+        pop si
         ret
 
 ; ---------------------------------------------------------------- propostas ao humano
@@ -315,12 +633,17 @@ propostas:
         jnc .n                          ; aceitou uma: as outras ficam de fora
         inc si
         jmp .m
-.n:     ret
+.n:     call time_humano                ; a renovacao so vale nesta epoca
+        jc .r
+        mov byte [es:di+U_MARCA], 0
+.r:     ret
 
 ; ss:si = proposta. Monta o texto, abre a janela de Sim/Nao. Aceitou: assina e CF = 0;
 ; recusou: CF = 1.
 perguntar:
         mov byte [bp+TXT], 0
+        mov word [bp+MULTA], 0
+        mov word [bp+MULTA+2], 0
         push si
         lea di, [ss:si]                 ; nome da marca
         push ss
@@ -343,6 +666,12 @@ perguntar:
         push ss
         push di
         call anexar
+        pop si
+        push si
+        cmp byte [ss:si+30], 2
+        jne .contrato
+        jmp .pontual
+.contrato:
         mov di, T_EPOCA
         push cs
         push di
@@ -364,10 +693,74 @@ perguntar:
         push di
 .epocas:
         call anexar
+        pop si
+        push si
+        cmp byte [ss:si+30], 1
+        jne .master
+        mov di, T_RENOVA
+        push cs
+        push di
+        jmp .tipo
+.master:
         mov di, T_MASTER
         push cs
         push di
+.tipo:  call anexar
+        ; com contrato em andamento (proposta no meio da epoca): multa de tudo o que falta
+        call time_humano
+        jc .aceita
+        cmp byte [es:di+M_MARCA], 0
+        je .aceita
+        mov cl, [es:di+M_ANOS]
+        xor ch, ch
+        mov ax, [es:di+M_VALOR]
+        mov dx, [es:di+M_VALOR+2]
+        call mul32
+        mov [bp+MULTA], ax
+        mov [bp+MULTA+2], dx
+        mov di, T_MULTA
+        push cs
+        push di
         call anexar
+        lea di, [bp+DIN]
+        push ss
+        push di
+        push word [bp+MULTA+2]
+        push word [bp+MULTA]
+        longe extenso
+        add sp, 4
+        lea di, [bp+DIN]
+        push ss
+        push di
+        call anexar
+        jmp .aceita
+.pontual:
+        mov di, T_PORJOGO
+        push cs
+        push di
+        call anexar
+        pop si
+        push si
+        mov al, [ss:si+25]
+        add al, '0'
+        call poe
+        pop si
+        push si
+        cmp byte [ss:si+25], 1
+        jne .jogos
+        mov di, T_JOGO1
+        push cs
+        push di
+        jmp .jg
+.jogos: mov di, T_JOGOS
+        push cs
+        push di
+.jg:    call anexar
+        mov di, T_PONTUAL
+        push cs
+        push di
+        call anexar
+.aceita:
         mov di, T_ACEITA
         push cs
         push di
@@ -452,6 +845,13 @@ perguntar:
         call esconde_img
         xor si, si
         call estilo
+        mov di, T_TITSAL                ; o titulo volta ao do aumento de salario
+        push cs
+        push di
+        les di, [DIALOGO]
+        push es
+        push di
+        longe settext
         pop ax
         pop si
         cmp ax, 6
@@ -459,7 +859,40 @@ perguntar:
         ; assina com o time do humano
         call time_humano                ; es:di = TTeam do humano
         jc .nao
-        mov bx, M_MARCA
+        cmp byte [ss:si+30], 2
+        jne .assina
+        mov al, [ss:si+31]              ; pontual: paga por jogo nas proximas rodadas
+        mov [es:di+P_MARCA], al
+        mov al, [ss:si+25]
+        mov [es:di+P_JOGOS], al
+        mov ax, [ss:si+26]
+        mov [es:di+P_VALOR], ax
+        mov ax, [ss:si+28]
+        mov [es:di+P_VALOR+2], ax
+        clc
+        ret
+.assina:
+        mov ax, [bp+MULTA]              ; a multa da troca sai do caixa
+        or ax, [bp+MULTA+2]
+        jz .contr
+        push si
+        push es
+        push di
+        push word 3
+        mov ax, [bp+MULTA]
+        mov dx, [bp+MULTA+2]
+        neg dx
+        neg ax
+        sbb dx, 0
+        push dx
+        push ax
+        push es
+        push di
+        longe addmoney
+        pop di
+        pop es
+        pop si
+.contr: mov bx, M_MARCA
         mov al, [ss:si+31]
         mov [es:di+bx], al
         mov al, [ss:si+25]
@@ -503,7 +936,7 @@ aba:    push bp
         mov ax, es
         or ax, di
         jz .sai
-        cmp word [es:di+8], 5
+        cmp word [es:di+8], 6
         jb .sai
         mov [bp+LISTA], di
         mov [bp+LISTA+2], es
@@ -528,12 +961,55 @@ aba:    push bp
         push di
         longe corfonte
         inc word [bp-4]
-        cmp word [bp-4], 5
+        cmp word [bp-4], 6
         jb .cor
         mov word [bp-2], 0
         mov word [bp-4], 1
         mov bx, M_MARCA
         call bloco
+        ; o patrocinio pontual em andamento (rotulo 5)
+        mov byte [bp+TXT], 0
+        les di, [bp+TIME]
+        cmp byte [es:di+P_JOGOS], 0
+        je .pont
+        mov al, [es:di+P_MARCA]
+        xor ah, ah
+        mov [bp+B], ax
+        call ler_marca
+        jc .pont
+        mov di, T_TABPONT
+        push cs
+        push di
+        call anexar
+        lea ax, [bp+REG+R_NOME]
+        push ss
+        push ax
+        call anexar
+        mov di, T_TRACO
+        push cs
+        push di
+        call anexar
+        les di, [bp+TIME]
+        mov al, [es:di+P_JOGOS]
+        add al, '0'
+        call poe
+        les di, [bp+TIME]
+        cmp byte [es:di+P_JOGOS], 1
+        jne .pjs
+        mov di, T_JOGO1R
+        push cs
+        push di
+        jmp .pjr
+.pjs:   mov di, T_JOGOSR
+        push cs
+        push di
+.pjr:   call anexar
+.pont:  lea ax, [bp+TXT]
+        push ss
+        push ax
+        mov word [bp-4], 1
+        mov dx, 4
+        call rotulo
 .sai:   pop si
         mov sp, bp
         pop bp
@@ -940,6 +1416,8 @@ time_humano:
         inc word [bp-4]
         jmp .t
 .achou: add sp, 4
+        mov ax, [bp-2]                  ; ax = divisao, dx = lugar
+        mov dx, [bp-4]
         mov sp, bp
         pop bp
         clc
@@ -1168,6 +1646,18 @@ T_EPOCAS:  db .f - T_EPOCAS - 1, ` \xe9pocas`
 .f:
 T_MASTER:  db .f - T_MASTER - 1, `,`, 13, `para ser o patrocinador principal da sua equipa.`
 .f:
+T_RENOVA:  db .f - T_RENOVA - 1, `,`, 13, `para renovar o contrato de patrocinador principal.`
+.f:
+T_MULTA:   db .f - T_MULTA - 1, 13, `Multa pela troca de patrocinador: `
+.f:
+T_PORJOGO: db .f - T_PORJOGO - 1, ` por jogo, durante `
+.f:
+T_JOGO1:   db .f - T_JOGO1 - 1, ` jogo`
+.f:
+T_JOGOS:   db .f - T_JOGOS - 1, ` jogos`
+.f:
+T_PONTUAL: db .f - T_PONTUAL - 1, `,`, 13, `para estampar a marca no equipamento.`
+.f:
 T_ACEITA:  db .f - T_ACEITA - 1, 13, 13, `Aceita?`
 .f:
 T_PORTEMP: db .f - T_PORTEMP - 1, ` por \xe9poca`
@@ -1180,6 +1670,16 @@ T_SEM:     db .f - T_SEM - 1, `Sem patrocinador`
 .f:
 T_NADA:    db 0
 T_TITULO:  db .f - T_TITULO - 1, `Patroc\xednio`
+.f:
+T_TABPONT: db .f - T_TABPONT - 1, `Patroc\xednio pontual: `
+.f:
+T_TRACO:   db .f - T_TRACO - 1, ` - `
+.f:
+T_JOGO1R:  db .f - T_JOGO1R - 1, ` jogo restante`
+.f:
+T_JOGOSR:  db .f - T_JOGOSR - 1, ` jogos restantes`
+.f:
+T_TITSAL:  db .f - T_TITSAL - 1, `Actualiza\xe7\xe3o de Sal\xe1rio`
 .f:
 T_PROPOSTA: db .f - T_PROPOSTA - 1, `Proposta de patroc\xednio`
 .f:
