@@ -220,6 +220,9 @@ Os valores em MARCAS.TXT sao preliminares (serao recalibrados por simulacao). A 
 | TINTAS RENNER | RENNER.BMP | 4 | BRA exclusivo | Sport e Bahia |  | https://commons.wikimedia.org/wiki/File:Tintas_Renner_logo.jpg |
 | AMANCO | AMANCO.BMP | 4 | BRA exclusivo | Marca brasileira de tubos e conexoes; incluida a pedido | sem patrocinio de futebol encontrado | https://commons.wikimedia.org/wiki/File:Logo_Amanco_Wavin.png |
 | KRONA | KRONA.BMP | 5 | BRA exclusivo | Joinville (2022-2023) |  | https://commons.wikimedia.org/wiki/File:Krona_Tubos_e_Conex%C3%B5es.png |
+| SAMSUNG | SAMSUNG.BMP | 1 | * | Master: Chelsea (2008-2015), Palmeiras (2008-2010) |  | https://commons.wikimedia.org/wiki/File:Samsung_old_logo_before_year_2015.svg |
+| SONY | SONY.BMP | 1 | * | Master: Juventus (1995-1998); patrocinadora da UEFA Champions League |  | https://commons.wikimedia.org/wiki/File:Sony_logo.svg |
+| LG | LG.BMP | 2 | * | Master: Sao Paulo (2001-2009) |  | https://commons.wikimedia.org/wiki/File:LG_logo_(2014).svg |
 
 ## Mudancas de 2026-10-14
 
@@ -235,3 +238,4 @@ Os valores em MARCAS.TXT sao preliminares (serao recalibrados por simulacao). A 
   GAC, GWM, Geely (carros), Midea, TCL e Hisense (eletronicos).
 - Materiais de construcao (so times brasileiros): Suvinil, Votorantim Cimentos,
   Tintas Coral, Tigre, Tintas Renner, Amanco e Krona.
+- Eletronicos: Samsung, Sony e LG.
