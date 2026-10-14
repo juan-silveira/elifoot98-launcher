@@ -226,6 +226,13 @@ Os valores em MARCAS.TXT sao preliminares (serao recalibrados por simulacao). A 
 | PHILCO | PHILCO.BMP | 3 | BRA exclusivo | Santos (costas, 2018-2020); master da Ponte Preta (2019) |  | https://commons.wikimedia.org/wiki/File:Philco_logo.svg |
 | POSITIVO | POSITIVO.BMP | 3 | BRA exclusivo | Corinthians (barra traseira, 2018-2021) |  | https://commons.wikimedia.org/wiki/File:PositivoTec_Logo_2025.png |
 | MULTILASER | MULTILAS.BMP | 3 | BRA exclusivo | Marca brasileira de eletronicos (hoje Multi); incluida a pedido | sem patrocinio de futebol encontrado; logo atual "Multi" | https://commons.wikimedia.org/wiki/File:Logo-roxo-multi.svg |
+| SHOPEE | SHOPEE.BMP | 2 | BRA exclusivo | Master do Corinthians (2026); pontual do Internacional; manga do Flamengo (2025) | empresa de Singapura | https://commons.wikimedia.org/wiki/File:Shopee.svg |
+| MAGAZINE LUIZA | MAGALU.BMP | 3 | BRA exclusivo | Patrocinio pontual do Corinthians (Libertadores 2012); Bahia, Vitoria e Santa Cruz |  | https://commons.wikimedia.org/wiki/File:Magalu_-_novo_logo.png |
+| ASSAI ATACADISTA | ASSAI.BMP | 3 | BRA exclusivo | Paulistao, Carioca e outros estaduais; Copa do Brasil; Series A e B |  | https://commons.wikimedia.org/wiki/File:Assa%C3%AD_Atacadista_logo_2024.svg |
+| SUPERMERCADOS BH | SUPERBH.BMP | 4 | BRA exclusivo | Master do Cruzeiro (ate 2022); controladora da SAF do Cruzeiro |  | https://commons.wikimedia.org/wiki/File:Logo_supermercado_bh.png |
+| MUFFATO | MUFFATO.BMP | 4 | BRA exclusivo | Londrina e Cascavel |  | https://commons.wikimedia.org/wiki/File:Logo_Super_Muffato_(2021).svg |
+| FORT ATACADISTA | FORT.BMP | 4 | BRA exclusivo | Naming do Campeonato Catarinense | logo: Grupo Pereira (dono da Fort) | https://commons.wikimedia.org/wiki/File:Grupo_Pereira_logo.png |
+| SUPERMERCADO PINHEIRO | PINHEIRO.BMP | 5 | BRA exclusivo | Ceara e Fortaleza |  | https://www.brandsoftheworld.com/logo/pinheiro-supermercado-2 |
 
 ## Mudancas de 2026-10-14
 
@@ -243,3 +250,5 @@ Os valores em MARCAS.TXT sao preliminares (serao recalibrados por simulacao). A 
   Tintas Coral, Tigre, Tintas Renner, Amanco e Krona.
 - Eletronicos: Samsung, Sony e LG.
 - Eletronicos brasileiros: Philco, Positivo e Multilaser.
+- Varejo e atacado (so times brasileiros): Shopee, Magazine Luiza, Assai, Supermercados BH,
+  Muffato, Fort Atacadista e Supermercado Pinheiro.
