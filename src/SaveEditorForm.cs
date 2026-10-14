@@ -862,6 +862,13 @@ namespace ElifootLauncher
                     MessageBox.Show(f, $"Força {fo} é bem acima do normal (1-{SaveCodec.FORCA_WARN_ABOVE}).\nContinuar mesmo assim?",
                         "Aviso", MessageBoxButtons.YesNo, MessageBoxIcon.Warning) != DialogResult.Yes)
                     return;
+                long soma = SaveCodec.SomaPesosGol(_currentTeam.Players, j, (int)fo, (int)n);
+                if (soma > SaveCodec.SOMA_PESOS_MAX && (fo != j.Forca || n != j.Nota) &&
+                    MessageBox.Show(f, $"Com esses valores, a soma dos pesos de gol do elenco fica em {soma:N0}, acima de {SaveCodec.SOMA_PESOS_MAX:N0}.\n" +
+                        "O jogo calcula errado: o autor dos gols passa a ser sempre o mesmo jogador, e o time pode até deixar de marcar.\n" +
+                        "(Peso de cada jogador = posição² × força × Nota; D = 1, M = 4, A = 9.)\n\nContinuar mesmo assim?",
+                        "Aviso", MessageBoxButtons.YesNo, MessageBoxIcon.Warning) != DialogResult.Yes)
+                    return;
                 if (n != j.Nota) j.Estrela = SaveCodec.TemEstrela(j.Posicao, (int)n);
                 j.Forca = (int)fo;
                 j.Salario = (int)sal;

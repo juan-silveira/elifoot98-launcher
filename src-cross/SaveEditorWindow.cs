@@ -745,6 +745,12 @@ namespace ElifootLauncher
                 if (f > SaveCodec.FORCA_WARN_ABOVE && f != j.Forca &&
                     !await Dialogos.Confirmar(w, $"Força {f} é bem acima do normal (1-{SaveCodec.FORCA_WARN_ABOVE}).\nContinuar mesmo assim?", "Aviso"))
                     return;
+                long soma = SaveCodec.SomaPesosGol(_currentTeam!.Players, j, (int)f, (int)n);
+                if (soma > SaveCodec.SOMA_PESOS_MAX && (f != j.Forca || n != j.Nota) &&
+                    !await Dialogos.Confirmar(w, $"Com esses valores, a soma dos pesos de gol do elenco fica em {soma:N0}, acima de {SaveCodec.SOMA_PESOS_MAX:N0}.\n" +
+                        "O jogo calcula errado: o autor dos gols passa a ser sempre o mesmo jogador, e o time pode até deixar de marcar.\n" +
+                        "(Peso de cada jogador = posição² × força × Nota; D = 1, M = 4, A = 9.)\n\nContinuar mesmo assim?", "Aviso"))
+                    return;
                 if (n != j.Nota) j.Estrela = SaveCodec.TemEstrela(j.Posicao, (int)n);
                 j.Forca = (int)f;
                 j.Salario = (int)sal;

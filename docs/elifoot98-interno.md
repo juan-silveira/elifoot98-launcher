@@ -238,9 +238,14 @@ Consequências diretas:
 - **Goleiro nunca marca gol** (posição 0 → peso 0). Entre os outros, o peso da
   posição é Defesa 1, Meio 4, Avançado 9.
 - O peso do autor do gol é calculado só com os 16 bits de baixo de cada
-  multiplicação (máximo 65.535): com força muito alta (ex.: 9999 posta por um
-  editor) o peso "dá a volta" e vira um valor sem relação com a força, que pode
-  ficar enorme ou pequeno conforme a Nota e a posição.
+  multiplicação e depois estendido **com sinal** (`cwd`, `seg03:0f83`): acima de
+  32.767 ele vira negativo (peso − 65.536). Com força muito alta (ex.: 9999 posta
+  por um editor) o peso "dá a volta" e fica sem relação com a força.
+- A soma dos pesos é de 32 bits, mas o sorteio usa só os 16 bits de baixo dela
+  (`push word [bp-0xa]` antes de `Random`, `seg03:106c`): se a soma passa de
+  65.535, o número sorteado fica pequeno e quem ganha é sempre o primeiro jogador
+  da lista cuja faixa acumulada passa dele. A soma conta todos os jogadores da
+  lista; a escolha percorre só os elegíveis (`seg03:0fc8`).
 
 ### Força
 

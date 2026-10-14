@@ -168,6 +168,19 @@ namespace ElifootLauncher
             if (p <= 0) return FORCA_MAX;
             return Math.Min(FORCA_MAX, 32767 / (p * p * Math.Max(1, Math.Min(10, nota))));
         }
+        // Peso de cada jogador no sorteio do autor do gol, e o maximo da soma do time: o
+        // sorteio usa so os 16 bits de baixo da soma (seg03:106c). Acima de 65535 a soma
+        // "da a volta" e marca sempre o primeiro da lista com peso alto.
+        public const int SOMA_PESOS_MAX = 65535;
+        public static long PesoGol(string posicao, int forca, int nota)
+        {
+            int p = Math.Max(0, "GDMA".IndexOf(posicao ?? "G", StringComparison.Ordinal));
+            return (long)p * p * forca * nota;
+        }
+
+        // Soma dos pesos do elenco com o jogador editado nos valores novos
+        public static long SomaPesosGol(IEnumerable<SavePlayer> elenco, SavePlayer editado, int forca, int nota) =>
+            elenco.Sum(x => x == editado ? PesoGol(x.Posicao, forca, nota) : PesoGol(x.Posicao, x.Forca, x.Nota));
         public const int FORCA_WARN_ABOVE = 50;
         public const int SALARIO_MIN = 50;
         // O salario e um inteiro de 4 bytes (raw[sz-25..sz-22]); o jogo limita os
