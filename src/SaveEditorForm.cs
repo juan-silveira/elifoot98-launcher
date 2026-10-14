@@ -853,6 +853,9 @@ namespace ElifootLauncher
                     ?? LerInteiro(lesionado, "Lesionado", 0, SaveCodec.JOGOS_LESIONADO_MAX, out le);
                 if (erro == null && fo > SaveCodec.ForcaMaxima(j.Posicao, (int)n))
                     erro = $"Força: o máximo para {(j.Posicao == "A" ? "atacante" : j.Posicao == "M" ? "meia" : "defensor")} com Nota {n} é {SaveCodec.ForcaMaxima(j.Posicao, (int)n)}. Acima disso o jogo calcula errado e ele nunca marca gol.";
+                if (erro == null && (fo != j.Forca || n != j.Nota))
+                    erro = SaveCodec.LimitesDoElenco(_currentTeam.Players, j, (int)fo, (int)n,
+                        n != j.Nota ? SaveCodec.TemEstrela(j.Posicao, (int)n) : j.Estrela);
                 if (erro != null)
                 {
                     MessageBox.Show(f, erro, "Valor fora do limite", MessageBoxButtons.OK, MessageBoxIcon.Warning);
@@ -860,13 +863,6 @@ namespace ElifootLauncher
                 }
                 if (fo > SaveCodec.FORCA_WARN_ABOVE && fo != j.Forca &&
                     MessageBox.Show(f, $"Força {fo} é bem acima do normal (1-{SaveCodec.FORCA_WARN_ABOVE}).\nContinuar mesmo assim?",
-                        "Aviso", MessageBoxButtons.YesNo, MessageBoxIcon.Warning) != DialogResult.Yes)
-                    return;
-                long soma = SaveCodec.SomaPesosGol(_currentTeam.Players, j, (int)fo, (int)n);
-                if (soma > SaveCodec.SOMA_PESOS_MAX && (fo != j.Forca || n != j.Nota) &&
-                    MessageBox.Show(f, $"Com esses valores, a soma dos pesos de gol do elenco fica em {soma:N0}, acima de {SaveCodec.SOMA_PESOS_MAX:N0}.\n" +
-                        "O jogo calcula errado: o autor dos gols passa a ser sempre o mesmo jogador, e o time pode até deixar de marcar.\n" +
-                        "(Peso de cada jogador = posição² × força × Nota; D = 1, M = 4, A = 9.)\n\nContinuar mesmo assim?",
                         "Aviso", MessageBoxButtons.YesNo, MessageBoxIcon.Warning) != DialogResult.Yes)
                     return;
                 if (n != j.Nota) j.Estrela = SaveCodec.TemEstrela(j.Posicao, (int)n);

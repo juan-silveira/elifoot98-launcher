@@ -246,6 +246,32 @@ Consequências diretas:
   65.535, o número sorteado fica pequeno e quem ganha é sempre o primeiro jogador
   da lista cuja faixa acumulada passa dele. A soma conta todos os jogadores da
   lista; a escolha percorre só os elegíveis (`seg03:0fc8`).
+- No gol, a lista é o **elenco inteiro** (campo `+0xA` do time, a mesma que a
+  média de força do público usa) e elegível é quem está **em campo** (`+0x10 = 1`).
+  Se o número sorteado cai na faixa de um reserva, ninguém é escolhido e **o gol
+  não vale** (`seg03:4864`: sem autor, não há gol). Assim, um gol "merecido" só
+  sai com chance `peso dos que estão em campo ÷ peso do elenco todo`.
+
+### Limites de 16 bits
+
+**Código.** Contas que o jogo faz em 16 bits; passando do limite o valor "dá a
+volta" e a partida sai errada. O Editor de Save não deixa passar de nenhum.
+
+| Conta | Onde | Limite |
+|---|---|---|
+| Peso de gol do jogador: posição² × força × Nota | `seg03:0f83` (com sinal) | 32.767 |
+| Soma dos pesos de gol do elenco | `seg03:106c` (Random da word baixa) | 65.535 |
+| Soma da força do elenco | `seg03:4f20` (`fild word`, com sinal) | 32.767 |
+| `a3 + b3 + 1` da conta do gol | `seg03:4686` (sem sinal) | 65.535 |
+
+Com `a3 = 1 + D + M + A` do time e `b3 = 1 + A' + M' + 3×G' + D'` do adversário,
+o terceiro limite junta os dois times; dividindo ao meio, cada time fica com
+`3×G + D + M + A ≤ 32.766`. Cada setor soma, por jogador em campo,
+`força + 2 × estrela + 3 × (nacionalidade = país do clube)`. O editor confere o
+pior caso: os 11 jogadores com maior `(força + 2 × estrela + 3)`, o goleiro
+contando 3 vezes. A média de força do público (`3 × F(casa) + F(visitante)`,
+`seg03:b100`, 16 bits com sinal) fica dentro do limite se a soma da força do
+elenco fica.
 
 ### Força
 

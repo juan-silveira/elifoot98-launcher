@@ -168,19 +168,49 @@ namespace ElifootLauncher
             if (p <= 0) return FORCA_MAX;
             return Math.Min(FORCA_MAX, 32767 / (p * p * Math.Max(1, Math.Min(10, nota))));
         }
-        // Peso de cada jogador no sorteio do autor do gol, e o maximo da soma do time: o
-        // sorteio usa so os 16 bits de baixo da soma (seg03:106c). Acima de 65535 a soma
-        // "da a volta" e marca sempre o primeiro da lista com peso alto.
-        public const int SOMA_PESOS_MAX = 65535;
+        // Limites do elenco: contas que o jogo faz em 16 bits (docs/elifoot98-interno.md,
+        // "Limites de 16 bits"). Passando deles o resultado "da a volta" e a partida sai errada.
+        public const int SOMA_PESOS_MAX = 65535;   // soma dos pesos de gol (seg03:106c, Random da word baixa)
+        public const int SOMA_FORCA_MAX = 32767;   // soma da forca do elenco (seg03:4f20, fild word)
+        public const int ESCALACAO_MAX = 32766;    // 3G + D + M + A do time; o do adversario soma junto (seg03:4686)
+
         public static long PesoGol(string posicao, int forca, int nota)
         {
             int p = Math.Max(0, "GDMA".IndexOf(posicao ?? "G", StringComparison.Ordinal));
             return (long)p * p * forca * nota;
         }
 
-        // Soma dos pesos do elenco com o jogador editado nos valores novos
-        public static long SomaPesosGol(IEnumerable<SavePlayer> elenco, SavePlayer editado, int forca, int nota) =>
-            elenco.Sum(x => x == editado ? PesoGol(x.Posicao, forca, nota) : PesoGol(x.Posicao, x.Forca, x.Nota));
+        // O que o jogador soma no setor quando esta em campo (seg03:397d): forca + 2 se tem
+        // estrela + 3 se e do pais do clube (contado sempre, pior caso); o goleiro vale 3 vezes
+        public static long PesoEscalacao(string posicao, int forca, bool estrela) =>
+            (forca + (estrela ? 2 : 0) + 3L) * (posicao == "G" ? 3 : 1);
+
+        /// Confere o elenco com o jogador editado nos valores novos; devolve a mensagem do
+        /// primeiro limite estourado, ou null.
+        public static string? LimitesDoElenco(IList<SavePlayer> elenco, SavePlayer editado, int forca, int nota, bool estrela)
+        {
+            int F(SavePlayer x) => x == editado ? forca : x.Forca;
+            int N(SavePlayer x) => x == editado ? nota : x.Nota;
+            bool E(SavePlayer x) => x == editado ? estrela : x.Estrela;
+
+            long pesos = elenco.Sum(x => PesoGol(x.Posicao, F(x), N(x)));
+            if (pesos > SOMA_PESOS_MAX)
+                return $"A soma dos pesos de gol do elenco ficaria em {pesos:N0} (máximo {SOMA_PESOS_MAX:N0}).\n" +
+                    "Peso de cada jogador = posição² × força × Nota (G = 0, D = 1, M = 4, A = 9).\n" +
+                    "Acima disso o autor dos gols é sempre o mesmo jogador, ou o time deixa de marcar.";
+            long soma = elenco.Sum(x => (long)F(x));
+            if (soma > SOMA_FORCA_MAX)
+                return $"A soma da força do elenco ficaria em {soma:N0} (máximo {SOMA_FORCA_MAX:N0}).\n" +
+                    "Acima disso o público dos jogos sai errado.";
+            long escal = elenco.Select(x => PesoEscalacao(x.Posicao, F(x), E(x)))
+                .OrderByDescending(v => v).Take(11).Sum();
+            if (escal > ESCALACAO_MAX)
+                return $"A escalação mais forte possível somaria {escal:N0} (máximo {ESCALACAO_MAX:N0}).\n" +
+                    "Conta: 11 jogadores com maior (força + 2 se estrela + 3), o goleiro valendo 3 vezes.\n" +
+                    "Acima disso a força dos times na partida sai errada.";
+            return null;
+        }
+
         public const int FORCA_WARN_ABOVE = 50;
         public const int SALARIO_MIN = 50;
         // O salario e um inteiro de 4 bytes (raw[sz-25..sz-22]); o jogo limita os
