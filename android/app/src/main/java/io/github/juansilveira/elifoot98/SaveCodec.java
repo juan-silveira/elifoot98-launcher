@@ -12,7 +12,8 @@ import java.util.List;
  * jogador marcados por 0x03 + nacionalidade, verba em first_record + 0x8E).
  */
 public final class SaveCodec {
-    public static final int FORCA_MIN = 1, FORCA_MAX = 9999, FORCA_AVISO_ACIMA = 50;
+    // A forca e uma word que o jogo le com sinal; o limite de cada jogador e o forcaMaximaNoElenco
+    public static final int FORCA_MIN = 1, FORCA_MAX = 32767, FORCA_AVISO_ACIMA = 50;
     // Salario: inteiro de 4 bytes (raw[sz-25..sz-22])
     public static final int SALARIO_MIN = 50, SALARIO_MAX = 9999999;
     public static final String[] COMPORTAMENTOS = {
@@ -68,6 +69,78 @@ public final class SaveCodec {
         int p = "GDMA".indexOf(posicao == null ? "G" : posicao);
         if (p <= 0) return FORCA_MAX;
         return Math.min(FORCA_MAX, 32767 / (p * p * Math.max(1, Math.min(10, nota))));
+    }
+
+    // Limites do elenco: contas que o jogo faz em 16 bits (docs/elifoot98-interno.md,
+    // "Limites de 16 bits"). Passando deles o resultado "da a volta" e a partida sai errada.
+    public static final int SOMA_PESOS_MAX = 65535;  // soma dos pesos de gol (seg03:106c)
+    public static final int SOMA_FORCA_MAX = 32767;  // soma da forca do elenco (seg03:4f20)
+    public static final int ESCALACAO_MAX = 32766;   // 3G + D + M + A do time (seg03:4686)
+
+    public static long pesoGol(String posicao, int forca, int nota) {
+        int p = Math.max(0, "GDMA".indexOf(posicao == null ? "G" : posicao));
+        return (long) p * p * forca * nota;
+    }
+
+    // O que o jogador soma no setor em campo (seg03:397d): forca + 2 se estrela + 3 se e
+    // do pais do clube (contado sempre, pior caso); o goleiro vale 3 vezes
+    public static long pesoEscalacao(String posicao, int forca, boolean estrela) {
+        return (forca + (estrela ? 2 : 0) + 3L) * ("G".equals(posicao) ? 3 : 1);
+    }
+
+    private static long somaMaiores(List<Long> v, int n) {
+        java.util.Collections.sort(v, java.util.Collections.reverseOrder());
+        long s = 0;
+        for (int i = 0; i < Math.min(n, v.size()); i++) s += v.get(i);
+        return s;
+    }
+
+    /** Maior forca que o jogador pode ter com a Nota dada sem estourar nenhum limite. 0 = nenhuma. */
+    public static int forcaMaximaNoElenco(List<Jogador> elenco, Jogador editado, int nota, boolean estrela) {
+        long max = forcaMaxima(editado.posicao, nota), pesos = 0, forcas = 0;
+        List<Long> esc = new ArrayList<>();
+        for (Jogador x : elenco) {
+            if (x == editado) continue;
+            pesos += pesoGol(x.posicao, x.forca, x.nota);
+            forcas += x.forca;
+            esc.add(pesoEscalacao(x.posicao, x.forca, x.estrela));
+        }
+        long peso1 = pesoGol(editado.posicao, 1, nota);
+        if (peso1 > 0) max = Math.min(max, (SOMA_PESOS_MAX - pesos) / peso1);
+        max = Math.min(max, SOMA_FORCA_MAX - forcas);
+        max = Math.min(max, (ESCALACAO_MAX - somaMaiores(esc, 10)) / ("G".equals(editado.posicao) ? 3 : 1) - (estrela ? 2 : 0) - 3);
+        return (int) Math.max(0, max);
+    }
+
+    /** Confere o elenco com o jogador editado nos valores novos; mensagem do primeiro limite estourado, ou null. */
+    public static String limitesDoElenco(List<Jogador> elenco, Jogador editado, int forca, int nota, boolean estrela) {
+        long pesos = 0, forcas = 0;
+        List<Long> esc = new ArrayList<>();
+        for (Jogador x : elenco) {
+            boolean e = x == editado;
+            int f = e ? forca : x.forca;
+            pesos += pesoGol(x.posicao, f, e ? nota : x.nota);
+            forcas += f;
+            esc.add(pesoEscalacao(x.posicao, f, e ? estrela : x.estrela));
+        }
+        long escal = somaMaiores(esc, 11);
+        String erro = null;
+        if (pesos > SOMA_PESOS_MAX)
+            erro = "A soma dos pesos de gol do elenco ficaria em " + pesos + " (máximo " + SOMA_PESOS_MAX + ").\n"
+                + "Peso de cada jogador = posição² × força × Nota (G = 0, D = 1, M = 4, A = 9).\n"
+                + "Acima disso o autor dos gols é sempre o mesmo jogador, ou o time deixa de marcar.";
+        else if (forcas > SOMA_FORCA_MAX)
+            erro = "A soma da força do elenco ficaria em " + forcas + " (máximo " + SOMA_FORCA_MAX + ").\n"
+                + "Acima disso o público dos jogos sai errado.";
+        else if (escal > ESCALACAO_MAX)
+            erro = "A escalação mais forte possível somaria " + escal + " (máximo " + ESCALACAO_MAX + ").\n"
+                + "Conta: 11 jogadores com maior (força + 2 se estrela + 3), o goleiro valendo 3 vezes.\n"
+                + "Acima disso a força dos times na partida sai errada.";
+        if (erro == null) return null;
+        int max = forcaMaximaNoElenco(elenco, editado, nota, estrela);
+        return erro + (max >= FORCA_MIN
+            ? "\n\nCom Nota " + nota + ", a força máxima dele neste elenco é " + max + "."
+            : "\n\nO resto do elenco já passa do limite: diminua a força de outros jogadores.");
     }
 
     public static boolean temEstrela(String posicao, int nota) {

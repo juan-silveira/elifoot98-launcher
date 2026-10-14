@@ -156,12 +156,14 @@ namespace ElifootLauncher
         public const double INFLACAO_MIN = 0.5, INFLACAO_MAX = 10.0;
         public const double MORAL_MAX = 2.0;
         public const int FORCA_MIN = 1;
-        public const int FORCA_MAX = 9999;
+        // A forca e uma word que o jogo le com sinal; o limite de verdade de cada jogador e o
+        // ForcaMaximaNoElenco (contas do time)
+        public const int FORCA_MAX = 32767;
 
         // Maior forca que o jogo ainda usa direito: o peso do sorteio do autor do gol
         // (seg03:0f69) e posicao^2 x forca x Nota em 16 bits com sinal. Acima de 32767 o
         // peso fica negativo e o jogador nunca marca (e anula gols do time). Goleiro
-        // (posicao 0) tem peso 0: vale o FORCA_MAX.
+        // (posicao 0) tem peso 0: vale o FORCA_MAX. So o jogador; o time e o ForcaMaximaNoElenco.
         public static int ForcaMaxima(string posicao, int nota)
         {
             int p = "GDMA".IndexOf(posicao ?? "G", StringComparison.Ordinal);
@@ -185,9 +187,35 @@ namespace ElifootLauncher
         public static long PesoEscalacao(string posicao, int forca, bool estrela) =>
             (forca + (estrela ? 2 : 0) + 3L) * (posicao == "G" ? 3 : 1);
 
+        /// Maior forca que o jogador pode ter com a Nota dada sem estourar nenhum limite
+        /// (o dele e os do elenco, com os outros jogadores como estao). 0 = nenhuma serve.
+        public static int ForcaMaximaNoElenco(IList<SavePlayer> elenco, SavePlayer editado, int nota, bool estrela)
+        {
+            var outros = elenco.Where(x => x != editado).ToList();
+            long max = ForcaMaxima(editado.Posicao, nota);
+            long peso1 = PesoGol(editado.Posicao, 1, nota);
+            if (peso1 > 0)
+                max = Math.Min(max, (SOMA_PESOS_MAX - outros.Sum(x => PesoGol(x.Posicao, x.Forca, x.Nota))) / peso1);
+            max = Math.Min(max, SOMA_FORCA_MAX - outros.Sum(x => (long)x.Forca));
+            // na escalacao mais forte ele entra com os 10 maiores dos outros
+            long top10 = outros.Select(x => PesoEscalacao(x.Posicao, x.Forca, x.Estrela)).OrderByDescending(v => v).Take(10).Sum();
+            max = Math.Min(max, (ESCALACAO_MAX - top10) / (editado.Posicao == "G" ? 3 : 1) - (estrela ? 2 : 0) - 3);
+            return (int)Math.Max(0, max);
+        }
+
         /// Confere o elenco com o jogador editado nos valores novos; devolve a mensagem do
         /// primeiro limite estourado, ou null.
         public static string? LimitesDoElenco(IList<SavePlayer> elenco, SavePlayer editado, int forca, int nota, bool estrela)
+        {
+            var erro = Estouro(elenco, editado, forca, nota, estrela);
+            if (erro == null) return null;
+            int max = ForcaMaximaNoElenco(elenco, editado, nota, estrela);
+            return erro + (max >= FORCA_MIN
+                ? $"\n\nCom Nota {nota}, a força máxima dele neste elenco é {max:N0}."
+                : "\n\nO resto do elenco já passa do limite: diminua a força de outros jogadores.");
+        }
+
+        private static string? Estouro(IList<SavePlayer> elenco, SavePlayer editado, int forca, int nota, bool estrela)
         {
             int F(SavePlayer x) => x == editado ? forca : x.Forca;
             int N(SavePlayer x) => x == editado ? nota : x.Nota;

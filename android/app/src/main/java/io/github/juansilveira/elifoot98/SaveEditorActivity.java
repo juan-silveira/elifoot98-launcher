@@ -917,7 +917,7 @@ public class SaveEditorActivity extends Activity {
         GridLayout g = new GridLayout(this);
         g.setColumnCount(deitado ? 3 : 2);
         ficha.addView(g);
-        EditText forca = campoFicha(g, "Força", "1 a " + SaveCodec.forcaMaxima(j.posicao, j.nota) + " (normal ≤ 50)", j.forca);
+        EditText forca = campoFicha(g, "Força", "1 a " + SaveCodec.forcaMaximaNoElenco(timeAtual.jogadores, j, j.nota, j.estrela) + " (normal ≤ 50)", j.forca);
         EditText salario = campoFicha(g, "Salário", "50 a 9.999.999", j.salario);
         EditText nota = campoFicha(g, "Nota", "1 a 10", j.nota);
         EditText lesao = campoFicha(g, "Lesão", "0 = nunca, 10 = muito", j.lesao);
@@ -967,6 +967,11 @@ public class SaveEditorActivity extends Activity {
                         + ("A".equals(j.posicao) ? "atacante" : "M".equals(j.posicao) ? "meia" : "defensor")
                         + " com Nota " + n + " é " + SaveCodec.forcaMaxima(j.posicao, n)
                         + ". Acima disso o jogo calcula errado e ele nunca marca gol.");
+                if (f != j.forca || n != j.nota) {
+                    String erro = SaveCodec.limitesDoElenco(timeAtual.jogadores, j, f, n,
+                        n != j.nota ? SaveCodec.temEstrela(j.posicao, n) : j.estrela);
+                    if (erro != null) throw new ForaDoLimite(erro);
+                }
                 if (n != j.nota) j.estrela = SaveCodec.temEstrela(j.posicao, n);
                 j.forca = f;
                 j.salario = s;

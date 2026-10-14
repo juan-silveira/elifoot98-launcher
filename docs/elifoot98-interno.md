@@ -255,7 +255,8 @@ Consequências diretas:
 ### Limites de 16 bits
 
 **Código.** Contas que o jogo faz em 16 bits; passando do limite o valor "dá a
-volta" e a partida sai errada. O Editor de Save não deixa passar de nenhum.
+volta" e a partida sai errada. O Editor de Save não deixa passar de nenhum e
+mostra, na ficha, a maior força que o jogador pode ter naquele elenco.
 
 | Conta | Onde | Limite |
 |---|---|---|

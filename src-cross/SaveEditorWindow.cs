@@ -699,7 +699,7 @@ namespace ElifootLauncher
                 grade.Children.Add(c);
                 celula += colunas;
             }
-            var forca = Campo("Força", $"1 a {SaveCodec.ForcaMaxima(j.Posicao, j.Nota)} (normal ≤ 50)", j.Forca);
+            var forca = Campo("Força", $"1 a {SaveCodec.ForcaMaximaNoElenco(_currentTeam!.Players, j, j.Nota, j.Estrela)} (normal ≤ 50)", j.Forca);
             var salario = Campo("Salário", "50 a 9.999.999", j.Salario);
             var nota = Campo("Nota", "1 a 10", j.Nota);
             var lesao = Campo("Lesão", "0 = nunca, 10 = muito", j.Lesao);
