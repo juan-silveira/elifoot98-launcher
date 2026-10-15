@@ -43,7 +43,7 @@ from campo import campo
 from patrocinio import patrocinio
 from tatica505 import tatica505
 from comprar import comprar
-from jornada import jornada
+from jornada import jornada, classif_humano
 import opcoes
 
 
@@ -360,7 +360,9 @@ def main(n, entrada, saida):
         comprar(ne, b)
         jornada(ne, b, N)
         opcoes.gravar_tabela(ne, b)
-        print('paginas:', {k: '%04X' % v for k, v in paginas.paginar(ne, b, N).items()})
+        rot6 = paginas.paginar(ne, b, N)
+        print('paginas:', {k: '%04X' % v for k, v in rot6.items()})
+        classif_humano(ne, b, rot6)
         gravar(b, saida)
         return
     classificacao(b)

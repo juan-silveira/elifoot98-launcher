@@ -974,6 +974,13 @@ equipes, humano na 4ª divisão):
   isso, as chamadas de `02FD` e `085C` passam pelo seg25, e o "página = 0" de `086B`
   vira NOPs. Na 3ª rodada a tela abriu na página da 3ª e 4ª divisões; a mudança do
   minuto 90 não foi vista no teste.
+- **Classificação** (com 2 páginas, mais de 14 equipes; `paginas.asm`). Ao abrir, o
+  "abrir" (relocação de `seg06:02D0`) passa antes por `classif.asm`, no seg25. Ele
+  conta os times humanos da 1ª+2ª e da 3ª+4ª e grava em `DS:0x17D0` a página com
+  mais humanos; num empate, fica a 1ª. As divisões estão em `DS:0x26FA` (`TList`), e
+  os times de cada uma ficam na lista em `+0x1B` (`[+0x1B]` → `TList`, item → `TTeam`),
+  como no DrawItem (`seg06:040D`). Validado pelo menu Campeonato e na Classificação do
+  fim da jornada: as duas abriram na 3ª e 4ª divisões.
 
 ### Classificação (`TclassificationDlg`, `seg06`)
 

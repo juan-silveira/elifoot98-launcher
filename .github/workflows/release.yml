@@ -185,7 +185,7 @@ jobs:
             - **Cartões amarelos** (opção nas Configurações; o original só tinha o vermelho): uns 4 por jogo; o 2º no mesmo jogo vira vermelho 1 vez em 4; 3 acumulados = 1 jogo de suspensão; os acumulados zeram a cada temporada. Aparecem na jornada, nos detalhes da partida, no plantel (**A**), na aba Jogador e no Historial. O Scout mostra os da carreira e o Editor de Save edita os acumulados.
             - Equipes por divisão de 8 a 20, até 30 jogadores por equipe, tática 5-0-5 (tecla T, só quando o elenco tem 5 defesas e 5 atacantes) e os 258 países do Turbo Elifoot.
             - **Nota e Risco de lesão** de cada jogador no leilão, na aba Jogador, no plantel dos adversários e na Lista de Jogadores (colunas Nota e RL).
-            - **Tela da jornada** abre na página do jogo do seu time (com mais de um treinador, na página com mais deles), no campeonato e na Taça.
+            - **Tela da jornada** e **Classificação** abrem na página do seu time (com mais de um treinador, na página com mais deles); a jornada também na Taça.
             - **Lista de Jogadores** com filtros de Comportamento, Nota mínima e Risco de lesão máximo, e botão **Comprar** para comprar o jogador sem sair da busca.
             - **Preço dos ingressos**: na aba Finanças, de 50% a 300% do preço de tabela nos jogos em casa; ingresso caro rende mais por torcedor, mas o público cai.
             - **Campinho na aba Escalação**, com os titulares nas cores do time.

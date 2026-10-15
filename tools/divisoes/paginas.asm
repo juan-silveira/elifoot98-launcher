@@ -28,8 +28,9 @@ seta:   cmp ax, [PAGINA]
         retf 8
 
 ; ---- chamado em vez de seg06:0378 ao abrir a Classificacao (bp = quadro do
-;      metodo que abre, Self em [bp+6]): volta sempre para a 1a pagina
-abrir:  xor ax, ax
+;      metodo que abre, Self em [bp+6]), depois do classif (classif.asm, seg25),
+;      que poe em [PAGINA] a pagina com mais treinadores humanos
+abrir:  mov ax, [PAGINA]
         call pagina
         jmp 0x0378
 

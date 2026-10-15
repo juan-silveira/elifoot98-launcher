@@ -10,6 +10,10 @@ O seg10 nao tem lugar para relocacoes novas: as duas chamadas que vem logo depoi
 "pagina = 0" passam a ir para o seg25, que escolhe a pagina e salta para o destino:
 - seg10:02FD call 10:0AFC (as setas), ao abrir;
 - seg10:085C call 10:0CEF, no minuto 90 (o "pagina = 0" de 086B vira NOPs).
+
+Classificacao (com mais de 14 equipas, 2 paginas; paginas.py): classif.asm conta os
+times humanos na 1a+2a e na 3a+4a e poe a pagina com mais em DS:0x17D0, antes do
+"abrir" de paginas.asm (relocacao de seg06:02D0), que abre nela.
 """
 from montar import montar
 from paginas import _tabela, _gravar_tabela
@@ -32,4 +36,17 @@ def jornada(ne, b, n):
         r = next(r for r in recs if r[2] == loc)
         assert (r[3], r[4]) == alvo, hex(loc)
         r[3], r[4] = SEG, rot[nome]
+    _gravar_tabela(ne, tab, recs)
+
+
+def classif_humano(ne, b, rot6):
+    """Depois de paginas.paginar (rot6 = os rotulos de paginas.asm, no seg06)."""
+    org = ne.seg(SEG)[1]
+    cod, rot = montar('classif.asm', org, ORG='0x%X' % org)
+    assert ne.append(SEG, cod) == org
+    _novos(ne, SEG, [[3, 0, rot['..@abrir'], 6, rot6['abrir']], [3, 0, rot['..@item'], 23, 0x0DD0]])
+    tab, recs = _tabela(ne, 6)
+    r = next(r for r in recs if r[2] == 0x02D0)
+    assert (r[3], r[4]) == (6, rot6['abrir'])
+    r[3], r[4] = SEG, rot['classif']
     _gravar_tabela(ne, tab, recs)
