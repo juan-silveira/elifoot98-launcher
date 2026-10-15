@@ -6,7 +6,6 @@
 bits 16
 org ORG
 
-DIALOGO equ 0x2880                      ; janela de Sim/Nao (askMoreSalaryDlg)
 LISTA   equ 0x28AA                      ; TcheckPlayerDlg (a Lista de Jogadores)
 PLANTEL equ 0x288E                      ; TPlantelDlg
 JOGADOR equ 0x2892                      ; jogador escolhido na janela da equipa (celula)
@@ -14,7 +13,6 @@ PRECO   equ 0x2896                      ; preco dele (dword)
 TAG     equ 0x0C                        ; TComponent.Tag
 TAGCOMPRA equ 0x434D                    ; o Tag do botao Comprar no DFM
 
-TXT     equ -0x100                      ; texto da janela
 DIN     equ -0x200                      ; valor por extenso / rascunho
 EQUIPA  equ -0x204                      ; equipa do jogador (celula, far)
 QUADRO  equ 0x210
@@ -45,70 +43,21 @@ desvio:
         db 0xEA
 ..@volta: dw 0xFFFF, 0                  ; seg10:37B9
 
-; comprar(Self = Lista, Sender), far
+; comprar(Self = Lista, Sender = o botao Comprar), far. Como o Comprar da janela da
+; equipa: compra direto, e a linha fica na Lista, redesenhada (sem preco).
 comprar:
         push bp
         mov bp, sp
         sub sp, QUADRO
         push si
         push di
-        call preparar                   ; 1) a 3): jogador, equipa e preco
+        call preparar                   ; jogador, equipa e preco
         or ax, ax
-        jnz .tem
-        jmp .fim
-.tem:
-        ; 4) da para comprar? (as condicoes do botao Comprar da janela da equipa)
-        mov ax, [PRECO]
-        mov dx, [PRECO+2]
-        or dx, dx
-        jl .naovende
-        jg .p
+        jz .fim
+        call checar
         or ax, ax
-        jz .naovende
-.p:     les di, [PLANTEL]
-        les di, [es:di+0x1F4]
-        les di, [es:di]                 ; TTeam do comprador
-        cmp dx, [es:di+0x73]
-        jl .p2
-        jg .semdin
-        cmp ax, [es:di+0x71]
-        jae .semdin
-.p2:    push word [JOGADOR+2]
-        push word [JOGADOR]
-        push word [bp+EQUIPA+2]
-        push word [bp+EQUIPA]
-        push es
-        push di
-        longe podecomprar               ; seg03:633D
-        or al, al
-        jz .naopode
-        ; 5) confirmar
-        mov byte [bp+TXT], 0
-        mov di, T_COMPRAR
-        push cs
-        push di
-        call anexar
-        lea di, [bp+DIN]
-        push ss
-        push di
-        push word [PRECO+2]
-        push word [PRECO]
-        longe extenso
-        add sp, 4
-        lea di, [bp+DIN]
-        push ss
-        push di
-        call anexar
-        mov di, T_INTERROG
-        push cs
-        push di
-        call anexar
-        mov al, 1
-        call janela
-        cmp ax, 6
-        jne .fim
-        ; 6) a compra (buyBtnClick da janela da equipa) e a Lista de novo
-        les di, [PLANTEL]
+        jz .fim
+        les di, [PLANTEL]               ; a compra (buyBtnClick da janela da equipa)
         push word [bp+12]
         push word [bp+10]
         push es
@@ -128,36 +77,68 @@ comprar:
         push es
         push di
         longe settext
-        les di, [bp+6]
-        push word [es:di+0x1AA]         ; Sender = findBtn
-        push word [es:di+0x1A8]
+        les di, [bp+6]                  ; a linha escolhida e redesenhada: sai e volta
+        les di, [es:di+0x184]
         push es
         push di
-        longe procurarclick             ; seg10:34F5
-        jmp .fim
-.naovende:
-        mov di, T_NAOVENDE
-        push cs
-        push di
-        jmp .aviso
-.semdin:
-        mov di, T_SEMDIN
-        push cs
-        push di
-        jmp .aviso
-.naopode:
-        mov di, T_NAOPODE
-        push cs
-        push di
-.aviso: mov byte [bp+TXT], 0
-        call anexar
-        mov al, 0
-        call janela
+        longe itemindex
+        mov si, ax
+        push word -1
+        les di, [bp+6]
+        push word [es:di+0x186]
+        push word [es:di+0x184]
+        longe poeindex
+        push si
+        les di, [bp+6]
+        push word [es:di+0x186]
+        push word [es:di+0x184]
+        longe poeindex
+        call preparar                   ; o Comprar de novo (desliga: ja sem preco)
+        or ax, ax
+        jz .poe
+        call checar
+.poe:   push ax
+        push word [bp+12]
+        push word [bp+10]
+        longe setenabled
 .fim:   pop di
         pop si
         mov sp, bp
         pop bp
         retf 8
+
+; Depois de preparar: ax = 1 se o Comprar da janela da equipa estaria ligado (preco > 0,
+; menor que o dinheiro do comprador e seg03:633D deixa), 0 se nao.
+checar:
+        mov ax, [PRECO]
+        mov dx, [PRECO+2]
+        or dx, dx
+        jl .nao
+        jg .p
+        or ax, ax
+        jz .nao
+.p:     les di, [PLANTEL]
+        les di, [es:di+0x1F4]
+        les di, [es:di]                 ; TTeam do comprador
+        cmp dx, [es:di+0x73]
+        jl .p2
+        jg .nao
+        cmp ax, [es:di+0x71]
+        jae .nao
+.p2:    push word [JOGADOR+2]
+        push word [JOGADOR]
+        push word [bp+EQUIPA+2]
+        push word [bp+EQUIPA]
+        push es
+        push di
+        longe podecomprar               ; seg03:633D
+        xor ah, ah
+        or al, al
+        jz .nao
+        mov ax, 1
+        ret
+.nao:   xor ax, ax
+        ret
 
 ; Com o frame de quem chama (QUADRO): 1) o jogador da linha escolhida na Lista, como o
 ; Equipa... (mas sem fechar a Lista nem gravar em +1E4); 2) a equipa dele; 3) a janela
@@ -239,13 +220,7 @@ ativar:
         call preparar
         or ax, ax
         jz .poe
-        xor ax, ax
-        cmp word [PRECO+2], 0
-        jl .poe
-        jg .sim
-        cmp word [PRECO], 0
-        je .poe
-.sim:   mov ax, 1
+        call checar
 .poe:   push ax
         les di, [LISTA]
         les di, [es:di+0x10]            ; TComponent.FComponents (TList)
@@ -292,129 +267,10 @@ fechalista:
         pop bp
         retf 6
 
-; Mostra TXT na janela de Sim/Nao: al = 1 com Sim e Nao, 0 so com OK. ax = ModalResult.
-janela:
-        xor ah, ah
-        push ax
-        les di, [DIALOGO]
-        lea ax, [bp+DIN]                ; rascunho: celula em DIN, "jogador" em DIN+4
-        mov bx, ax
-        add ax, 4
-        mov [ss:bx], ax
-        mov [ss:bx+2], ss
-        mov [es:di+0x190], bx
-        mov [es:di+0x192], ss
-        lea ax, [bp+TXT]
-        push ss
-        push ax
-        les di, [es:di+0x188]           ; textMessage
-        push es
-        push di
-        longe settext
-        mov di, T_TITULO
-        push cs
-        push di
-        les di, [DIALOGO]
-        push es
-        push di
-        longe settext
-        mov di, T_TITULO
-        push cs
-        push di
-        les di, [DIALOGO]
-        les di, [es:di+0x184]
-        push es
-        push di
-        longe settext
-        pop ax
-        push ax
-        xor al, 1
-        push ax
-        les di, [DIALOGO]
-        les di, [es:di+0x18C]           ; okBtn
-        push es
-        push di
-        longe visivel
-        pop ax
-        push ax
-        push ax
-        les di, [DIALOGO]
-        les di, [es:di+0x17C]           ; YesBtn
-        push es
-        push di
-        longe visivel
-        pop ax
-        push ax
-        push ax
-        les di, [DIALOGO]
-        les di, [es:di+0x180]           ; NoBtn
-        push es
-        push di
-        longe visivel
-        les di, [DIALOGO]
-        push es
-        push di
-        longe showmodal
-        push ax
-        mov di, T_TITSAL                ; o titulo volta ao do aumento de salario
-        push cs
-        push di
-        les di, [DIALOGO]
-        push es
-        push di
-        longe settext
-        pop ax
-        pop cx
-        ret
-
-; acrescenta a TXT a string (ponteiro longe na pilha)
-anexar: push si
-        push bp
-        mov bx, sp
-        push ds
-        lds si, [ss:bx+6]
-        lea di, [bp+TXT]
-        push ss
-        pop es
-        mov al, [es:di]
-        xor ah, ah
-        add di, ax
-        inc di
-        cld
-        lodsb
-        mov cl, al
-        xor ch, ch
-        mov dl, [es:bp+TXT]
-.c:     jcxz .f
-        cmp dl, 250
-        jae .f
-        movsb
-        inc dl
-        dec cx
-        jmp .c
-.f:     mov [es:bp+TXT], dl
-        pop ds
-        pop bp
-        pop si
-        ret 4
-
-T_COMPRAR:  db .f - T_COMPRAR - 1, `Comprar o jogador seleccionado por `
-.f:
-T_INTERROG: db .f - T_INTERROG - 1, `?`
-.f:
-T_NAOVENDE: db .f - T_NAOVENDE - 1, `Este jogador n\xe3o est\xe1 \xe0 venda.`
-.f:
-T_SEMDIN:   db .f - T_SEMDIN - 1, `N\xe3o h\xe1 dinheiro em caixa para comprar este jogador.`
-.f:
-T_NAOPODE:  db .f - T_NAOPODE - 1, `N\xe3o \xe9 poss\xedvel comprar este jogador.`
-.f:
-T_TITULO:   db .f - T_TITULO - 1, `Comprar jogador`
-.f:
-T_TITSAL:   db .f - T_TITSAL - 1, `Actualiza\xe7\xe3o de Sal\xe1rio`
-.f:
-
 linha:         db 0xEA
 ..@linha:      dw 0xFFFF, 0
+poeindex:      db 0xEA
+..@poeindex:   dw 0xFFFF, 0
 itemindex:     db 0xEA
 ..@itemindex:  dw 0xFFFF, 0
 setenabled:    db 0xEA
@@ -427,15 +283,9 @@ podecomprar:   db 0xEA
 ..@podecomprar: dw 0xFFFF, 0
 compraclick:   db 0xEA
 ..@compraclick: dw 0xFFFF, 0
-procurarclick: db 0xEA
-..@procurarclick: dw 0xFFFF, 0
 extenso:       db 0xEA
 ..@extenso:    dw 0xFFFF, 0
 settext:       db 0xEA
 ..@settext:    dw 0xFFFF, 0
-visivel:       db 0xEA
-..@visivel:    dw 0xFFFF, 0
 atualizar:     db 0xEA
 ..@atualizar:  dw 0xFFFF, 0
-showmodal:     db 0xEA
-..@showmodal:  dw 0xFFFF, 0

@@ -9,9 +9,9 @@
 - preparar: pega o jogador da linha escolhida, prepara a janela da equipa escondida
   (TPlantelDlg: equipa, comprador, jogador) e calcula o preco com as rotinas do jogo.
 - ativar: no lugar dos SetEnabled do Equipa... (Execute, comeco da busca, clique na
-  lista); o Comprar so fica ligado com um jogador escolhido que tem preco.
-- comprar: preparar, confere as condicoes, pede confirmacao na janela de Sim/Nao e chama
-  o buyBtnClick; depois atualiza o dinheiro em caixa e refaz a busca da Lista.
+  lista); o Comprar so fica ligado quando o da janela da equipa estaria (checar).
+- comprar: como o Comprar da janela da equipa, compra direto (buyBtnClick), atualiza o
+  dinheiro em caixa e redesenha a linha, que fica na Lista sem preco.
 - seg04:4249: quando a Lista fecha, a tela principal redesenha tambem as financas.
 """
 import struct
@@ -28,14 +28,12 @@ DESTINOS = {
     'preco': (10, 0x1939),              # TPlantelDlg: preco do jogador escolhido
     'podecomprar': (3, 0x633D),         # o comprador pode levar o jogador?
     'compraclick': (10, 0x1D66),        # TPlantelDlg.buyBtnClick
-    'procurarclick': (10, 0x34F5),      # findBtnClick da Lista
     'extenso': (9, 0x335A),
     'settext': (21, 0x1D8C),
-    'visivel': (21, 0x1C77),
-    'showmodal': (22, 0x5743),
-    'atualizar': (4, 0x2BD8),
+    'atualizar': (4, 0x2BD8),           # TMainForm: redesenha uma parte da tela
     'itemindex': (18, 0x723F),          # TListBox.ItemIndex
-    'setenabled': (21, 0x1CB8),           # TMainForm: redesenha uma parte da tela
+    'poeindex': (18, 0x7266),           # TListBox.SetItemIndex
+    'setenabled': (21, 0x1CB8),
 }
 
 

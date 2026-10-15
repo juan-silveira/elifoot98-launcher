@@ -1644,6 +1644,8 @@ Fatos do Delphi 1 que o patch precisou (**Código** e **Validado**):
   - O Comprar (`buyBtnClick`, `seg10:1D66`) compra sem pedir confirmação. Ele:
     - tira o dinheiro do comprador e dá ao vendedor (`seg03:58BF`, tipos `0x15` e 2);
     - cria o registro da transferência na lista `DS:0x2712`.
+  - `seg10:1939` liga o botão Comprar (`+0x1E4`) só se: preço > 0, preço < dinheiro do comprador (`TTeam+0x71`) e `seg03:633D` deixa.
+  - A linha "Jogadores comprados" das Finanças não contou uma compra de 38 000 (o caixa caiu, a linha ficou igual), também pelo botão Comprar original; a regra não foi lida.
 - **Depois da compra**, como no jogo original:
   - o jogador continua na lista da equipe vendedora, sem preço;
   - o caixa do comprador já cai na hora.
@@ -1660,8 +1662,8 @@ Fatos do Delphi 1 que o patch precisou (**Código** e **Validado**):
   - **O botão.** Põe um TBitBtn "Comprar" na Lista (Tag `0x434D`, OnClick = teamBtnClick) com o ícone do Comprar da janela da equipe. Ele começa desligado.
   - **O clique.** A checagem de pilha do teamBtnClick (`seg10:37B4`, `call far 25:0444`) vira `jmp far` para o seg25, na mesma relocação, porque o seg10 não tem lugar para outra. O clique com esse Tag vai para a compra, e o resto faz a checagem e volta para `37B9`.
   - **A ponte.** No fim do seg10 há uma ponte de 12 bytes que chama `3041` de longe.
-  - **O estado do botão.** As três relocações do `SetEnabled` do Equipa... apontam para uma rotina que faz o mesmo `SetEnabled`. Ela só liga o Comprar quando o jogador escolhido tem preço (`seg10:1939` > 0).
-  - **A compra.** Prepara a janela da equipe sem mostrá-la, confere as condições do botão Comprar dela e pede confirmação. Depois chama o `buyBtnClick`, atualiza o caixa e refaz a busca.
+  - **O estado do botão.** As três relocações do `SetEnabled` do Equipa... apontam para uma rotina que faz o mesmo `SetEnabled`. Ela liga o Comprar com as mesmas condições do Comprar da janela da equipe.
+  - **A compra.** É direta, como no original: prepara a janela da equipe sem mostrá-la e chama o `buyBtnClick`. Depois atualiza o caixa e redesenha a linha, que fica na Lista sem preço, pondo o `ItemIndex` em −1 e de volta (`seg18:7266`). A linha é desenhada a partir do jogador.
   - **A tela principal.** A chamada de `seg04:4249` passa a fazer a atualização 2 e a 3.
 
 ## Ainda não comprovado (fora deste documento)
