@@ -961,6 +961,20 @@ Taça vem nas páginas seguintes. A altura da moldura azul é calculada pelo tot
 de linhas da lista (`seg10:0593`). A página atual fica em `DS:0x2b38`, e as
 setas `<` e `>` são TButtons.
 
+**Código** e **Validado** (patch do launcher `tools/divisoes/jornada.py`, Linux, 20
+equipes, humano na 4ª divisão):
+- A página volta para 0 em `seg10:024C`, quando a tela abre (logo depois vem
+  `call 10:0AFC` em `02FD`, que acerta as setas), e em `seg10:086D`, quando a lista
+  muda no minuto 90 com `+0x190 = 1`.
+- Cada item da lista é um ponteiro para o jogo (`TList.Get`, `seg23:0DD0`). A
+  linha de um jogo é a posição dele na lista, cabeçalhos incluídos.
+- Um time é humano quando o treinador dele (`TTeam+0x0E` → treinador) tem o byte
+  `+7` diferente de 0, o mesmo teste da chicotada (`seg03:4FFF`).
+- O patch conta os jogos com time humano em cada página e abre na que tem mais. Para
+  isso, as chamadas de `02FD` e `085C` passam pelo seg25, e o "página = 0" de `086B`
+  vira NOPs. Na 3ª rodada a tela abriu na página da 3ª e 4ª divisões; a mudança do
+  minuto 90 não foi vista no teste.
+
 ### Classificação (`TclassificationDlg`, `seg06`)
 
 **Código.** São 4 TListBox de desenho próprio, uma por divisão. Os campos do
