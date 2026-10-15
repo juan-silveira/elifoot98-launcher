@@ -1648,9 +1648,20 @@ Fatos do Delphi 1 que o patch precisou (**Código** e **Validado**):
   - o jogador continua na lista da equipe vendedora, sem preço;
   - o caixa do comprador já cai na hora.
 - **Menu Procurar** (`seg04:41BE`). Depois que a Lista fecha, ele redesenha a tela principal com `seg04:2BD8(Self, 3)`. Se houve escolha, abre a janela da equipe e chama também `2BD8(Self, 2)`, que redesenha as finanças.
+- **Como o Equipa... acha o jogador** (`seg10:37AE`).
+  - Lê o texto da linha (`Items.Get`, método virtual `+0x0C` dos Items em `+0xD8` da lista `+0x184`).
+  - A rotina perto `seg10:3041` lê o número depois da vírgula do texto, devolve o jogador e tira 4 bytes da pilha.
+- **Onde o jogo liga e desliga o Equipa...** (`+0x1AC`, `SetEnabled` em `seg21:1CB8`), em três lugares:
+  - no Execute (`2FB2`): ligado se há linha escolhida;
+  - no começo da busca (`3516`): desligado;
+  - no clique na lista (`384D`): ligado. O clique vale também para as setas do teclado.
+- **TComponent** (Delphi 1): `+0x0C` Tag, `+0x10` FComponents (TList: `+4` a lista, `+8` Count). O patch usa isso para achar o botão novo pelo Tag.
 - **O patch** (`tools/divisoes/comprar.py`):
-  - **O botão.** Põe um TBitBtn "Comprar" na Lista (Tag `0x434D`, OnClick = teamBtnClick) e desvia `seg10:37AE` para o seg25.
-  - **A compra.** Repete o caminho do Equipa..., prepara a janela da equipe sem mostrá-la, confere as condições do botão Comprar dela e pede confirmação. Depois chama o `buyBtnClick`, atualiza o caixa e refaz a busca.
+  - **O botão.** Põe um TBitBtn "Comprar" na Lista (Tag `0x434D`, OnClick = teamBtnClick) com o ícone do Comprar da janela da equipe. Ele começa desligado.
+  - **O clique.** A checagem de pilha do teamBtnClick (`seg10:37B4`, `call far 25:0444`) vira `jmp far` para o seg25, na mesma relocação, porque o seg10 não tem lugar para outra. O clique com esse Tag vai para a compra, e o resto faz a checagem e volta para `37B9`.
+  - **A ponte.** No fim do seg10 há uma ponte de 12 bytes que chama `3041` de longe.
+  - **O estado do botão.** As três relocações do `SetEnabled` do Equipa... apontam para uma rotina que faz o mesmo `SetEnabled`. Ela só liga o Comprar quando o jogador escolhido tem preço (`seg10:1939` > 0).
+  - **A compra.** Prepara a janela da equipe sem mostrá-la, confere as condições do botão Comprar dela e pede confirmação. Depois chama o `buyBtnClick`, atualiza o caixa e refaz a busca.
   - **A tela principal.** A chamada de `seg04:4249` passa a fazer a atualização 2 e a 3.
 
 ## Ainda não comprovado (fora deste documento)

@@ -7,6 +7,7 @@ bits 16
 org ORG
 
 DIALOGO equ 0x2880                      ; janela de Sim/Nao (askMoreSalaryDlg)
+LISTA   equ 0x28AA                      ; TcheckPlayerDlg (a Lista de Jogadores)
 PLANTEL equ 0x288E                      ; TPlantelDlg
 JOGADOR equ 0x2892                      ; jogador escolhido na janela da equipa (celula)
 PRECO   equ 0x2896                      ; preco dele (dword)
@@ -23,15 +24,14 @@ QUADRO  equ 0x210
         call %1
 %endmacro
 
-; No lugar do comeco do teamBtnClick da Lista (seg10:37AE, push bp; mov bp,sp; mov ax,
-; 0x108), que tambem e o do botao Comprar no DFM: o Comprar vai para comprar; o resto
-; (o Equipa... e o duplo clique na lista) segue o original.
+; No lugar da checagem de pilha do teamBtnClick da Lista (seg10:37B4, call far vira jmp
+; far; o push bp, mov bp,sp e mov ax,0x108 ja rodaram), que tambem e o do botao Comprar
+; no DFM: o Comprar vai para comprar; o resto (o Equipa... e o duplo clique na lista)
+; faz a checagem e volta para o original.
 desvio:
-        push bp
-        mov bp, sp
         les di, [bp+10]                 ; Sender
-        mov ax, es
-        or ax, di
+        mov bx, es
+        or bx, di
         jz .original
         cmp word [es:di+TAG], TAGCOMPRA
         jne .original
@@ -40,9 +40,10 @@ desvio:
         pop bp
         jmp comprar
 .original:
-        mov ax, 0x108
+        push cs
+        call 0x0444                     ; a checagem de pilha (seg25:0444)
         db 0xEA
-..@volta: dw 0xFFFF, 0                  ; seg10:37B4
+..@volta: dw 0xFFFF, 0                  ; seg10:37B9
 
 ; comprar(Self = Lista, Sender), far
 comprar:
@@ -51,52 +52,11 @@ comprar:
         sub sp, QUADRO
         push si
         push di
-        ; 1) o jogador: o teamBtnClick grava em Self+1E4 e fecha a Lista, que fica aberta
-        les di, [bp+6]
-        push word [es:di+0x1AE]         ; Sender = teamBtn: o caminho original
-        push word [es:di+0x1AC]
-        push es
-        push di
-        longe equipaclick
-        les di, [bp+6]
-        mov word [es:di+0x104], 0       ; ModalResult
-        mov ax, [es:di+0x1E4]
-        or ax, [es:di+0x1E6]
+        call preparar                   ; 1) a 3): jogador, equipa e preco
+        or ax, ax
         jnz .tem
         jmp .fim
-.tem:   ; 2) a equipa dele
-        push word 0
-        push word 3
-        les di, [es:di+0x1E4]
-        les di, [es:di]
-        mov ax, [es:di+4]
-        cwd
-        push dx
-        push ax
-        longe acharequipa
-        mov [bp+EQUIPA], ax
-        mov [bp+EQUIPA+2], dx
-        or ax, dx
-        jnz .eq
-        jmp .fim
-.eq:    ; 3) a janela da equipa (escondida): equipa, comprador e jogador; o preco
-        les di, [bp+6]
-        mov ax, [es:di+0x1E8]           ; a equipa do humano
-        mov dx, [es:di+0x1EA]
-        mov bx, [es:di+0x1E4]           ; o jogador
-        mov cx, [es:di+0x1E6]
-        les di, [PLANTEL]
-        mov [es:di+0x1F4], ax
-        mov [es:di+0x1F6], dx
-        mov [JOGADOR], bx
-        mov [JOGADOR+2], cx
-        mov ax, [bp+EQUIPA]
-        mov [es:di+0x1F8], ax
-        mov ax, [bp+EQUIPA+2]
-        mov [es:di+0x1FA], ax
-        push es
-        push di
-        longe preco                     ; seg10:1939
+.tem:
         ; 4) da para comprar? (as condicoes do botao Comprar da janela da equipa)
         mov ax, [PRECO]
         mov dx, [PRECO+2]
@@ -198,6 +158,123 @@ comprar:
         mov sp, bp
         pop bp
         retf 8
+
+; Com o frame de quem chama (QUADRO): 1) o jogador da linha escolhida na Lista, como o
+; Equipa... (mas sem fechar a Lista nem gravar em +1E4); 2) a equipa dele; 3) a janela
+; da equipa (escondida) com equipa, comprador e jogador, e o preco em [PRECO].
+; ax = 0 sem jogador ou sem equipa.
+preparar:
+        les di, [LISTA]
+        les di, [es:di+0x184]           ; a lista
+        push es
+        push di
+        longe itemindex
+        or ax, ax
+        jge .sel
+        xor ax, ax
+        ret
+.sel:   lea bx, [bp+DIN]
+        push ss
+        push bx
+        push ax
+        les di, [LISTA]
+        les di, [es:di+0x184]
+        les di, [es:di+0xD8]            ; Items
+        push es
+        push di
+        les di, [es:di]
+        call far [es:di+0xC]            ; Items.Get: o texto em DIN, o ponteiro fica na pilha
+        longe linha                     ; seg10:3041 (jogador da linha), tira o ponteiro
+        mov [JOGADOR], ax
+        mov [JOGADOR+2], dx
+        or ax, dx
+        jnz .eq0
+        ret
+.eq0:   push word 0
+        push word 3
+        les di, [JOGADOR]
+        les di, [es:di]
+        mov ax, [es:di+4]
+        cwd
+        push dx
+        push ax
+        longe acharequipa
+        mov [bp+EQUIPA], ax
+        mov [bp+EQUIPA+2], dx
+        or ax, dx
+        jnz .eq
+        ret
+.eq:    les di, [LISTA]
+        mov ax, [es:di+0x1E8]           ; a equipa do humano
+        mov dx, [es:di+0x1EA]
+        les di, [PLANTEL]
+        mov [es:di+0x1F4], ax
+        mov [es:di+0x1F6], dx
+        mov ax, [bp+EQUIPA]
+        mov [es:di+0x1F8], ax
+        mov ax, [bp+EQUIPA+2]
+        mov [es:di+0x1FA], ax
+        push es
+        push di
+        longe preco                     ; seg10:1939
+        mov ax, 1
+        ret
+
+; No lugar das chamadas a SetEnabled do Equipa... (seg10: no Execute, no comeco da
+; busca e no clique na lista): faz o SetEnabled e liga o Comprar so se ha jogador
+; escolhido com preco (a venda), desligado nos outros casos.
+ativar:
+        push bp
+        mov bp, sp
+        sub sp, QUADRO
+        push si
+        push di
+        push word [bp+10]
+        push word [bp+8]
+        push word [bp+6]
+        longe setenabled
+        xor ax, ax
+        cmp byte [bp+10], 0
+        je .poe
+        call preparar
+        or ax, ax
+        jz .poe
+        xor ax, ax
+        cmp word [PRECO+2], 0
+        jl .poe
+        jg .sim
+        cmp word [PRECO], 0
+        je .poe
+.sim:   mov ax, 1
+.poe:   push ax
+        les di, [LISTA]
+        les di, [es:di+0x10]            ; TComponent.FComponents (TList)
+        mov cx, [es:di+8]               ; Count
+        les di, [es:di+4]               ; List
+.b:     jcxz .nada
+        push es
+        push di
+        les di, [es:di]
+        cmp word [es:di+TAG], TAGCOMPRA
+        jne .prox
+        cmp word [es:di+TAG+2], 0
+        jne .prox
+        add sp, 4
+        push es
+        push di
+        longe setenabled
+        jmp .fim
+.prox:  pop di
+        pop es
+        add di, 4
+        dec cx
+        jmp .b
+.nada:  pop ax
+.fim:   pop di
+        pop si
+        mov sp, bp
+        pop bp
+        retf 6
 
 ; No lugar da ultima chamada do handler do menu Procurar (seg04:4249, atualizar(Self, 3)
 ; depois que a Lista fecha): atualiza tambem as financas (2), que mudam com o Comprar.
@@ -336,8 +413,12 @@ T_TITULO:   db .f - T_TITULO - 1, `Comprar jogador`
 T_TITSAL:   db .f - T_TITSAL - 1, `Actualiza\xe7\xe3o de Sal\xe1rio`
 .f:
 
-equipaclick:   db 0xEA
-..@equipaclick: dw 0xFFFF, 0
+linha:         db 0xEA
+..@linha:      dw 0xFFFF, 0
+itemindex:     db 0xEA
+..@itemindex:  dw 0xFFFF, 0
+setenabled:    db 0xEA
+..@setenabled: dw 0xFFFF, 0
 acharequipa:   db 0xEA
 ..@acharequipa: dw 0xFFFF, 0
 preco:         db 0xEA
