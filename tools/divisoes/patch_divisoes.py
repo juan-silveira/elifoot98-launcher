@@ -42,6 +42,7 @@ from arbitro import arbitro
 from campo import campo
 from patrocinio import patrocinio
 from tatica505 import tatica505
+from comprar import comprar
 import opcoes
 
 
@@ -245,6 +246,7 @@ def main(n, entrada, saida):
         campo(ne, b)
         patrocinio(ne, b, R)
         tatica505(ne, b)
+        comprar(ne, b)
         opcoes.gravar_tabela(ne, b)
         gravar(b, saida)
         print('ok: 8 equipas/divisao (original), ate %d jogadores' % MAXJOG)
@@ -353,6 +355,7 @@ def main(n, entrada, saida):
         campo(ne, b)
         patrocinio(ne, b, R)
         tatica505(ne, b)
+        comprar(ne, b)
         opcoes.gravar_tabela(ne, b)
         print('paginas:', {k: '%04X' % v for k, v in paginas.paginar(ne, b, N).items()})
         gravar(b, saida)
@@ -371,6 +374,7 @@ def main(n, entrada, saida):
     campo(ne, b)
     patrocinio(ne, b, R)
     tatica505(ne, b)
+    comprar(ne, b)
     opcoes.gravar_tabela(ne, b)
     gravar(b, saida)
     print('ok: %d equipas/divisao, %d jornadas; rotinas seg03 %s, ajudante seg11:%04X'

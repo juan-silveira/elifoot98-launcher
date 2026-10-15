@@ -197,3 +197,6 @@ Registo para autor = Registro para autor
 " época restante" = " temporada restante"
 " épocas restantes" = " temporadas restantes"
 Patrocinador principal = Patrocinador master
+
+# --- Botao Comprar na Lista de Jogadores (do launcher) ---
+"Comprar o jogador seleccionado por " = "Comprar o jogador selecionado por "

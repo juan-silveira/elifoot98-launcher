@@ -1630,6 +1630,29 @@ Fatos do Delphi 1 que o patch precisou (**Código** e **Validado**):
 - As rotinas do Delphi não preservam o SI: um valor guardado em SI entre duas chamadas
   vira lixo, e uma cor de fonte com lixo derruba o jogo dentro de `seg19:3255`.
 
+## Botão Comprar na Lista de Jogadores (patch do launcher)
+
+**Código** e **Validado** (Linux, 20 equipes, ELIF20BR):
+
+- **Lista de Jogadores** (`TcheckPlayerDlg`, `DS:0x28AA`).
+  - `Execute` (`seg10:29F0`) guarda a equipe do humano em `+0x1E8` e põe o dinheiro dela, por extenso, no `textMoney` (`+0x1E0`).
+  - O botão Equipa... (`teamBtnClick`, `seg10:37AE`) grava o jogador escolhido em `+0x1E4` e fecha a Lista.
+  - Esse jogador é o mesmo item da lista de jogadores da equipe (`TTeam+0x0A`) que a janela da equipe usa.
+- **Janela da equipe** (`TPlantelDlg`, `DS:0x288E`).
+  - Campos: `+0x1F4` comprador, `+0x1F8` equipe vista, `+0x1FC` jogador já escolhido.
+  - O jogador em foco fica em `DS:0x2892`, e o preço em `DS:0x2896`, calculado por `seg10:1939`.
+  - O Comprar (`buyBtnClick`, `seg10:1D66`) compra sem pedir confirmação. Ele:
+    - tira o dinheiro do comprador e dá ao vendedor (`seg03:58BF`, tipos `0x15` e 2);
+    - cria o registro da transferência na lista `DS:0x2712`.
+- **Depois da compra**, como no jogo original:
+  - o jogador continua na lista da equipe vendedora, sem preço;
+  - o caixa do comprador já cai na hora.
+- **Menu Procurar** (`seg04:41BE`). Depois que a Lista fecha, ele redesenha a tela principal com `seg04:2BD8(Self, 3)`. Se houve escolha, abre a janela da equipe e chama também `2BD8(Self, 2)`, que redesenha as finanças.
+- **O patch** (`tools/divisoes/comprar.py`):
+  - **O botão.** Põe um TBitBtn "Comprar" na Lista (Tag `0x434D`, OnClick = teamBtnClick) e desvia `seg10:37AE` para o seg25.
+  - **A compra.** Repete o caminho do Equipa..., prepara a janela da equipe sem mostrá-la, confere as condições do botão Comprar dela e pede confirmação. Depois chama o `buyBtnClick`, atualiza o caixa e refaz a busca.
+  - **A tela principal.** A chamada de `seg04:4249` passa a fazer a atualização 2 e a 3.
+
 ## Ainda não comprovado (fora deste documento)
 
 - O "valor do clube" que entra no salário (real de 10 bytes passado a
