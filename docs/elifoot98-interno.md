@@ -769,6 +769,42 @@ Por isso os editores acham a tabela de divisões pela própria estrutura:
 quantidade de divisões, nomes de até 20 letras e ids de equipes do save sem
 repetir. Juntas, as divisões cobrem todas as equipes.
 
+### Gatilho da chicotada e moral depois de cada jogo (`seg03:9400`–`9d40`)
+
+**Código.** No processamento do resultado de cada jogo:
+
+- **Quem pode ser demitido:** o técnico do time que **perdeu**. No **empate**,
+  os dois técnicos podem ser demitidos.
+- **A regra (`seg03:8b5d`):** demite se o técnico tem **10 ou mais jogos no
+  clube** (campo `+0xC` do técnico) **e** o moral do time está em **0,65 ou
+  menos** (constante em `cs:8b53`).
+  - A conta usa o moral de **antes** de atualizar o resultado.
+  - Vale também para o humano. Para ele há uma segunda regra (`seg03:576f`): é
+    demitido se o time estiver no **Distrital**.
+- **O contador de jogos** do técnico sobe 1 a cada jogo dos dois times
+  (`seg03:9c8e` e `9d29`, até 32767).
+- **Técnico novo:** a chicotada (`4f40`) zera o contador e põe o moral do time
+  em 1,0.
+- **Nos jogos da Taça** (`seg03:9acd`, `9bc3`) a chicotada leva o flag
+  `0x400`, e os humanos ficam de fora da escolha do substituto.
+- **Rebaixamento:** quando um time muda de divisão (`seg05:02a6`) e o técnico
+  é humano, o flag da rotina pode levar à chicotada (`seg05:037e`).
+- **A janela "Chicotadas"/"Demissões de Técnicos"** mostra a lista de trocas da
+  rodada (`DS:0x2716`).
+
+**Moral depois de cada jogo** (`seg14:10d1`): uma média que puxa o moral para
+um alvo, `moral novo = 0,85 × moral + 0,15 × alvo`. O jogo não limita o
+resultado, então a vitória fora pode levar o moral acima de 2.
+
+| Resultado | Alvo do mandante | Alvo do visitante |
+|---|---|---|
+| Vitória do mandante | 2,0 | 0 |
+| Empate | 0,8 | 1,3 |
+| Vitória do visitante | 0 | 2,5 |
+
+**Validado:** com moral 0 o jogo para com "Invalid floating point operation".
+A conta do gol eleva o moral a ¼, e o Delphi calcula isso com logaritmo.
+
 ### Chicotada psicológica (`seg03:4f40`)
 
 - A equipe que troca de treinador recebe o escolhido por `seg03:5343`; se ele
