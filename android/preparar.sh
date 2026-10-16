@@ -57,7 +57,10 @@ fi
 # exibir a janela "Acerca" da abertura, que no Wine nao aparece sozinha)
 rm -f "$A/elifoot.zip"
 T="$(mktemp -d)"
-cp -R "$ROOT/game" "$T/jogo" && rm -f "$T/jogo/CRACK.EXE"
+# O jogo vai com o ELIFOOT.EXE e o JOGO.DIF (o launcher monta o EXE das Configuracoes);
+# o JOGO.DIF e refeito e conferido aqui, os ELIFnn[YY].EXE ficam fora do pacote
+python3 "$ROOT/tools/divisoes/diferencas.py" > /dev/null
+cp -R "$ROOT/game" "$T/jogo" && rm -f "$T/jogo/CRACK.EXE" "$T/jogo/ELIF"[0-9]*.EXE
 # Nomes que nao sao UTF-8 (EQUIPAS/ARA<0x80>A_BR.EFT, C cedilha do DOS) viram
 # ASCII, como no macOS: o jogo lista a pasta, nao depende do nome
 python3 - "$T/jogo" <<'PY'

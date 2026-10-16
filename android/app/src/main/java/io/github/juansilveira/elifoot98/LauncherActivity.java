@@ -116,12 +116,16 @@ public class LauncherActivity extends Activity {
             return;
         }
         SavesPorEquipes.separar(jogo.pastaJogos(), Config.equipesDoJogo(this));
-        // cartoes amarelos, patrocinadores...: os bytes do EXE conforme as Configuracoes
+        // o EXE das Configuracoes (equipes, idioma), montado com as opcoes (cartoes
+        // amarelos, patrocinadores...)
+        String exe;
         try {
-            OpcoesDoJogo.aplicar(new java.io.File(jogo.jogo, Config.exeDoJogo(this, jogo.jogo)), OpcoesDoJogo.daConfig(this));
-        } catch (java.io.IOException ignored) { }
+            exe = OpcoesDoJogo.preparar(this, jogo.jogo);
+        } catch (java.io.IOException e) {
+            exe = Config.exeDoJogo(this, jogo.jogo);
+        }
         startActivity(new Intent(this, ElifootActivity.class)
-            .putExtra(ElifootActivity.EXTRA_EXE, Config.exeDoJogo(this, jogo.jogo)));
+            .putExtra(ElifootActivity.EXTRA_EXE, exe));
     }
 
 

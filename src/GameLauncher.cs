@@ -49,17 +49,18 @@ namespace ElifootLauncher
             return true;
         }
 
-        // EXE das equipes por divisao e do idioma escolhidos (ELIF08.EXE a ELIF20.EXE, ou
-        // ELIF08BR.EXE...); antes de abrir, a pasta JOGOS fica so com os saves desse numero
+        // EXE das equipes por divisao e do idioma escolhidos (montado do JOGO.DIF em
+        // ELIFJOGO.EXE); antes de abrir, a pasta JOGOS fica so com os saves desse numero
         public void LaunchElifoot(LauncherConfig cfg)
         {
             Manter(cfg);
             SavesPorEquipes.Separar(JogosDir, cfg.EquipesDoJogo);
             try { Ativador.DefinirRegistro(this, cfg.Registrado); }
             catch { /* sem permissao no elif98.ini: abre como esta */ }
-            try { OpcoesDoJogo.Aplicar(cfg.ExeExistente(GameDir), OpcoesDoJogo.DaConfig(cfg)); }
-            catch { /* sem permissao no EXE: abre como esta */ }
-            LaunchWithOtvdm(cfg.ExeExistente(GameDir), cfg, "Elifoot 98");
+            string exe;
+            try { exe = OpcoesDoJogo.Preparar(GameDir, cfg); }
+            catch { exe = cfg.ExeExistente(GameDir); /* sem permissao: abre como esta */ }
+            LaunchWithOtvdm(exe, cfg, "Elifoot 98");
         }
         public void LaunchEditor(LauncherConfig cfg)
         {

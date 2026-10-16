@@ -35,8 +35,11 @@ trap 'rm -rf "$T"' EXIT
 P="$T/pacote"
 mkdir -p "$P/vendor" "$P/fontes-hd"
 
+# O jogo vai com o ELIFOOT.EXE e o JOGO.DIF (o launcher monta o EXE das Configuracoes);
+# o JOGO.DIF e refeito e conferido aqui, os ELIFnn[YY].EXE ficam fora do pacote
+python3 "$ROOT/tools/divisoes/diferencas.py" > /dev/null
 cp -r "$ROOT/game" "$P/"
-rm -f "$P/game/CRACK.EXE"
+rm -f "$P/game/CRACK.EXE" "$P/game/ELIF"[0-9]*.EXE
 extrair "$ROOT/linux/otvdm-master-2703.zip" "$T/otvdm-zip"
 mv "$T/otvdm-zip"/otvdm-* "$P/vendor/otvdm"
 cp "$ROOT/linux/fontes-hd/"*.ttf "$P/fontes-hd/"

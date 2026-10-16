@@ -81,21 +81,22 @@ namespace ElifootLauncher
                 Preparar();
                 SavesPorEquipes.Separar(JogosDir, cfg.EquipesDoJogo);
                 DefinirRegistro(cfg.Registrado);
-                AplicarOpcoes(cfg);
-                WindowsJogo.Abrir(this, cfg.ExeExistente(GameDir), cfg);
+                WindowsJogo.Abrir(this, PrepararExe(cfg), cfg);
                 return;
             }
             Preparar();
             SavesPorEquipes.Separar(JogosDir, cfg.EquipesDoJogo);
             DefinirRegistro(cfg.Registrado);
-            AplicarOpcoes(cfg);
+            exeDoJogo = PrepararExe(cfg);
             StartScript("jogo", cfg);
         }
-        // Cartoes amarelos, patrocinadores...: os bytes do EXE conforme as Configuracoes
-        private void AplicarOpcoes(LauncherConfig cfg)
+        // O EXE das Configuracoes (equipes, idioma), montado com as opcoes (cartoes
+        // amarelos, patrocinadores...)
+        private string? exeDoJogo;
+        private string PrepararExe(LauncherConfig cfg)
         {
-            try { OpcoesDoJogo.Aplicar(cfg.ExeExistente(GameDir), OpcoesDoJogo.DaConfig(cfg)); }
-            catch { /* abre como esta */ }
+            try { return OpcoesDoJogo.Preparar(GameDir, cfg); }
+            catch { return cfg.ExeExistente(GameDir); /* abre como esta */ }
         }
 
         public void LaunchEditor(LauncherConfig cfg)
@@ -127,7 +128,7 @@ namespace ElifootLauncher
                 psi.Environment["ELIFOOT_ESCALA"] = cfg.Escala == 0 ? "auto" : cfg.Escala.ToString();
                 if (cfg.JanelaLivre) psi.Environment["ELIFOOT_JANELA_LIVRE"] = "1";
                 // EXE das equipes por divisao e do idioma escolhidos nas Configuracoes
-                if (modo == "jogo") psi.Environment["ELIFOOT_EXE"] = Path.GetFileName(cfg.ExeExistente(GameDir));
+                if (modo == "jogo") psi.Environment["ELIFOOT_EXE"] = Path.GetFileName(exeDoJogo ?? cfg.ExeExistente(GameDir));
             }
             return Process.Start(psi);
         }

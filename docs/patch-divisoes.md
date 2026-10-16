@@ -7,7 +7,7 @@ com o patch do 5-0-5), um EXE para cada número de equipes por divisão:
 python3 tools/divisoes/patch_divisoes.py 20 game/ELIFOOT.EXE game/ELIF20.EXE
 ```
 
-O pacote traz os 7 EXEs (`game/ELIF08.EXE` … `game/ELIF20.EXE`). Nas
+O pacote não traz mais os EXEs prontos: `tools/divisoes/diferencas.py` grava as diferenças de todos eles (e dos traduzidos) em `game/JOGO.DIF` (≈585 KB, contra 13,5 MB dos 15 EXEs) e o launcher monta na hora o `ELIFJOGO.EXE` das Configurações a partir do `ELIFOOT.EXE` (`OpcoesDoJogo.Preparar`, ~5 ms; só grava se mudou). Os `game/ELIF08.EXE` … `game/ELIF20.EXE` continuam no repositório como entrada do gerador. Nas
 Configurações do launcher (Linux e Android) o usuário escolhe o número, e o
 "Jogar Elifoot 98" abre o EXE correspondente. Precisa do `nasm`. O script gera
 sempre os mesmos bytes, e os EXEs têm o mesmo tamanho do original (836.356

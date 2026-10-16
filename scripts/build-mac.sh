@@ -43,8 +43,11 @@ chmod +x "$RES/elifoot98.sh" "$MACOS/ElifootLauncher"
 cp "$ROOT/linux/eli.cod" "$ROOT/linux/elifoot98.png" "$RES/linux/"
 mkdir -p "$RES/linux/fontes-hd" && cp "$ROOT/linux/fontes-hd/"*.ttf "$RES/linux/fontes-hd/"
 compilar_iniciar "$RES/linux"
+# O jogo vai com o ELIFOOT.EXE e o JOGO.DIF (o launcher monta o EXE das Configuracoes);
+# o JOGO.DIF e refeito e conferido aqui, os ELIFnn[YY].EXE ficam fora do pacote
+python3 "$ROOT/tools/divisoes/diferencas.py" > /dev/null
 cp -R "$ROOT/game" "$RES/"
-rm -f "$RES/game/CRACK.EXE"
+rm -f "$RES/game/CRACK.EXE" "$RES/game/ELIF"[0-9]*.EXE
 # O APFS so aceita nomes UTF-8: EQUIPAS/ARA<0x80>A_BR.EFT (C cedilha do DOS,
 # CP850) vira ARACA_BR.EFT. O jogo lista a pasta, nao depende do nome.
 python3 - "$RES/game" <<'PY'

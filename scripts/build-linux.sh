@@ -48,8 +48,11 @@ copiar_app() {
   cp "$ROOT/linux/eli.cod" "$ROOT/linux/elifoot98.png" "$dest/linux/"
   mkdir -p "$dest/linux/fontes-hd" && cp "$ROOT/linux/fontes-hd/"*.ttf "$dest/linux/fontes-hd/"
   compilar_iniciar "$dest/linux"
+  # O jogo vai com o ELIFOOT.EXE e o JOGO.DIF (o launcher monta o EXE das Configuracoes);
+  # o JOGO.DIF e refeito e conferido aqui, os ELIFnn[YY].EXE ficam fora do pacote
+  python3 "$ROOT/tools/divisoes/diferencas.py" > /dev/null
   cp -r "$ROOT/game" "$dest/"
-  rm -f "$dest/game/CRACK.EXE"
+  rm -f "$dest/game/CRACK.EXE" "$dest/game/ELIF"[0-9]*.EXE
   cp -r "$OTVDM" "$dest/vendor/otvdm"
   echo "$VER" > "$dest/VERSAO"
 }
