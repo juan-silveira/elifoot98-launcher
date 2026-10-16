@@ -258,10 +258,10 @@ momento_pontual:
         jl .taca
         cmp word [bp+PH], 2
         jbe .sim
-.taca:  mov ax, [0x26F6]
-        or ax, [0x26F8]
+.taca:  mov ax, [0x26F2]
+        or ax, [0x26F4]
         jz .nao
-        les di, [0x26F6]
+        les di, [0x26F2]
         les di, [es:di]                 ; TList das equipes vivas na Taca
         mov cx, [es:di+8]
         cmp cx, 16

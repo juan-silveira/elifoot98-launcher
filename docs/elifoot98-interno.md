@@ -1628,13 +1628,17 @@ propostas em toda rodada):
   `seg05:11FF` por um trampolim no fim do seg05, que chama a rotina `rodada` e salta para
   `0C41`. Assim as propostas aparecem antes da janela da equipe de cada jornada. A
   jornada atual fica em `DS:0x2B40`. A Taça é jogada depois das jornadas pares
-  (`seg05:0ED4`), e as equipes ainda vivas ficam na lista `DS:0x26F6`, em que cada item
-  aponta a equipe.
+  (`seg05:0ED4`), e as equipes ainda vivas ficam na lista `DS:0x26F2`. A lista de
+  todas as equipes é a `DS:0x26F6`. **Código**: as duas têm o mesmo formato (a
+  `NewSeason`, `seg05:0000`, esvazia a `DS:0x26F2` e põe nela os itens da `DS:0x26F6`,
+  `seg05:003E`–`007A`), e cada item aponta a equipe.
 - **Master no meio da época.** Em 1/4, 1/2 e 3/4 das jornadas há 70% de chance de
   proposta para quem está sem patrocinador e 25% para quem tem. Quem tem contrato só
   recebe proposta maior, e a multa é tudo o que falta: temporadas restantes × valor.
   Aceitar desconta a multa na linha de Prémios do balanço.
-- **Pontual.** Pode chegar quando a equipe está viva na Taça com 16 equipes ou menos, ou
+- **Pontual.** Pode chegar quando a equipe está viva na Taça com 16 equipes ou menos na
+  Taça (até 16/10/2026 o patch lia a lista de todas as equipes, `DS:0x26F6`, e essa
+  condição nunca valia; corrigido), ou
   nas 5 últimas jornadas entre os 3 primeiros. A chance é de 25% por jornada na 1ª
   divisão e 50% nas outras. O valor por jogo é a quota da marca na divisão ÷ 8, e o
   acordo vale de 1 a 5 jogos. Cada jornada paga um jogo, na linha de Prémios. Os campos
@@ -1711,7 +1715,7 @@ Fatos do Delphi 1 que o patch precisou (**Código** e **Validado**):
 - Quem joga em casa na Taça: parece ser a 1ª equipe de cada par sorteado
   (então também sorteado), mas a rotina que monta os jogos (`seg03:0875`) não
   foi lida.
-- Quais equipes ficam na lista de "vivas" da Taça (`DS:0x26F6`) que entra na
+- Quais equipes ficam na lista de "vivas" da Taça (`DS:0x26F2`) que entra na
   conta do calendário: a leitura da rotina que a preenche não terminou.
 - O Score e o Impacto do Scout não são do jogo: saem de simulações com as regras
   deste documento (`docs/score.md`, `tools/sim/sim.c`), não de partidas reais.
