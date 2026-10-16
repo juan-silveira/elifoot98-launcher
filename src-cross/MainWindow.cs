@@ -1,4 +1,5 @@
 using System;
+using System.IO;
 using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
@@ -139,12 +140,35 @@ namespace ElifootLauncher
                 nov.TextTrimming = TextTrimming.WordEllipsis;
                 conteudo.Children.Add(nov);
             }
-            var btnBaixar = Visual.BotaoAmarelo("Baixar", 100);
+            var btnBaixar = Visual.BotaoAmarelo(info.Arquivo.Length > 0 ? "Atualizar" : "Baixar", 100);
             var btnAgoraNao = Visual.BotaoClaro("Agora não");
             btnBaixar.Click += async (_, _) =>
             {
-                if (!AbrirNoNavegador(info.Link))
-                    await Dialogos.Mensagem(this, $"Não consegui abrir o navegador:\n\n{info.Link}", "Erro");
+                if (info.Arquivo.Length == 0)
+                {
+                    if (!AbrirNoNavegador(info.Link))
+                        await Dialogos.Mensagem(this, $"Não consegui abrir o navegador:\n\n{info.Link}", "Erro");
+                    return;
+                }
+                if (Atualizacao.JogoAberto())
+                {
+                    await Dialogos.Mensagem(this, "Feche o jogo antes de atualizar.", "Atualizar");
+                    return;
+                }
+                btnBaixar.IsEnabled = btnAgoraNao.IsEnabled = false;
+                try
+                {
+                    var progresso = new Progress<int>(p => btnBaixar.Content = p >= 0 ? $"{p}%" : "Baixando…");
+                    var erro = await Instalar(info, progresso, t => btnBaixar.Content = t);
+                    if (erro == null) return;   // o launcher novo ja abriu e este fechou
+                    await Dialogos.Mensagem(this, erro, "Atualizar");
+                }
+                catch (Exception ex)
+                {
+                    await Dialogos.Mensagem(this, $"Não consegui atualizar:\n{ex.Message}\n\nO download também está em:\n{info.Link}", "Atualizar");
+                }
+                btnBaixar.Content = "Atualizar";
+                btnBaixar.IsEnabled = btnAgoraNao.IsEnabled = true;
             };
             btnAgoraNao.Click += (_, _) => fechar();
             var botoes = new StackPanel
@@ -164,6 +188,85 @@ namespace ElifootLauncher
                 Padding = new Thickness(16, 10, 16, 10),
                 Child = conteudo,
             };
+        }
+
+        // Baixa o pacote da plataforma e instala. null = instalou e o launcher novo abriu (este
+        // fecha); senao, a mensagem para o usuario.
+        //   - Windows portatil e AppImage: troca o proprio arquivo e abre o novo;
+        //   - .deb: pkexec apt-get install (a janela de senha do sistema) e abre de novo;
+        //   - macOS: descompacta em Downloads e mostra o app novo no Finder.
+        private async Task<string?> Instalar(InfoAtualizacao info, IProgress<int> progresso, Action<string> estado)
+        {
+            var plataforma = Plataforma();
+            var nome = Atualizacao.NomeDoArquivo(info.Arquivo);
+            if (plataforma == "windows-portatil" || plataforma == "linux-appimage")
+            {
+                var atual = plataforma == "linux-appimage" ? Environment.GetEnvironmentVariable("APPIMAGE")! : Environment.ProcessPath!;
+                var novo = atual + ".novo";
+                await Atualizacao.BaixarArquivoAsync(info.Arquivo, novo, progresso, info.Sha256);
+                if (OperatingSystem.IsWindows())
+                {
+                    // o .exe em uso pode ser renomeado, nao apagado: o .velho sai na proxima abertura
+                    var velho = atual + ".velho";
+                    if (File.Exists(velho)) File.Delete(velho);
+                    File.Move(atual, velho);
+                    File.Move(novo, atual);
+                }
+                else
+                {
+                    File.SetUnixFileMode(novo, File.GetUnixFileMode(atual) | UnixFileMode.UserExecute);
+                    File.Move(novo, atual, true);
+                }
+                Reabrir(atual);
+                return null;
+            }
+            var pasta = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Downloads");
+            Directory.CreateDirectory(pasta);
+            var arquivo = Path.Combine(pasta, nome);
+            await Atualizacao.BaixarArquivoAsync(info.Arquivo, arquivo, progresso, info.Sha256);
+            if (plataforma == "linux-deb")
+            {
+                estado("Instalando…");
+                var psi = new System.Diagnostics.ProcessStartInfo("pkexec") { UseShellExecute = false };
+                foreach (var a in new[] { "apt-get", "install", "-y", "--allow-downgrades", arquivo }) psi.ArgumentList.Add(a);
+                int codigo;
+                try
+                {
+                    using var p = System.Diagnostics.Process.Start(psi)!;
+                    await p.WaitForExitAsync();
+                    codigo = p.ExitCode;
+                }
+                catch { codigo = -1; }
+                if (codigo == 0)
+                {
+                    Reabrir(Environment.ProcessPath!);
+                    return null;
+                }
+                if (codigo == 126) return "A instalação foi cancelada.";
+                return $"Não consegui instalar o pacote. Ele foi baixado em:\n{arquivo}\n\nPara instalar pelo terminal:\nsudo apt install {arquivo}";
+            }
+            // macOS: o zip traz o .app; descompactado ao lado, o Finder mostra para arrastar para Aplicativos
+            estado("Abrindo…");
+            var dest = Path.Combine(pasta, Path.GetFileNameWithoutExtension(nome));
+            var ditto = new System.Diagnostics.ProcessStartInfo("ditto") { UseShellExecute = false };
+            foreach (var a in new[] { "-x", "-k", arquivo, dest }) ditto.ArgumentList.Add(a);
+            using (var p = System.Diagnostics.Process.Start(ditto)!) await p.WaitForExitAsync();
+            var abrir = new System.Diagnostics.ProcessStartInfo("open") { UseShellExecute = false };
+            abrir.ArgumentList.Add(dest);
+            System.Diagnostics.Process.Start(abrir)?.Dispose();
+            return $"A versão {info.Versao} foi baixada em:\n{dest}\n\nFeche o launcher e arraste o Elifoot 98 novo para a pasta Aplicativos, substituindo o antigo.";
+        }
+
+        // Abre o launcher novo e fecha este
+        private void Reabrir(string caminho)
+        {
+            var psi = new System.Diagnostics.ProcessStartInfo(caminho) { UseShellExecute = false };
+            if (!OperatingSystem.IsWindows()) psi.WorkingDirectory = Path.GetDirectoryName(caminho)!;
+            System.Diagnostics.Process.Start(psi)?.Dispose();
+            if (Avalonia.Application.Current?.ApplicationLifetime is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime vida)
+                vida.Shutdown();
+            else
+                Environment.Exit(0);
         }
 
         // xdg-open no Linux, open no Mac, o navegador padrao no Windows

@@ -18,6 +18,13 @@ namespace ElifootLauncher
             // do Avalonia nao abrir)
             AppDomain.CurrentDomain.UnhandledException += (_, e) =>
                 Relatar(e.ExceptionObject as Exception, "erro não tratado");
+            // Sobra da atualizacao do Windows portatil (o .exe antigo, renomeado)
+            try
+            {
+                var velho = Environment.ProcessPath + ".velho";
+                if (OperatingSystem.IsWindows() && File.Exists(velho)) File.Delete(velho);
+            }
+            catch { }
             try
             {
                 AppBuilder.Configure<App>().UsePlatformDetect().StartWithClassicDesktopLifetime(args);

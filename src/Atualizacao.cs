@@ -22,6 +22,8 @@ namespace ElifootLauncher
         public string Versao = "";
         public string Novidades = "";
         public string Link = "";
+        public string Arquivo = "";   // link direto do pacote, para baixar e instalar ("" = so a pagina)
+        public string Sha256 = "";    // de "sha256" no versao.json, se houver (confere o download)
     }
 
     public static class Atualizacao
@@ -34,7 +36,9 @@ namespace ElifootLauncher
         /// <paramref name="atual"/>. Nunca lanca excecao. <paramref name="plataforma"/> e a chave
         /// em "links" (windows, linux-deb, linux-appimage, macos); sem link cai em "pagina".
         /// </summary>
-        public static async Task<InfoAtualizacao?> VerificarAsync(Version? atual, string plataforma)
+        /// <paramref name="chaveArquivo"/>: a chave em "links" do pacote que o launcher sabe
+        /// instalar (null = a propria <paramref name="plataforma"/>).
+        public static async Task<InfoAtualizacao?> VerificarAsync(Version? atual, string plataforma, string? chaveArquivo = null)
         {
             try
             {
@@ -42,12 +46,12 @@ namespace ElifootLauncher
                 var url = Environment.GetEnvironmentVariable("ELIFOOT_VERSAO_URL");
                 if (string.IsNullOrWhiteSpace(url)) url = UrlPadrao;
                 var json = await Baixar(url!.Trim()).ConfigureAwait(false);
-                return json == null ? null : Interpretar(json, atual, plataforma);
+                return json == null ? null : Interpretar(json, atual, plataforma, chaveArquivo);
             }
             catch { return null; }
         }
 
-        public static InfoAtualizacao? Interpretar(string json, Version atual, string plataforma)
+        public static InfoAtualizacao? Interpretar(string json, Version atual, string plataforma, string? chaveArquivo = null)
         {
             if (!(JsonMinimo.Ler(json) is Dictionary<string, object?> raiz)) return null;
             if (!(raiz.TryGetValue("versao", out var v) && v is string versao)) return null;
@@ -65,7 +69,101 @@ namespace ElifootLauncher
             if (link == null) return null;   // sem pra onde mandar o "Baixar": nao mostra
 
             var novidades = raiz.TryGetValue("novidades", out var n) && n is string ns ? ns : "";
-            return new InfoAtualizacao { Versao = versao.Trim(), Novidades = Resumir(novidades, 120), Link = link.Trim() };
+            var info = new InfoAtualizacao { Versao = versao.Trim(), Novidades = Resumir(novidades, 120), Link = link.Trim() };
+            var chave = chaveArquivo ?? plataforma;
+            if (raiz.TryGetValue("links", out var l2) && l2 is Dictionary<string, object?> links2
+                && links2.TryGetValue(chave, out var a) && a is string arq && UrlValida(arq))
+            {
+                info.Arquivo = arq.Trim();
+                if (raiz.TryGetValue("sha256", out var h) && h is Dictionary<string, object?> hashes
+                    && hashes.TryGetValue(chave, out var hv) && hv is string hs)
+                    info.Sha256 = hs.Trim().ToLowerInvariant();
+            }
+            return info;
+        }
+
+        /// <summary>
+        /// Baixa <paramref name="url"/> para <paramref name="destino"/> (primeiro num ".parte", que
+        /// so vira o arquivo no fim). <paramref name="progresso"/> recebe 0..100 (-1 sem tamanho).
+        /// Com <paramref name="sha256"/>, confere o arquivo. Lanca excecao em qualquer erro.
+        /// </summary>
+        public static async Task BaixarArquivoAsync(string url, string destino, IProgress<int>? progresso, string sha256)
+        {
+            var parte = destino + ".parte";
+            try
+            {
+            await Task.Run(async () =>
+            {
+                using var sha = System.Security.Cryptography.SHA256.Create();
+#if NETFRAMEWORK
+                System.Net.ServicePointManager.SecurityProtocol |= System.Net.SecurityProtocolType.Tls12;
+                var req = (System.Net.HttpWebRequest)System.Net.WebRequest.Create(url);
+                req.UserAgent = "ElifootLauncher";
+                req.Timeout = 30000;
+                req.ReadWriteTimeout = 30000;
+                using var resp = (System.Net.HttpWebResponse)req.GetResponse();
+                long total = resp.ContentLength;
+                using var origem = resp.GetResponseStream();
+#else
+                using var http = new System.Net.Http.HttpClient { Timeout = System.Threading.Timeout.InfiniteTimeSpan };
+                http.DefaultRequestHeaders.UserAgent.ParseAdd("ElifootLauncher");
+                using var resp = await http.GetAsync(url, System.Net.Http.HttpCompletionOption.ResponseHeadersRead).ConfigureAwait(false);
+                resp.EnsureSuccessStatusCode();
+                long total = resp.Content.Headers.ContentLength ?? -1;
+                using var origem = await resp.Content.ReadAsStreamAsync().ConfigureAwait(false);
+#endif
+                using (var saida = new System.IO.FileStream(parte, System.IO.FileMode.Create, System.IO.FileAccess.Write))
+                {
+                    var buf = new byte[81920];
+                    long lidos = 0;
+                    int ultimo = -2;
+                    for (int k; (k = await origem.ReadAsync(buf, 0, buf.Length).ConfigureAwait(false)) > 0;)
+                    {
+                        await saida.WriteAsync(buf, 0, k).ConfigureAwait(false);
+                        sha.TransformBlock(buf, 0, k, null, 0);
+                        lidos += k;
+                        int pct = total > 0 ? (int)(lidos * 100 / total) : -1;
+                        if (pct != ultimo) { ultimo = pct; progresso?.Report(pct); }
+                    }
+                    if (total > 0 && lidos != total) throw new System.IO.IOException("o download ficou incompleto");
+                }
+                sha.TransformFinalBlock(new byte[0], 0, 0);
+                var obtido = BitConverter.ToString(sha.Hash!).Replace("-", "").ToLowerInvariant();
+                if (sha256.Length > 0 && obtido != sha256)
+                    throw new System.IO.IOException("o arquivo baixado não confere (SHA-256)");
+            }).ConfigureAwait(false);
+            }
+            catch
+            {
+                try { System.IO.File.Delete(parte); } catch { }
+                throw;
+            }
+            if (System.IO.File.Exists(destino)) System.IO.File.Delete(destino);
+            System.IO.File.Move(parte, destino);
+        }
+
+        /// <summary>Nome do arquivo no fim do link ("Elifoot98-0.9.9-x86_64.AppImage").</summary>
+        public static string NomeDoArquivo(string url)
+        {
+            var nome = System.IO.Path.GetFileName(new Uri(url).AbsolutePath);
+            return string.IsNullOrEmpty(nome) ? "elifoot98-atualizacao" : Uri.UnescapeDataString(nome);
+        }
+
+        /// <summary>O jogo (otvdm, no Windows ou no Wine) esta aberto? Nao atualizar com ele aberto.</summary>
+        public static bool JogoAberto()
+        {
+            try
+            {
+                foreach (var p in System.Diagnostics.Process.GetProcesses())
+                {
+                    string nome;
+                    try { nome = p.ProcessName; } catch { continue; }
+                    finally { p.Dispose(); }
+                    if (nome.IndexOf("otvdm", StringComparison.OrdinalIgnoreCase) >= 0) return true;
+                }
+            }
+            catch { }
+            return false;
         }
 
         // "0.9.10" -> [0,9,10]; aceita "v" na frente e ignora sufixo ("-beta"). null se invalida.

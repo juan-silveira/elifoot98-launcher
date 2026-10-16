@@ -112,6 +112,8 @@ Filename: "{tmp}\vc_redist.x86.exe"; Parameters: "/install /quiet /norestart"; \
   Check: NeedsVcRedistX86
 
 Filename: "{app}\{#AppExeName}"; Description: "Abrir Elifoot 98 Launcher"; Flags: nowait postinstall skipifsilent
+; Atualizacao pelo launcher (/SILENT): abre o launcher novo no fim, como o usuario (nao admin)
+Filename: "{app}\{#AppExeName}"; Flags: nowait runasoriginaluser; Check: WizardSilent
 
 [Code]
 function NeedsVcRedistX86: Boolean;

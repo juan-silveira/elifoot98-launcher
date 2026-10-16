@@ -1,4 +1,5 @@
 using System;
+using System.IO;
 using System.Drawing;
 using System.Threading.Tasks;
 using System.Windows.Forms;
@@ -89,7 +90,7 @@ namespace ElifootLauncher
             // ELIFOOT_VERSAO_URL troca o endereco do versao.json pra testar)
             Shown += (s, e) => Task.Run(async () =>
             {
-                var info = await Atualizacao.VerificarAsync(ver, "windows").ConfigureAwait(false);
+                var info = await Atualizacao.VerificarAsync(ver, "windows", "windows-instalador").ConfigureAwait(false);
                 if (info == null) return;
                 try
                 {
@@ -132,7 +133,7 @@ namespace ElifootLauncher
             int yBotoes = altura - 32;
             var btnBaixar = new Button
             {
-                Text = "Baixar",
+                Text = info.Arquivo.Length > 0 ? "Atualizar" : "Baixar",
                 Font = new Font("Segoe UI", 9F, FontStyle.Bold),
                 BackColor = amarelo,
                 ForeColor = Color.Black,
@@ -161,13 +162,42 @@ namespace ElifootLauncher
             Controls.Add(faixa);
             ResumeLayout();
 
-            btnBaixar.Click += (s, e) =>
+            // "Atualizar": baixa o instalador (setup.exe) e roda sem as telas (/SILENT; o Windows
+            // ainda pede a permissao de administrador); o launcher fecha e o instalador abre o
+            // novo no fim. Sem o link do instalador no versao.json, "Baixar" abre a pagina.
+            btnBaixar.Click += async (s, e) =>
             {
-                try { System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(info.Link) { UseShellExecute = true }); }
+                if (info.Arquivo.Length == 0) { AbrirLink(info.Link); return; }
+                if (Atualizacao.JogoAberto())
+                {
+                    MessageBox.Show(this, "Feche o jogo antes de atualizar.", "Atualizar",
+                        MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    return;
+                }
+                btnBaixar.Enabled = btnAgoraNao.Enabled = false;
+                var destino = Path.Combine(Path.GetTempPath(), Atualizacao.NomeDoArquivo(info.Arquivo));
+                try
+                {
+                    var progresso = new Progress<int>(p => btnBaixar.Text = p >= 0 ? $"{p}%" : "Baixando…");
+                    await Atualizacao.BaixarArquivoAsync(info.Arquivo, destino, progresso, info.Sha256);
+                    btnBaixar.Text = "Instalando…";
+                    System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(destino,
+                        "/SILENT /SP- /NOCANCEL /NORESTART") { UseShellExecute = true });
+                    Application.Exit();
+                }
+                catch (System.ComponentModel.Win32Exception ex) when (ex.NativeErrorCode == 1223)
+                {
+                    // permissao de administrador negada: fica o botao para tentar de novo
+                    btnBaixar.Text = "Atualizar";
+                    btnBaixar.Enabled = btnAgoraNao.Enabled = true;
+                }
                 catch (Exception ex)
                 {
-                    MessageBox.Show(this, $"Não consegui abrir o navegador:\n{ex.Message}\n\n{info.Link}", "Erro",
-                        MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    btnBaixar.Text = "Atualizar";
+                    btnBaixar.Enabled = btnAgoraNao.Enabled = true;
+                    if (MessageBox.Show(this, $"Não consegui atualizar:\n{ex.Message}\n\nAbrir a página de download?",
+                            "Atualizar", MessageBoxButtons.YesNo, MessageBoxIcon.Warning) == DialogResult.Yes)
+                        AbrirLink(info.Link);
                 }
             };
             btnAgoraNao.Click += (s, e) =>
@@ -179,6 +209,16 @@ namespace ElifootLauncher
                 ResumeLayout();
                 faixa.Dispose();
             };
+        }
+
+        private void AbrirLink(string link)
+        {
+            try { System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(link) { UseShellExecute = true }); }
+            catch (Exception ex)
+            {
+                MessageBox.Show(this, $"Não consegui abrir o navegador:\n{ex.Message}\n\n{link}", "Erro",
+                    MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            }
         }
 
         private void AplicarPatch()
