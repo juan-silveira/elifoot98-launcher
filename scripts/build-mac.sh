@@ -12,9 +12,12 @@ NUMVER="${VER%%-*}"   # .NET/Info.plist so aceitam versao numerica
 DIST="$ROOT/dist"
 APP="$DIST/Elifoot98.app"
 MACOS="$APP/Contents/MacOS"
+# Em Contents/MacOS so o executavel (Mach-O); o resto do pacote (script, jogo, otvdm)
+# fica em Contents/Resources, como a assinatura de codigo exige (LinuxGame.AppDir)
+RES="$APP/Contents/Resources"
 mkdir -p "$DIST"
 rm -rf "$APP" "$DIST/Elifoot98-${VER}-macOS.zip"
-mkdir -p "$MACOS/linux" "$MACOS/vendor" "$APP/Contents/Resources"
+mkdir -p "$MACOS" "$RES/linux" "$RES/vendor"
 
 # Launcher nativo, executavel unico autocontido (nao precisa de .NET)
 PUB="$DIST/publish-mac"
@@ -35,16 +38,16 @@ compilar_iniciar() {
 }
 
 # Jogo + otvdm (mesmo do Linux: build 2703, com a correcao dos menus no Wine)
-cp "$ROOT/linux/elifoot98.sh" "$MACOS/"
-chmod +x "$MACOS/elifoot98.sh" "$MACOS/ElifootLauncher"
-cp "$ROOT/linux/eli.cod" "$ROOT/linux/elifoot98.png" "$MACOS/linux/"
-mkdir -p "$MACOS/linux/fontes-hd" && cp "$ROOT/linux/fontes-hd/"*.ttf "$MACOS/linux/fontes-hd/"
-compilar_iniciar "$MACOS/linux"
-cp -R "$ROOT/game" "$MACOS/"
-rm -f "$MACOS/game/CRACK.EXE"
+cp "$ROOT/linux/elifoot98.sh" "$RES/"
+chmod +x "$RES/elifoot98.sh" "$MACOS/ElifootLauncher"
+cp "$ROOT/linux/eli.cod" "$ROOT/linux/elifoot98.png" "$RES/linux/"
+mkdir -p "$RES/linux/fontes-hd" && cp "$ROOT/linux/fontes-hd/"*.ttf "$RES/linux/fontes-hd/"
+compilar_iniciar "$RES/linux"
+cp -R "$ROOT/game" "$RES/"
+rm -f "$RES/game/CRACK.EXE"
 # O APFS so aceita nomes UTF-8: EQUIPAS/ARA<0x80>A_BR.EFT (C cedilha do DOS,
 # CP850) vira ARACA_BR.EFT. O jogo lista a pasta, nao depende do nome.
-python3 - "$MACOS/game" <<'PY'
+python3 - "$RES/game" <<'PY'
 import os, sys, unicodedata
 for raiz, pastas, arqs in os.walk(os.fsencode(sys.argv[1])):
     for nome in arqs:
@@ -56,8 +59,8 @@ for raiz, pastas, arqs in os.walk(os.fsencode(sys.argv[1])):
             print('renomeado:', nome, '->', novo.decode())
 PY
 unzip -q "$ROOT/linux/otvdm-master-2703.zip" -d "$DIST/otvdm-zip"
-mv "$DIST/otvdm-zip"/otvdm-* "$MACOS/vendor/otvdm" && rm -rf "$DIST/otvdm-zip"
-echo "$VER" > "$MACOS/VERSAO"
+mv "$DIST/otvdm-zip"/otvdm-* "$RES/vendor/otvdm" && rm -rf "$DIST/otvdm-zip"
+echo "$VER" > "$RES/VERSAO"
 
 # Icone .icns (PNGs embutidos: ic07 = 128px, ic08 = 256px)
 python3 - "$ROOT/linux/elifoot98.png" "$APP/Contents/Resources/elifoot98.icns" <<'PY'
@@ -97,6 +100,18 @@ cat > "$APP/Contents/Info.plist" <<EOF
 </dict>
 </plist>
 EOF
+
+# Assinatura ad-hoc (sem conta da Apple): sem ela o macOS diz que o app "esta danificado"
+# e nao deixa abrir; com ela, mostra o aviso de desenvolvedor nao verificado, com "Abrir
+# mesmo assim" em Ajustes > Privacidade e Seguranca. No Linux, com o rcodesign
+# (RCODESIGN=caminho); no macOS, com o codesign.
+if command -v codesign >/dev/null; then
+  codesign --force --deep -s - "$APP"
+else
+  "${RCODESIGN:-rcodesign}" sign "$APP"
+  # (o "rcodesign verify" nao entende assinatura ad-hoc; confere so que ficou assinado)
+  "${RCODESIGN:-rcodesign}" print-signature-info "$APP/Contents/MacOS/ElifootLauncher" | grep -q ADHOC
+fi
 
 # zip preserva os bits de execucao; -y mantem symlinks
 (cd "$DIST" && zip -qry "Elifoot98-${VER}-macOS.zip" Elifoot98.app)

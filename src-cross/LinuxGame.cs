@@ -13,7 +13,20 @@ namespace ElifootLauncher
     // em %LOCALAPPDATA%\Elifoot98.
     public class LinuxGame
     {
-        public string AppDir { get; } = AppContext.BaseDirectory;
+        public string AppDir { get; } = PastaDoPacote();
+        // No macOS os arquivos do pacote (elifoot98.sh, game, vendor, linux) ficam em
+        // Contents/Resources, como a assinatura de codigo exige; o executavel fica em
+        // Contents/MacOS. Pacotes antigos tinham tudo em Contents/MacOS.
+        private static string PastaDoPacote()
+        {
+            var b = AppContext.BaseDirectory;
+            if (OperatingSystem.IsMacOS())
+            {
+                var r = Path.GetFullPath(Path.Combine(b, "..", "Resources"));
+                if (File.Exists(Path.Combine(r, "elifoot98.sh"))) return r;
+            }
+            return b;
+        }
         public string Script => Path.Combine(AppDir, "elifoot98.sh");
         public string DataDir { get; } = PastaDeDados();
         public static string PastaDeDadosPublica() => PastaDeDados();
