@@ -173,6 +173,7 @@ jobs:
               - **Cartões amarelos** e **Patrocinadores**: ligue as adições que quiser (por padrão o jogo começa como o original; na versão original elas ficam desligadas)
               - **Equipes por divisão**: de 8 (original) a 20. Com mais equipes, a temporada tem mais jornadas (2 × (N − 1)), a Classificação e a tela da jornada mostram 2 divisões por página, e com 16 ou mais sobem e descem 4 equipes por divisão. Um jogo gravado só continua com o mesmo número em que foi começado: o launcher deixa na lista do jogo só os saves desse número (os outros ficam em `JOGOS/<N> equipes`)
               - Em todas as opções: até **30 jogadores** por equipe (o jogo tinha 24 nas compras e leilões, 20 no editor)
+            - **Atualizar** — quando sai uma versão nova, o launcher avisa e, com um clique, baixa e instala (Windows, Linux e Android; no macOS baixa e mostra o app novo). O arquivo baixado é conferido antes de instalar
 
             ## No jogo
 
