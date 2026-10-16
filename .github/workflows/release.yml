@@ -194,6 +194,7 @@ jobs:
             - Equipes por divisão de 8 a 20, até 30 jogadores por equipe, tática 5-0-5 (tecla T, só quando o elenco tem 5 defesas e 5 atacantes) e os 258 países do Turbo Elifoot.
             - **Nota e Risco de lesão** de cada jogador no leilão, na aba Jogador, no plantel dos adversários e na Lista de Jogadores (colunas Nota e RL).
             - **Tela da jornada** e **Classificação** abrem na página do seu time (com mais de um treinador, na página com mais deles); a jornada também na Taça.
+            - **Classificação nova**: tema escuro, uma divisão por vez com botões 1ª a 4ª (abre na do seu time), colunas Pts PJ VIT E DER GM GC SG, zonas de título, acesso e descenso e as últimas 5. Desempate: pontos, vitórias, saldo e gols marcados.
             - **Lista de Jogadores** com filtros de Comportamento, Nota mínima e Risco de lesão máximo, e botão **Comprar** para comprar o jogador sem sair da busca.
             - **Preço dos ingressos**: na aba Finanças, de 50% a 300% do preço de tabela nos jogos em casa; ingresso caro rende mais por torcedor, mas o público cai.
             - **Campinho na aba Escalação**, com os titulares nas cores do time.
