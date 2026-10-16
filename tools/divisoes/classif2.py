@@ -21,7 +21,7 @@ OTVDM = 4
 ALT = 18                     # altura de cada linha
 
 # colunas (de classif2.asm), a partir da borda da lista
-X = dict(POS=24, NOME=50, PTS=262, PJ=292, V=320, E=346, D=374, GM=402, GC=430, SG=462, ULT=478)
+X = dict(POS=24, NOME=50, PTS=250, PJ=280, V=310, E=340, D=370, GM=400, GC=430, SG=460, ULT=478)
 
 FUNDO, TEXTO, FRACO = 0x00242120, 0x00EDEAE8, 0x00A6A09A
 OURO, SOBE, DESCE = 0x0004BCFB, 0x0053A834, 0x003543EA
@@ -37,7 +37,9 @@ DESTINOS = {
     'font': (19, 0x0FDF),        # TFont.SetColor
     'fill': (19, 0x1CB7),        # TCanvas.FillRect
     'setc': (21, 0x1ED5),        # TControl.SetColor
+    'setv': (21, 0x1C77),        # TControl.SetVisible
 }
+TAGDIV = 0x7700              # Tag dos botoes de divisao (classif2.asm)
 
 
 def cor(c):
@@ -57,10 +59,11 @@ def rotulo(esquerda, topo, largura, altura, legenda, cor_letra=TEXTO, tam=-11, n
     return dict(cls='TLabel', nome='', props=props, filhos=[])
 
 
-def seta(nome, esquerda, legenda, metodo):
-    r = rotulo(esquerda, 10, 26, 26, legenda, TEXTO, -21, True, 'taCenter', fundo=0x00484543)
+def botao(nome, esquerda, divisao):
+    r = rotulo(esquerda, 12, 38, 24, '%d\xaa' % (divisao + 1), TEXTO, -15, True, 'taCenter', fundo=0x00484543)
     r['nome'] = nome
-    r['props'].append(['OnClick', ident(metodo)])
+    r['props'] += [['Tag', inteiro(TAGDIV + divisao) if TAGDIV + divisao < 32768 else b'\x04' + struct.pack('<i', TAGDIV + divisao)],
+                   ['OnClick', ident('ListBoxDivision3Click')]]
     return r
 
 
@@ -85,15 +88,16 @@ def novo_dfm(antigo, n):
     por(l1, 'Font.Height', inteiro(-12)); por(l1, 'Font.Color', cor(TEXTO))
     por(l1, 'Color', cor(FUNDO)); por(l1, 'ParentColor', FALSO); por(l1, 'BorderStyle', ident('bsNone'))
     por(l2, 'Visible', FALSO)
-    # as listas 3 e 4 saem; as setas ficam com os nomes (e os campos) delas
+    # as listas 3 e 4 saem; os botoes das divisoes 1 e 2 ficam com os nomes delas
     i = form['filhos'].index(f['ListBoxDivision3'])
-    form['filhos'][i:i + 2] = [seta('ListBoxDivision3', largura - 46, '<', 'ListBoxDivision3Click'),
-                               seta('ListBoxDivision4', largura - 16, '>', 'ListBoxDivision4Click')]
+    x0 = largura + 10 - 4 * 38
+    form['filhos'][i:i + 2] = [botao('ListBoxDivision3', x0, 0), botao('ListBoxDivision4', x0 + 38, 1),
+                               botao('', x0 + 76, 2), botao('', x0 + 114, 3)]
     # rotulos das colunas
     cab = [rotulo(10 + X['NOME'], 44, 120, 14, 'Clube', FRACO)]
     for chave, nome in (('PTS', 'Pts'), ('PJ', 'PJ'), ('V', 'VIT'), ('E', 'E'), ('D', 'DER'),
                         ('GM', 'GM'), ('GC', 'GC'), ('SG', 'SG')):
-        cab.append(rotulo(10 + X[chave] - 28, 44, 28, 14, nome, FRACO, alinhar='taRightJustify'))
+        cab.append(rotulo(10 + X[chave] - 15, 44, 30, 14, nome, FRACO, alinhar='taCenter'))
     cab.append(rotulo(10 + X['ULT'], 44, 72, 14, '\xdaltimas 5', FRACO, alinhar='taCenter'))
     # legenda
     for k, (c, nome) in enumerate(((OURO, 'Campe\xe3o'), (SOBE, 'Sobe de divis\xe3o'), (DESCE, 'Desce de divis\xe3o'))):
@@ -116,16 +120,7 @@ def classificar(ne, b, n):
     p, recs = _tabela(ne, 6)
     velhas = [r for r in recs if ORG <= r[2] < FIM]
     assert len(velhas) == 16 and all(r[1] == 0 and ne.b[base + r[2] - 1] == 0x9A for r in velhas)
-    novos = []
-    for r in recs:
-        if r is velhas[0]:
-            novos.append([3, 0, rot6['..@sv'], 0x15, 0x1C77])   # seg21:1C77 TControl.SetVisible
-        elif r is velhas[1]:
-            novos.append([3, 0, rot6['..@se'], 0x13, 0x0FDF])   # seg19:0FDF TFont.SetColor
-        elif r in velhas:
-            continue
-        else:
-            novos.append(r)
+    novos = [r for r in recs if r not in velhas]
     _gravar_tabela(ne, p, novos)
     b[p + 2 + 8 * len(novos): p + 2 + 8 * len(recs)] = b'\0' * (8 * (len(recs) - len(novos)))
     b[base + ORG: base + ORG + len(cod)] = cod
@@ -145,7 +140,7 @@ def classificar(ne, b, n):
     cod, rot = montar('classif2.asm', org, ORG='0x%X' % org, N=n)
     assert ne.append(SEG, cod) == org
     _novos(ne, SEG, [[3, 0, rot['..@' + nome], s, alvo] for nome, (s, alvo) in DESTINOS.items()]
-           + [[3, 0, rot['..@abrir'], 6, rot6['abrir']]])
+           + [[3, 0, rot['..@abrir'], 6, 0x0378]])
     # seg06:02D0 (call far 6:0378 ao abrir) -> humanos; seg06:03EB (DrawItem 1) -> jmp far linha
     p, recs = _tabela(ne, 6)
     r = next(r for r in recs if r[2] == 0x02D0)
@@ -154,7 +149,7 @@ def classificar(ne, b, n):
     _gravar_tabela(ne, p, recs)
     ne.patch(6, 0x03EB, '5589e5b8', 'eaffff00')
     ne.patch(6, 0x03EF, '10', '00')
-    _novos(ne, 6, [[3, 0, 0x03EC, SEG, rot['linha']]])
+    _novos(ne, 6, [[3, 0, 0x03EC, SEG, rot['linha']], [3, 0, rot6['..@botao'], SEG, rot['botao']]])
 
     # DFM (no fim do arquivo: o novo e maior)
     i = b.find(b'TPF0\x12TclassificationDlg')

@@ -30,6 +30,7 @@ MAXJOG = 30       # jogadores por equipa (era 24 no jogo, 20 no editor)
 OTVDM = 4         # o que o otvdm tira da altura das listas (ver larguras.py)
 LUG_DS = 0x17C8   # tabela de lugares no DS (4 bits por jornada)
 import classif2
+import desempate
 from montar import montar
 from cartoes import cartoes
 from historial import historial
@@ -253,6 +254,7 @@ def main(n, entrada, saida):
         cartoes_seg25(ne, b)
         opcoes.gravar_tabela(ne, b)
         classif2.classificar(ne, b, N)
+        desempate.desempatar(ne, b)
         gravar(b, saida)
         print('ok: 8 equipas/divisao (original), ate %d jogadores' % MAXJOG)
         return
@@ -365,6 +367,7 @@ def main(n, entrada, saida):
         cartoes_seg25(ne, b)
         opcoes.gravar_tabela(ne, b)
         classif2.classificar(ne, b, N)
+        desempate.desempatar(ne, b)
         gravar(b, saida)
         return
     opcoes.limpar()
@@ -385,6 +388,7 @@ def main(n, entrada, saida):
     cartoes_seg25(ne, b)
     opcoes.gravar_tabela(ne, b)
     classif2.classificar(ne, b, N)
+    desempate.desempatar(ne, b)
     gravar(b, saida)
     print('ok: %d equipas/divisao, %d jornadas; rotinas seg03 %s, ajudante seg11:%04X'
           % (N, R, {k: '%04X' % v for k, v in rot.items()}, aj_off))

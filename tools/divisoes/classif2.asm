@@ -11,7 +11,8 @@ bits 16
 org ORG
 
 DIVISOES equ 0x26FA                     ; lista das divisoes (1a = 0 ... Distrital)
-PAGINA   equ 0x17D0                     ; divisao mostrada (classif2_06.asm)
+PAGINA   equ 0x17D0                     ; divisao mostrada (0 a 3)
+TAGDIV   equ 0x7700                     ; Tag dos botoes de divisao (TAGDIV + divisao)
 %if N >= 16
 K equ 4
 %else
@@ -23,14 +24,14 @@ X_BARRA  equ 0
 X_POS    equ 24
 X_ESC    equ 30
 X_NOME   equ 50
-X_PTS    equ 262
-X_PJ     equ 292
-X_V      equ 320
-X_E      equ 346
-X_D      equ 374
-X_GM     equ 402
+X_PTS    equ 250                        ; os numeros ficam centrados nestes x
+X_PJ     equ 280
+X_V      equ 310
+X_E      equ 340
+X_D      equ 370
+X_GM     equ 400
 X_GC     equ 430
-X_SG     equ 462
+X_SG     equ 460
 X_ULT    equ 478                        ; 5 bolinhas de 12, a cada 15
 DIGITO   equ 6                          ; largura de um algarismo (Arial, -12)
 SINAL    equ 4                          ; largura do "-"
@@ -182,12 +183,127 @@ humanos:
 .mp:    inc si
         jmp .m
 .poe:   mov [PAGINA], ax
+        mov bx, [bp]                    ; o quadro de quem abre: Self (a janela) em +6
+        les di, [ss:bx+6]
+        call pagina
         pop di
         pop si
         mov sp, bp
         pop bp
         db 0xEA
-..@abrir: dw 0xFFFF, 0                  ; seg06: abrir (classif2_06.asm)
+..@abrir: dw 0xFFFF, 0                  ; seg06:0378 (o que o abrir chamava)
+
+; ===================================================================== botoes
+; botao(Self, Sender): o clique num dos 4 botoes de divisao (ListBoxDivision3Click, via
+; classif2_06.asm). A divisao e o Tag do botao - TAGDIV; a da pagina atual nao faz nada.
+botao:
+        push bp
+        mov bp, sp
+        push si
+        push di
+        les di, [bp+0x0A]               ; Sender
+        mov ax, [es:di+0x0C]            ; TComponent.Tag
+        sub ax, TAGDIV
+        cmp ax, 3
+        ja .sai
+        cmp ax, [PAGINA]
+        je .sai
+        mov [PAGINA], ax
+        les di, [bp+6]
+        call pagina
+.sai:   pop di
+        pop si
+        pop bp
+        retf 8
+
+; pagina: es:di = a janela; mostra a divisao [PAGINA]: o titulo dela (Label1..4, so um
+; visivel), a lista redesenhada (esconde e mostra) e os botoes (o da divisao marcado)
+pagina:
+        push bp
+        mov bp, sp
+        push es                         ; [bp-2]:[bp-4] a janela
+        push di
+        push word 0                     ; [bp-6] contador (o Delphi nao guarda o SI)
+        mov word [es:di+0x1A0], 0      ; zera o relogio que fecha a janela
+.tit:   mov si, [bp-6]
+        cmp si, 4                       ; Label1..4 em +0x18C, +0x190, +0x194, +0x198
+        jae .lista
+        xor ax, ax
+        cmp si, [PAGINA]
+        jne .v
+        inc ax
+.v:     push ax
+        les di, [bp-4]
+        mov bx, si
+        shl bx, 2
+        les di, [es:di+bx+0x18C]
+        push es
+        push di
+        longe setvisible
+        inc word [bp-6]
+        jmp .tit
+.lista: push word 0                     ; ListBoxDivision1 (+0x17C): esconde e mostra
+        les di, [bp-4]
+        les di, [es:di+0x17C]
+        push es
+        push di
+        longe setvisible
+        push word 1
+        les di, [bp-4]
+        les di, [es:di+0x17C]
+        push es
+        push di
+        longe setvisible
+        ; os botoes: componentes da janela com Tag = TAGDIV..TAGDIV+3
+        mov word [bp-6], 0
+.b:     mov si, [bp-6]
+        les di, [bp-4]
+        les di, [es:di+0x10]            ; TComponent.FComponents (TList)
+        cmp si, [es:di+8]
+        jge .fim
+        les di, [es:di+4]               ; FList
+        mov bx, si
+        shl bx, 2
+        les di, [es:di+bx]
+        cmp word [es:di+0x0E], 0
+        jne .prox
+        mov ax, [es:di+0x0C]
+        sub ax, TAGDIV
+        cmp ax, 3
+        ja .prox
+        push es
+        push di
+        cmp ax, [PAGINA]
+        jne .normal
+        push word 0x00F8                ; marcado: fundo azul claro, letra escura
+        push word 0xB48A
+        push es
+        push di
+        longe setcolor
+        pop di
+        pop es
+        push word 0x0024
+        push word 0x2120
+        jmp short .letra
+.normal:
+        push word 0x0048                ; os outros: fundo cinza, letra branca
+        push word 0x4543
+        push es
+        push di
+        longe setcolor
+        pop di
+        pop es
+        push word 0x00FF
+        push word 0xFFFF
+.letra: les di, [es:di+0x34]            ; TControl.Font
+        push es
+        push di
+        longe fontcolor
+.prox:  inc word [bp-6]
+        jmp .b
+.fim:   mov sp, bp
+        pop bp
+        ret
 
 ; es:di = ponteiro para o TTeam (pode ser nil); al = 1 se o treinador dele e humano
 ; (TTeam+0x0E -> treinador, +7; o mesmo teste da chicotada, seg03:4FFF)
@@ -538,7 +654,7 @@ ultimas:
         jmp .b
 .fim:   ret
 
-; ---- numero: ax = valor, bx = x da borda direita da coluna; texto na cor atual
+; ---- numero: ax = valor, bx = x do centro da coluna (a posicao, X_POS: a borda direita)
 numero:
         push bx
         lea di, [bp+BUF]
@@ -559,7 +675,10 @@ alinhado:
         cmp byte [bp+BUF+1], '-'
         jne .m
         sub cx, DIGITO - SINAL
-.m:     mov ax, [bp+R]
+.m:     cmp bx, X_POS
+        je .dir
+        shr cx, 1                       ; centrado na coluna
+.dir:   mov ax, [bp+R]
         add ax, bx
         sub ax, cx
         push ax
@@ -615,6 +734,8 @@ pencolor: db 0xEA
 ..@pen:   dw 0xFFFF, 0
 fontcolor: db 0xEA
 ..@font:  dw 0xFFFF, 0
+setvisible: db 0xEA
+..@setv:  dw 0xFFFF, 0
 setcolor: db 0xEA
 ..@setc:  dw 0xFFFF, 0
 fillrect: db 0xEA
