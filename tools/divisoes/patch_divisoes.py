@@ -44,6 +44,7 @@ from patrocinio import patrocinio
 from tatica505 import tatica505
 from comprar import comprar
 from jornada import jornada, classif_humano
+from cartoes import cartoes_seg25
 import opcoes
 
 
@@ -249,6 +250,7 @@ def main(n, entrada, saida):
         tatica505(ne, b)
         comprar(ne, b)
         jornada(ne, b, N)
+        cartoes_seg25(ne, b)
         opcoes.gravar_tabela(ne, b)
         gravar(b, saida)
         print('ok: 8 equipas/divisao (original), ate %d jogadores' % MAXJOG)
@@ -359,6 +361,7 @@ def main(n, entrada, saida):
         tatica505(ne, b)
         comprar(ne, b)
         jornada(ne, b, N)
+        cartoes_seg25(ne, b)
         opcoes.gravar_tabela(ne, b)
         rot6 = paginas.paginar(ne, b, N)
         print('paginas:', {k: '%04X' % v for k, v in rot6.items()})
@@ -381,6 +384,7 @@ def main(n, entrada, saida):
     tatica505(ne, b)
     comprar(ne, b)
     jornada(ne, b, N)
+    cartoes_seg25(ne, b)
     opcoes.gravar_tabela(ne, b)
     gravar(b, saida)
     print('ok: %d equipas/divisao, %d jornadas; rotinas seg03 %s, ajudante seg11:%04X'

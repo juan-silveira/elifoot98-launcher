@@ -14,6 +14,7 @@ bits 16
 %define VERM 5
 %endif
 %define JORNADA 0x2B40
+%define SEGUNDO 0x7FFF     ; no sorteio do minuto: o cartao foi o 2o amarelo
 %define ANO     0x2B42
 
 
@@ -55,18 +56,6 @@ org 0xAA40
         jb .laco
         jmp 0xAAAD
 
-; Lance novo (seg03:c1f5, no lugar de "mov ax,[bp+10h]"): o tipo 4 (expulsao)
-; vira 3 (amarelo) se o jogador continua em campo. Saida: ax = tipo, es:di = lance.
-tipo:   mov ax, [bp+0x10]
-        cmp ax, 4
-        jne .r
-        les di, [bp+0xC]
-        les di, [es:di]
-        cmp word [es:di+0x10], 0        ; escalacao: 0 = saiu (vermelho)
-        les di, [bp+6]
-        je .r
-        mov al, 3
-.r:     ret
 fim1:
 %endif
 
@@ -101,6 +90,11 @@ org 0x48BE
 ..@verm: cmp word [ss:bx-0xE], byte VERM ; opcao CARTOES: desligada, 10
         jl vermelho
         jmp AMARELO                     ; parte 5
+; o 2o amarelo (da parte 5): o sorteio do minuto (aa11), ja usado, fica SEGUNDO,
+; que o TIPO (parte 10) passa para o lance
+vermelho2:
+        mov bx, [bp]
+        mov word [ss:bx-0xE], SEGUNDO
 vermelho:
         mov word [es:di+0x10], 0        ; sai de campo
         mov ax, [0x247E]                ; suspensao de 1 a 4 jogos pela semente do
@@ -123,6 +117,8 @@ org 0xC3FA
         add word [bp-0x10], 3
         add word [bp-0xE], 3
         sub word [bp-0xA], 3
+        db 0x9A                         ; ATRAS (parte 10, seg25): o amarelo atras do
+..@atras: dw 0xFFFF, 0                  ; vermelho do 2o amarelo
         les di, [bp+6]
         mov ax, [es:di+8]
         sub ax, 4                       ; 3 -> FFFFh, 4 -> 0
@@ -212,7 +208,7 @@ AMARELO:
         jmp NADA
 .vermelho:
         inc word [es:di+0x21]           ; amarelos na carreira
-        jmp VERMELHO
+        jmp VERMELHO2                   ; parte 2: marca o 2o amarelo e expulsa
 .novo:  inc word [es:di+0x21]
         mov [es:di+0x26], cl
         inc byte [es:di+0x25]           ; o 3o acumulado: suspensao no fim do jogo (parte 9)
@@ -343,4 +339,69 @@ org 0x572D
         mov [es:di+0x27], ax            ; 1 jogo
 .fim:
         times 0x5763 - 0x572D - ($ - $$) nop
+%endif
+
+%if PARTE == 10
+; ---- fim do seg25: o vermelho do 2o amarelo, desenhado com o amarelo atras (como no
+; Elifoot 2002). O lance (VMT em seg03:057F) ganha o byte +0Dh (tamanho 0Dh -> 0Eh;
+; o Delphi zera o objeto ao criar).
+org ORG
+
+; Lance novo: seg03:c1f5 ("mov ax,[bp+10h]; mov [es:di+8],ax") vira call far TIPO. O
+; tipo 4 (expulsao) vira 3 (amarelo) se o jogador continua em campo; no vermelho do 2o
+; amarelo (vermelho2 da parte 2 deixa SEGUNDO no sorteio do minuto, [bp-0Eh] do aa11,
+; que chama o construtor) o lance fica com +0Dh = 1. Entra e sai com es:di = lance.
+TIPO:   mov ax, [bp+0x10]
+        cmp ax, 4
+        jne .g
+        les di, [bp+0xC]
+        les di, [es:di]
+        cmp word [es:di+0x10], 0        ; escalacao: 0 = saiu (vermelho)
+        les di, [bp+6]
+        je .verm
+        mov al, 3
+        jmp short .g
+.verm:  mov bx, [bp]                    ; quadro do aa11
+        cmp word [ss:bx-0xE], SEGUNDO
+        jne .g
+        mov byte [es:di+0xD], 1
+.g:     mov [es:di+8], ax
+        retf
+
+; Na tela da jornada (parte 3, antes do vermelho): no lance com +0Dh = 1 pinta o
+; amarelo 2 pontos acima e a esquerda; o vermelho vem por cima.
+; bp = quadro do desenho: [bp+6] lance, [bp-32h] canvas, [bp-10h..-0Ah] o retangulo.
+ATRAS:  les di, [bp+6]
+        cmp byte [es:di+0xD], 0
+        je .r
+        mov ax, [bp-0xA]                ; RECT na pilha: Left, Top, Right, Bottom
+        sub ax, 2
+        push ax
+        mov ax, [bp-0xC]
+        sub ax, 2
+        push ax
+        mov ax, [bp-0xE]
+        sub ax, 2
+        push ax
+        mov ax, [bp-0x10]
+        sub ax, 2
+        push ax
+        push byte 0                     ; clYellow
+        push word 0xFFFF
+        les di, [bp-0x32]
+        les di, [es:di+0xF]             ; Brush
+        push es
+        push di
+        db 0x9A                         ; TBrush.SetColor (seg19:1656)
+..@cor: dw 0xFFFF, 0
+        mov ax, sp
+        push ss
+        push ax
+        les di, [bp-0x32]
+        push es
+        push di
+        db 0x9A                         ; TCanvas.FillRect (seg19:1CB7)
+..@ret: dw 0xFFFF, 0
+        add sp, 8
+.r:     retf
 %endif

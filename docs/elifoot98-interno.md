@@ -1133,6 +1133,18 @@ passam a ler só os 2 bytes de baixo.
   escalação.
 - O amarelo vira o lance **tipo 3**, desenhado na tela da jornada como o
   vermelho, mas em amarelo. O jogador continua em campo, sem substituição.
+- **Vermelho do 2º amarelo com o amarelo atrás** (como no Elifoot 2002): o lance
+  (VMT em `seg03:057F`) tinha 13 bytes (`0x0D` em `seg03:0569`) e passa a 14. O
+  byte novo `+0x0D` (o Delphi zera o objeto ao criar) vale 1 nesse vermelho.
+  - O caminho do 2º amarelo (`vermelho2`, na parte 2) deixa `0x7FFF` no sorteio
+    do minuto (`[bp-0x0E]` do `seg03:aa11`, que não é mais lido depois do cartão).
+  - O construtor do lance (`seg03:c1f5`, agora `call far TIPO`, no seg25) lê esse
+    valor pelo quadro do `aa11` e grava o `+0x0D`.
+  - O desenho (`seg03:c3fa`) chama `ATRAS` (seg25), que pinta o amarelo 2 pontos
+    acima e à esquerda; o vermelho vem por cima. O vermelho direto continua só
+    vermelho.
+  - **Validado** na tela da jornada (Linux), com um EXE de teste em que o 2º
+    amarelo sempre expulsa.
 - Na lista do plantel, a coluna do **S** mostra **A** quando o jogador não está
   suspenso e tem amarelos acumulados (o texto é `" A"` + TAB, no mesmo formato
   de `" S"` + TAB).

@@ -5,7 +5,8 @@
 - seg03:c1f5  o lance sai com tipo 3 quando o jogador continua em campo
 - seg03:ab18  amarelo: sem substituicao e sem recalcular a forca
 - seg03:572d  fim de cada jogo: 3 amarelos acumulados dao 1 jogo de suspensao
-- seg03:c3fa  desenho na jornada: amarelo (tipo 3) ou vermelho (tipo 4)
+- seg03:c3fa  desenho na jornada: amarelo (tipo 3) ou vermelho (tipo 4); no vermelho
+  do 2o amarelo (lance +0Dh, byte novo), o amarelo atras dele
 - seg03:c252  tabela de desenhos: o tipo 3 usa o desenho da expulsao
 - seg03:7b5a  coluna S da lista: "S", "A" (amarelos acumulados) ou vazio
 - seg04:2614  aba Jogador: "Suspenso por N jogos" ou "N amarelos acumulados"
@@ -16,6 +17,7 @@ import struct
 from montar import montar
 import opcoes
 from paginas import _tabela, _gravar_tabela
+from ingressos import _novos
 
 # Random(1000) por minuto e por lado: < VERM vermelho direto, VERM..LIMITE-1 amarelo
 # (o original: < 10 vermelho)
@@ -32,6 +34,9 @@ LESOES = [(2, 0x3347), (4, 0x2523), (10, 0x20D4)]
 # no seg04 (historial.py os grava la). O seg04 nao pode crescer: no Android o Wine
 # derruba o jogo ao comecar a jornada se o seg04 tiver bytes a mais.
 TEXTOS4 = 0x251B
+
+# seg03: tamanho da instancia na VMT do lance (seg03:057F), 0x0D no original
+TAMANHO_LANCE = 0x0569
 
 
 def textos_amarelos():
@@ -78,7 +83,7 @@ def cartoes(ne, b):
     regiao(0x572D, 0x5763, [])                # as 2 chamadas a Max (parte 9)
     c5, r5 = montar('cartoes.asm', org5, PARTE=5, ORG='0x%X' % org5,
                     VERMELHO='0x%X' % r2['vermelho'], SIM='0x%X' % r2['sim'],
-                    NADA='0x%X' % r2['nada'])
+                    NADA='0x%X' % r2['nada'], VERMELHO2='0x%X' % r2['vermelho2'])
     novos = []
     for r in recs:
         if r[2] in apagar:
@@ -91,10 +96,15 @@ def cartoes(ne, b):
     _regiao(b, base, 0x48BE, 0x4940, c2, bytes.fromhex('5589e5b80600'))
     c9, _ = montar('cartoes.asm', 0x572D, PARTE=9)
     _regiao(b, base, 0x572D, 0x5763, c9, bytes.fromhex('897ef48c46f66a006a00'))
-    c3, _ = montar('cartoes.asm', 0xC3FA, PARTE=3)
+    global _ATRAS
+    c3, r3 = montar('cartoes.asm', 0xC3FA, PARTE=3)
+    _ATRAS = r3['..@atras']
     _regiao(b, base, 0xC3FA, 0xC41A, c3, bytes.fromhex('8b46f0050300'))
     _regiao(b, base, 0x7B5A, 0x7BC8, c4, bytes.fromhex('c47e06'))
     assert ne.append(3, c5) == org5
+    # o lance (VMT em seg03:057F) ganha o byte +0Dh: vermelho do 2o amarelo
+    assert b[base + TAMANHO_LANCE: base + TAMANHO_LANCE + 2] == b'\x0d\x00'
+    b[base + TAMANHO_LANCE] = 0x0E
     # opcao das Configuracoes: sem amarelos, os dois limites em 10 (o "Random(1000) < 10"
     # do original: so vermelho)
     opcoes.registrar('CARTOES', 3, r1['..@lim'] + 2, [LIMITE], [10])
@@ -122,7 +132,7 @@ def cartoes(ne, b):
 
     def chamada(onde, original, alvo):
         ne.patch(3, onde, original, b'\xe8' + struct.pack('<h', alvo - (onde + 3)))
-    chamada(0xC1F5, '8b4610', r1['tipo'])     # construtor do lance
+    ne.patch(3, 0xC1F5, '8b4610268945' + '08', '9affff00009090')   # construtor do lance: TIPO (cartoes_seg25)
     # depois do lance, no aa11: jmp (e o pula volta por jmp), nada de call sem ret
     ne.patch(3, 0xAB18, 'c47e06', b'\xe9' + struct.pack('<h', r4['pula'] - (0xAB18 + 3)))
     ne.patch(3, 0xC252 + 2 * 2, struct.pack('<H', 0xC6C6), struct.pack('<H', 0xC3DA))   # desenho do tipo 3
@@ -131,3 +141,17 @@ def cartoes(ne, b):
         ne.patch(s, off, '26ff7525', '6a009090')
     for s, off in LESOES:
         ne.patch(s, off, '26ff7521', '6a009090')
+
+
+_ATRAS = None
+
+
+def cartoes_seg25(ne, b):
+    """Parte 10, no fim do seg25 (depois de o arbitro.py o levar para o fim do arquivo):
+    TIPO (o construtor do lance, seg03:c1f5) e ATRAS (o amarelo atras do vermelho do 2o
+    amarelo, chamado pela parte 3). As 2 relocacoes do seg03 sao os 16 bytes que ele tem."""
+    org = ne.seg(25)[1]
+    cod, rot = montar('cartoes.asm', org, PARTE=10, ORG='0x%X' % org)
+    assert ne.append(25, cod) == org
+    _novos(ne, 25, [[3, 0, rot['..@cor'], 19, 0x1656], [3, 0, rot['..@ret'], 19, 0x1CB7]])
+    _novos(ne, 3, [[3, 0, 0xC1F6, 25, rot['TIPO']], [3, 0, _ATRAS, 25, rot['ATRAS']]])
